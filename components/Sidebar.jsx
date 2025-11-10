@@ -143,6 +143,7 @@
                 const Active = isActive(item.href)
                 return (
                   <motion.li
+
                     key={index}
                     initial={{ opacity: 0, x: -30 }}
                     animate={{ opacity: 1, x: 0 }}
@@ -153,6 +154,7 @@
                       damping: 20,
                     }}
                   >
+                      <Link href={item.href} onClick={() => setIsOpen(false)} className="relative tracking-wide">
                     <motion.div
                       className={`w-full flex items-center gap-4 px-5 py-4 rounded-2xl transition-all duration-300 font-semibold text-sm relative overflow-hidden group ${
                         Active
@@ -180,14 +182,14 @@
                         <motion.div whileHover={{ rotate: 360 }} transition={{ duration: 0.6 }}>
                           <item.icon size={22} strokeWidth={Active ? 2.5 : 2.2} className={Active ? 'drop-shadow-lg' : ''} />
                         </motion.div>
-                        <Link href={item.href} onClick={() => setIsOpen(false)} className="relative tracking-wide">
+                      
                           {item.label}
-                        </Link>
                       </div>
 
                       {/* Active indicator */}
                       {Active && <motion.div layoutId="activeTab" className="absolute right-3 w-2 h-2 bg-white rounded-full shadow-lg shadow-white/50" transition={{ type: 'spring', stiffness: 380, damping: 30 }} />}
                     </motion.div>
+                        </Link>
                   </motion.li>
                 )
               })}
