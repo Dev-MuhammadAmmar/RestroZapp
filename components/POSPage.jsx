@@ -32,6 +32,11 @@ import {
   RefreshCw,
   Keyboard,
   Info,
+  Grid3x3,
+  CreditCard,
+  Bike,
+  BadgePercent,
+  MessageSquare,
 } from 'lucide-react'
 
 // Import server actions
@@ -80,10 +85,10 @@ export default function POSPage() {
     address: '',
     discountPercentage: 0,
     deliveryCharge: 0,
-    taxPercentage: 0,
+    taxPercentage: Number(process.env.NEXT_PUBLIC_TAX) || 0,
     notes: '',
   })
-  
+  console.log('Tax Percentage:', orderDetails.taxPercentage , process.env.NEXT_PUBLIC_TAX);
   // Search dropdown
   const [showSearchDropdown, setShowSearchDropdown] = useState(false)
   const [searchResults, setSearchResults] = useState([])
@@ -486,7 +491,7 @@ export default function POSPage() {
     return (
     <>
       {/* Main UI */}
-      <div className="print:hidden min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100 p-2 sm:p-3 md:p-4 lg:p-6">
+      <div className="print:hidden  bg-gradient-to-br from-slate-50 via-white to-slate-100 p-2 sm:p-3 md:p-4 lg:p-6">
         <div className="max-w-[2000px] mx-auto">
           {/* Header */}
           <motion.div
@@ -682,7 +687,7 @@ export default function POSPage() {
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="bg-white rounded-xl sm:rounded-2xl p-3 sm:p-4 shadow-sm border border-slate-100"
+                className="bg-white rounded-xl sm:rounded-2xl p-3 sm:p-4 shadow-sm border h-[44vh] overflow-x-scroll border-slate-100"
               >
                 {isLoadingMenuItems ? (
                   <div className="flex justify-center items-center py-16">
@@ -977,413 +982,383 @@ export default function POSPage() {
         )}
       </AnimatePresence>
 
-      {/* Order Modal */}
-      <AnimatePresence>
-        {isOrderModalOpen && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="print:hidden fixed inset-0 bg-black/70 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 z-50 overflow-y-auto"
+     {/* Order Modal - Horizontal Layout */}
+<AnimatePresence>
+  {isOrderModalOpen && (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="print:hidden fixed inset-0 bg-black/70 backdrop-blur-md flex items-center justify-center p-0 sm:p-4 z-50"
+      onClick={() => !isSubmittingOrder && setIsOrderModalOpen(false)}
+    >
+      <motion.div
+        initial={{ scale: 0.95, opacity: 0, y: 20 }}
+        animate={{ scale: 1, opacity: 1, y: 0 }}
+        exit={{ scale: 0.95, opacity: 0, y: 20 }}
+        transition={{ type: 'spring', duration: 0.4 }}
+        onClick={(e) => e.stopPropagation()}
+        className="bg-white rounded-none sm:rounded-2xl shadow-2xl w-full sm:max-w-7xl h-full sm:h-[90vh] flex flex-col overflow-hidden"
+      >
+        {/* Header - Compact on mobile */}
+        <div className="bg-gradient-to-r from-emerald-500 via-emerald-600 to-teal-600 text-white p-3 sm:p-6 flex items-center justify-between flex-shrink-0">
+          <div className="flex-1 min-w-0">
+            <h2 className="text-base sm:text-2xl font-bold flex items-center gap-2">
+              <Receipt className="w-5 h-5 sm:w-7 sm:h-7 flex-shrink-0" />
+              <span className="truncate">Confirm Order</span>
+            </h2>
+            <p className="text-emerald-100 text-xs sm:text-sm mt-0.5 sm:mt-1 hidden sm:block">
+              Review order details and submit
+            </p>
+          </div>
+          <button
             onClick={() => !isSubmittingOrder && setIsOrderModalOpen(false)}
+            disabled={isSubmittingOrder}
+            className="p-1.5 sm:p-2 hover:bg-white/20 rounded-lg transition-all disabled:opacity-50 flex-shrink-0 ml-2"
+            aria-label="Close"
           >
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0, y: 30 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.9, opacity: 0, y: 30 }}
-              transition={{ type: 'spring', duration: 0.5 }}
-              onClick={(e) => e.stopPropagation()}
-              className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full overflow-hidden my-4"
-            >
-              <div className="bg-gradient-to-r from-emerald-500 via-emerald-600 to-teal-600 text-white p-5 sm:p-6 flex items-center justify-between sticky top-0 z-10">
-                <div>
-                  <h2 className="text-xl sm:text-2xl font-bold flex items-center gap-2 sm:gap-3">
-                    <Receipt className="w-5 h-5 sm:w-7 sm:h-7" />
-                    Confirm Order
-                  </h2>
-                  <p className="text-emerald-100 text-xs sm:text-sm mt-1">
-                    Review order details
-                  </p>
-                </div>
-                <button
-                  onClick={() => !isSubmittingOrder && setIsOrderModalOpen(false)}
-                  disabled={isSubmittingOrder}
-                  className="p-2 hover:bg-white/20 rounded-lg transition-all disabled:opacity-50"
-                >
-                  <X className="w-5 h-5 sm:w-6 sm:h-6" />
-                </button>
-              </div>
+            <X className="w-5 h-5 sm:w-6 sm:h-6" />
+          </button>
+        </div>
 
-              <div className="p-4 sm:p-6 space-y-4 sm:space-y-6 max-h-[70vh] overflow-y-auto">
-                {/* Order Type Selection */}
-                <div>
-                  <label className="block text-slate-700 font-bold mb-3 flex items-center gap-2 text-sm sm:text-base">
-                    <UtensilsCrossed className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-600" />
-                    Order Type *
-                  </label>
-                  <div className="grid grid-cols-3 gap-2 sm:gap-4">
-                    {ORDER_TYPES.map((type) => (
-                      <motion.button
-                        key={type.value}
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
-                        onClick={() =>
-                          setOrderDetails({ ...orderDetails, orderType: type.value })
-                        }
-                        disabled={isSubmittingOrder}
-                        className={`p-3 sm:p-5 rounded-xl border-3 transition-all flex flex-col items-center gap-2 sm:gap-3 disabled:opacity-50 ${
+        {/* Main Content - Stack on mobile, side-by-side on desktop */}
+        <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
+          {/* Left Side - Order Summary */}
+          <div className="w-full md:w-[35%] lg:w-[30%] bg-gradient-to-br from-emerald-50 to-teal-50 p-3 sm:p-6 border-b-2 md:border-b-0 md:border-r-2 border-emerald-200 flex flex-col max-h-[35vh] md:max-h-none">
+            <h3 className="font-bold text-slate-800 mb-2 sm:mb-4 flex items-center gap-2 text-sm sm:text-lg flex-shrink-0">
+              <Tag className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-600" />
+              Order Summary
+            </h3>
+
+            {/* Scrollable Items - Compact on mobile */}
+            <div className="flex-1 space-y-1.5 sm:space-y-2 overflow-y-auto mb-2 sm:mb-4 pr-1 custom-scrollbar">
+              {cart.map((item) => (
+                <div
+                  key={item._id}
+                  className="flex items-center justify-between text-xs sm:text-sm bg-white/80 backdrop-blur-sm p-2 sm:p-3 rounded-lg shadow-sm"
+                >
+                  <div className="flex items-center gap-1.5 sm:gap-2 flex-1 min-w-0">
+                    <span className="text-base sm:text-2xl flex-shrink-0">{item.categoryId?.icon || '🍽️'}</span>
+                    <div className="min-w-0 flex-1">
+                      <p className="font-semibold text-slate-800 truncate text-xs sm:text-sm">{item.name}</p>
+                      <p className="text-[10px] sm:text-xs text-slate-500">
+                        ₨{item.sellingPrice} × {item.quantity}
+                      </p>
+                    </div>
+                  </div>
+                  <span className="font-bold text-emerald-600 ml-2 flex-shrink-0 text-xs sm:text-sm">
+                    ₨{(item.sellingPrice * item.quantity).toFixed(2)}
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            {/* Price Breakdown - Compact on mobile */}
+            <div className="border-t-2 border-emerald-200 pt-2 sm:pt-4 space-y-1.5 sm:space-y-2 bg-white/50 p-2 sm:p-4 rounded-xl text-xs sm:text-sm flex-shrink-0">
+              <div className="flex justify-between text-slate-600">
+                <span>Subtotal:</span>
+                <span className="font-semibold">₨{subtotal.toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between text-slate-600">
+                <span>Tax ({orderDetails.taxPercentage}%):</span>
+                <span className="font-semibold">₨{tax.toFixed(2)}</span>
+              </div>
+              {orderDetails.deliveryCharge > 0 && (
+                <div className="flex justify-between text-orange-600">
+                  <span>Delivery:</span>
+                  <span className="font-semibold">₨{orderDetails.deliveryCharge.toFixed(2)}</span>
+                </div>
+              )}
+              {orderDetails.discountPercentage > 0 && (
+                <div className="flex justify-between text-emerald-600">
+                  <span>Discount:</span>
+                  <span className="font-semibold">-₨{discountAmount.toFixed(2)}</span>
+                </div>
+              )}
+              <div className="flex justify-between text-sm sm:text-xl font-bold text-slate-800 pt-1.5 sm:pt-2 border-t border-emerald-200">
+                <span>Total:</span>
+                <span className="text-emerald-600">₨{total.toFixed(2)}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Right Side - Order Details Form */}
+          <div className="flex-1 p-3 sm:p-6 overflow-y-auto custom-scrollbar">
+            <div className="max-w-5xl mx-auto space-y-4 sm:space-y-6">
+              {/* Order Type - Grid adjusts for mobile */}
+              <div>
+                <label className="block text-slate-700 font-bold mb-2 sm:mb-3 flex items-center gap-2 text-sm sm:text-base">
+                  <UtensilsCrossed className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-600" />
+                  Order Type *
+                </label>
+                <div className="grid grid-cols-3 gap-2 sm:gap-4">
+                  {ORDER_TYPES.map((type) => (
+                    <motion.button
+                      key={type.value}
+                      whileHover={{ scale: 1.03 }}
+                      whileTap={{ scale: 0.97 }}
+                      onClick={() =>
+                        setOrderDetails({ ...orderDetails, orderType: type.value })
+                      }
+                      disabled={isSubmittingOrder}
+                      className={`p-2 sm:p-5 rounded-lg sm:rounded-xl border-2 transition-all flex flex-col items-center gap-1 sm:gap-3 disabled:opacity-50 ${
+                        orderDetails.orderType === type.value
+                          ? 'border-emerald-500 bg-emerald-50 shadow-lg shadow-emerald-500/20'
+                          : 'border-slate-200 hover:border-slate-300 bg-white'
+                      }`}
+                    >
+                      <type.icon
+                        className={`w-5 h-5 sm:w-8 sm:h-8 ${
                           orderDetails.orderType === type.value
-                            ? 'border-emerald-500 bg-emerald-50 shadow-lg shadow-emerald-500/20'
-                            : 'border-slate-200 hover:border-slate-300 bg-white'
+                            ? 'text-emerald-600'
+                            : 'text-slate-400'
+                        }`}
+                      />
+                      <span
+                        className={`font-bold text-[10px] sm:text-sm text-center ${
+                          orderDetails.orderType === type.value
+                            ? 'text-emerald-700'
+                            : 'text-slate-600'
                         }`}
                       >
-                        <type.icon
-                          className={`w-6 h-6 sm:w-8 sm:h-8 ${
-                            orderDetails.orderType === type.value
-                              ? 'text-emerald-600'
-                              : 'text-slate-400'
-                          }`}
-                        />
-                        <span
-                          className={`font-bold text-xs sm:text-sm ${
-                            orderDetails.orderType === type.value
-                              ? 'text-emerald-700'
-                              : 'text-slate-600'
-                          }`}
+                        {type.label}
+                      </span>
+                      {orderDetails.orderType === type.value && (
+                        <motion.div
+                          initial={{ scale: 0 }}
+                          animate={{ scale: 1 }}
+                          className="w-4 h-4 sm:w-6 sm:h-6 bg-emerald-500 rounded-full flex items-center justify-center"
                         >
-                          {type.label}
-                        </span>
-                        {orderDetails.orderType === type.value && (
-                          <motion.div
-                            initial={{ scale: 0 }}
-                            animate={{ scale: 1 }}
-                            className="w-5 h-5 sm:w-6 sm:h-6 bg-emerald-500 rounded-full flex items-center justify-center"
-                          >
-                            <Check className="w-3 h-3 sm:w-4 sm:h-4 text-white" />
-                          </motion.div>
-                        )}
-                      </motion.button>
-                    ))}
-                  </div>
+                          <Check className="w-2.5 h-2.5 sm:w-4 sm:h-4 text-white" />
+                        </motion.div>
+                      )}
+                    </motion.button>
+                  ))}
                 </div>
+              </div>
 
-                {/* Order Summary */}
-                <div className="bg-gradient-to-br from-emerald-50 to-teal-50 rounded-xl p-4 sm:p-5 border-2 border-emerald-200">
-                  <h3 className="font-bold text-slate-800 mb-3 sm:mb-4 flex items-center gap-2">
-                    <Tag className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-600" />
-                    Order Summary
-                  </h3>
-                  <div className="space-y-2 mb-3 sm:mb-4 max-h-48 overflow-y-auto">
-                    {cart.map((item) => (
-                      <div
-                        key={item._id}
-                        className="flex items-center justify-between text-xs sm:text-sm bg-white/60 backdrop-blur-sm p-2 sm:p-3 rounded-lg"
-                      >
-                        <div className="flex items-center gap-2">
-                          <span className="text-xl sm:text-2xl">{item.categoryId?.icon || '🍽️'}</span>
-                          <div>
-                            <p className="font-semibold text-slate-800">{item.name}</p>
-                            <p className="text-xs text-slate-500">
-                              ₨{item.sellingPrice} × {item.quantity}
-                            </p>
-                          </div>
-                        </div>
-                        <span className="font-bold text-emerald-600">
-                          ₨{(item.sellingPrice * item.quantity).toFixed(2)}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="border-t-2 border-emerald-200 pt-3 space-y-2">
-                    <div className="flex justify-between text-xs sm:text-sm text-slate-600">
-                      <span>Subtotal:</span>
-                      <span className="font-semibold">₨{subtotal.toFixed(2)}</span>
-                    </div>
-                    <div className="flex justify-between text-xs sm:text-sm text-slate-600">
-                      <span>Tax ({orderDetails.taxPercentage}%):</span>
-                      <span className="font-semibold">₨{tax.toFixed(2)}</span>
-                    </div>
-                    {orderDetails.deliveryCharge > 0 && (
-                      <div className="flex justify-between text-xs sm:text-sm text-orange-600">
-                        <span>Delivery Charges:</span>
-                        <span className="font-semibold">₨{orderDetails.deliveryCharge.toFixed(2)}</span>
-                      </div>
-                    )}
-                    {orderDetails.discountPercentage > 0 && (
-                      <div className="flex justify-between text-xs sm:text-sm text-emerald-600">
-                        <span>Discount ({orderDetails.discountPercentage}%):</span>
-                        <span className="font-semibold">-₨{discountAmount.toFixed(2)}</span>
-                      </div>
-                    )}
-                    <div className="flex justify-between text-lg sm:text-xl font-bold text-slate-800 pt-2 border-t border-emerald-200">
-                      <span>Total:</span>
-                      <span className="text-emerald-600">₨{total.toFixed(2)}</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Conditional Fields Based on Order Type */}
+              {/* Conditional Inputs - Full width on mobile */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                 {orderDetails.orderType === 'dine-in' && (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-                    <div>
-                      <label className="block text-slate-700 font-semibold mb-2 flex items-center gap-2 text-sm">
-                        <Hash className="w-3 h-3 sm:w-4 sm:h-4 text-emerald-600" />
-                        Table Number *
-                      </label>
-                      <input
-                        type="text"
-                        placeholder="Table #"
-                        value={orderDetails.tableNumber}
-                        onChange={(e) =>
-                          setOrderDetails({ ...orderDetails, tableNumber: e.target.value })
-                        }
-                        disabled={isSubmittingOrder}
-                        className="w-full px-3 sm:px-4 py-2 sm:py-3 bg-slate-50 border-2 border-slate-200 rounded-lg sm:rounded-xl focus:outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all text-slate-800 text-sm sm:text-base disabled:opacity-50"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-slate-700 font-semibold mb-2 flex items-center gap-2 text-sm">
-                        <User className="w-3 h-3 sm:w-4 sm:h-4 text-emerald-600" />
-                        Customer Name
-                      </label>
-                      <input
-                        type="text"
-                        placeholder="Optional"
-                        value={orderDetails.customerName}
-                        onChange={(e) =>
-                          setOrderDetails({ ...orderDetails, customerName: e.target.value })
-                        }
-                        disabled={isSubmittingOrder}
-                        className="w-full px-3 sm:px-4 py-2 sm:py-3 bg-slate-50 border-2 border-slate-200 rounded-lg sm:rounded-xl focus:outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all text-slate-800 text-sm sm:text-base disabled:opacity-50"
-                      />
-                    </div>
+                  <div>
+                    <label className="block text-slate-700 font-semibold mb-2 text-xs sm:text-sm flex items-center gap-1.5">
+                      <Grid3x3 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-600" />
+                      Table Number *
+                    </label>
+                    <input
+                      type="text"
+                      value={orderDetails.tableNumber}
+                      onChange={(e) =>
+                        setOrderDetails({ ...orderDetails, tableNumber: e.target.value })
+                      }
+                      disabled={isSubmittingOrder}
+                      placeholder="e.g., T-5"
+                      className="w-full px-3 sm:px-4 py-2 sm:py-3 border-2 border-slate-200 rounded-lg sm:rounded-xl focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 transition-all disabled:opacity-50 text-sm sm:text-base"
+                    />
                   </div>
                 )}
 
-                {orderDetails.orderType === 'takeaway' && (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                {(orderDetails.orderType === 'takeaway' || orderDetails.orderType === 'delivery') && (
+                  <>
                     <div>
-                      <label className="block text-slate-700 font-semibold mb-2 flex items-center gap-2 text-sm">
-                        <User className="w-3 h-3 sm:w-4 sm:h-4 text-emerald-600" />
+                      <label className="block text-slate-700 font-semibold mb-2 text-xs sm:text-sm flex items-center gap-1.5">
+                        <User className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-600" />
                         Customer Name *
                       </label>
                       <input
                         type="text"
-                        placeholder="Enter name"
                         value={orderDetails.customerName}
                         onChange={(e) =>
                           setOrderDetails({ ...orderDetails, customerName: e.target.value })
                         }
                         disabled={isSubmittingOrder}
-                        className="w-full px-3 sm:px-4 py-2 sm:py-3 bg-slate-50 border-2 border-slate-200 rounded-lg sm:rounded-xl focus:outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all text-slate-800 text-sm sm:text-base disabled:opacity-50"
+                        placeholder="Enter name"
+                        className="w-full px-3 sm:px-4 py-2 sm:py-3 border-2 border-slate-200 rounded-lg sm:rounded-xl focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 transition-all disabled:opacity-50 text-sm sm:text-base"
                       />
                     </div>
-                    <div>
-                      <label className="block text-slate-700 font-semibold mb-2 flex items-center gap-2 text-sm">
-                        <Phone className="w-3 h-3 sm:w-4 sm:h-4 text-emerald-600" />
-                        Phone Number
-                      </label>
-                      <input
-                        type="tel"
-                        placeholder="Optional"
-                        value={orderDetails.phoneNumber}
-                        onChange={(e) =>
-                          setOrderDetails({ ...orderDetails, phoneNumber: e.target.value })
-                        }
-                        disabled={isSubmittingOrder}
-                        className="w-full px-3 sm:px-4 py-2 sm:py-3 bg-slate-50 border-2 border-slate-200 rounded-lg sm:rounded-xl focus:outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all text-slate-800 text-sm sm:text-base disabled:opacity-50"
-                      />
-                    </div>
-                  </div>
-                )}
 
-                {orderDetails.orderType === 'delivery' && (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                     <div>
-                      <label className="block text-slate-700 font-semibold mb-2 flex items-center gap-2 text-sm">
-                        <User className="w-3 h-3 sm:w-4 sm:h-4 text-emerald-600" />
-                        Customer Name *
-                      </label>
-                      <input
-                        type="text"
-                        placeholder="Enter name"
-                        value={orderDetails.customerName}
-                        onChange={(e) =>
-                          setOrderDetails({ ...orderDetails, customerName: e.target.value })
-                        }
-                        disabled={isSubmittingOrder}
-                        className="w-full px-3 sm:px-4 py-2 sm:py-3 bg-slate-50 border-2 border-slate-200 rounded-lg sm:rounded-xl focus:outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all text-slate-800 text-sm sm:text-base disabled:opacity-50"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-slate-700 font-semibold mb-2 flex items-center gap-2 text-sm">
-                        <Phone className="w-3 h-3 sm:w-4 sm:h-4 text-emerald-600" />
+                      <label className="block text-slate-700 font-semibold mb-2 text-xs sm:text-sm flex items-center gap-1.5">
+                        <Phone className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-600" />
                         Phone Number *
                       </label>
                       <input
                         type="tel"
+                        value={orderDetails.customerPhone}
+                        onChange={(e) =>
+                          setOrderDetails({ ...orderDetails, customerPhone: e.target.value })
+                        }
+                        disabled={isSubmittingOrder}
                         placeholder="03XX-XXXXXXX"
-                        value={orderDetails.phoneNumber}
-                        onChange={(e) =>
-                          setOrderDetails({ ...orderDetails, phoneNumber: e.target.value })
-                        }
-                        disabled={isSubmittingOrder}
-                        className="w-full px-3 sm:px-4 py-2 sm:py-3 bg-slate-50 border-2 border-slate-200 rounded-lg sm:rounded-xl focus:outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all text-slate-800 text-sm sm:text-base disabled:opacity-50"
+                        className="w-full px-3 sm:px-4 py-2 sm:py-3 border-2 border-slate-200 rounded-lg sm:rounded-xl focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 transition-all disabled:opacity-50 text-sm sm:text-base"
                       />
                     </div>
-                    <div className="sm:col-span-2">
-                      <label className="block text-slate-700 font-semibold mb-2 flex items-center gap-2 text-sm">
-                        <MapPin className="w-3 h-3 sm:w-4 sm:h-4 text-emerald-600" />
-                        Delivery Address *
-                      </label>
-                      <textarea
-                        placeholder="Enter complete address"
-                        rows="3"
-                        value={orderDetails.address}
-                        onChange={(e) =>
-                          setOrderDetails({ ...orderDetails, address: e.target.value })
-                        }
-                        disabled={isSubmittingOrder}
-                        className="w-full px-3 sm:px-4 py-2 sm:py-3 bg-slate-50 border-2 border-slate-200 rounded-lg sm:rounded-xl focus:outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all text-slate-800 text-sm sm:text-base resize-none disabled:opacity-50"
-                      />
-                    </div>
-                  </div>
+                  </>
                 )}
 
-                {/* Discount, Payment, Tax and Delivery */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-                  <div>
-                    <label className="block text-slate-700 font-semibold mb-2 flex items-center gap-2 text-sm">
-                      <Percent className="w-3 h-3 sm:w-4 sm:h-4 text-emerald-600" />
-                      Discount %
+                {orderDetails.orderType === 'delivery' && (
+                  <div className="sm:col-span-2">
+                    <label className="block text-slate-700 font-semibold mb-2 text-xs sm:text-sm flex items-center gap-1.5">
+                      <MapPin className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-600" />
+                      Delivery Address *
                     </label>
-                    <input
-                      type="number"
-                      min="0"
-                      max="100"
-                      placeholder="0"
-                      value={orderDetails.discountPercentage}
+                    <textarea
+                      value={orderDetails.deliveryAddress}
                       onChange={(e) =>
-                        setOrderDetails({ ...orderDetails, discountPercentage: Number(e.target.value) })
+                        setOrderDetails({ ...orderDetails, deliveryAddress: e.target.value })
                       }
                       disabled={isSubmittingOrder}
-                      className="w-full px-3 sm:px-4 py-2 sm:py-3 bg-slate-50 border-2 border-slate-200 rounded-lg sm:rounded-xl focus:outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all text-slate-800 text-sm sm:text-base disabled:opacity-50"
+                      placeholder="Enter complete address"
+                      rows={2}
+                      className="w-full px-3 sm:px-4 py-2 sm:py-3 border-2 border-slate-200 rounded-lg sm:rounded-xl focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 transition-all resize-none disabled:opacity-50 text-sm sm:text-base"
                     />
                   </div>
-                  <div>
-                    <label className="block text-slate-700 font-semibold mb-2 flex items-center gap-2 text-sm">
-                      <DollarSign className="w-3 h-3 sm:w-4 sm:h-4 text-emerald-600" />
-                      Payment Method *
-                    </label>
-                    <select
-                      value={orderDetails.paymentMethod}
-                      onChange={(e) =>
-                        setOrderDetails({ ...orderDetails, paymentMethod: e.target.value })
-                      }
-                      disabled={isSubmittingOrder}
-                      className="w-full px-3 sm:px-4 py-2 sm:py-3 bg-slate-50 border-2 border-slate-200 rounded-lg sm:rounded-xl focus:outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all text-slate-800 text-sm sm:text-base disabled:opacity-50"
-                    >
-                      {PAYMENT_METHODS.map(method => (
-                        <option key={method} value={method}>{method}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-slate-700 font-semibold mb-2 flex items-center gap-2 text-sm">
-                      <Percent className="w-3 h-3 sm:w-4 sm:h-4 text-emerald-600" />
-                      Tax % *
-                    </label>
-                    <input
-                      type="number"
-                      min="0"
-                      max="100"
-                      placeholder="10"
-                      value={orderDetails.taxPercentage}
-                      onChange={(e) =>
-                        setOrderDetails({ ...orderDetails, taxPercentage: Number(e.target.value) || 0 })
-                      }
-                      disabled={isSubmittingOrder}
-                      className="w-full px-3 sm:px-4 py-2 sm:py-3 bg-slate-50 border-2 border-slate-200 rounded-lg sm:rounded-xl focus:outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all text-slate-800 text-sm sm:text-base disabled:opacity-50"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-slate-700 font-semibold mb-2 flex items-center gap-2 text-sm">
-                      <Truck className="w-3 h-3 sm:w-4 sm:h-4 text-emerald-600" />
-                      Delivery Charges (₨)
-                    </label>
-                    <input
-                      type="number"
-                      min="0"
-                      placeholder="Enter amount"
-                      value={orderDetails.deliveryCharge}
-                      onChange={(e) =>
-                        setOrderDetails({ ...orderDetails, deliveryCharge: Number(e.target.value) || 0 })
-                      }
-                      disabled={isSubmittingOrder || orderDetails.orderType !== 'delivery'}
-                      className="w-full px-3 sm:px-4 py-2 sm:py-3 bg-slate-50 border-2 border-slate-200 rounded-lg sm:rounded-xl focus:outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all text-slate-800 text-sm sm:text-base disabled:opacity-50"
-                    />
-                    {orderDetails.orderType !== 'delivery' && (
-                      <p className="text-xs text-slate-500 mt-1">Only for delivery orders</p>
-                    )}
-                  </div>
-                </div>
+                )}
+              </div>
 
-                {/* Notes */}
+              {/* Payment & Charges - 2 columns on mobile, 4 on desktop */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4">
                 <div>
-                  <label className="block text-slate-700 font-semibold mb-2 flex items-center gap-2 text-sm">
-                    <ClipboardList className="w-3 h-3 sm:w-4 sm:h-4 text-emerald-600" />
-                    Order Notes
+                  <label className="block text-slate-700 font-semibold mb-2 text-xs sm:text-sm flex items-center gap-1.5">
+                    <CreditCard className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-600" />
+                    Payment
                   </label>
-                  <textarea
-                    placeholder="Special instructions (optional)"
-                    rows="2"
-                    value={orderDetails.notes}
+                  <select
+                    value={orderDetails.paymentMethod}
                     onChange={(e) =>
-                      setOrderDetails({ ...orderDetails, notes: e.target.value })
+                      setOrderDetails({ ...orderDetails, paymentMethod: e.target.value })
                     }
                     disabled={isSubmittingOrder}
-                    className="w-full px-3 sm:px-4 py-2 sm:py-3 bg-slate-50 border-2 border-slate-200 rounded-lg sm:rounded-xl focus:outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all text-slate-800 text-sm sm:text-base resize-none disabled:opacity-50"
+                    className="w-full px-2 sm:px-4 py-2 sm:py-3 border-2 border-slate-200 rounded-lg sm:rounded-xl focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 transition-all disabled:opacity-50 text-xs sm:text-base"
+                  >
+                    <option value="cash">Cash</option>
+                    <option value="card">Card</option>
+                    <option value="online">Online</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-slate-700 font-semibold mb-2 text-xs sm:text-sm flex items-center gap-1.5">
+                    <Percent className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-600" />
+                    Tax %
+                  </label>
+                  <input
+                    type="number"
+                    value={orderDetails.taxPercentage}
+                    onChange={(e) =>
+                      setOrderDetails({ ...orderDetails, taxPercentage: parseFloat(e.target.value) || 0 })
+                    }
+                    disabled={isSubmittingOrder}
+                    min="0"
+                    step="0.5"
+                    className="w-full px-2 sm:px-4 py-2 sm:py-3 border-2 border-slate-200 rounded-lg sm:rounded-xl focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 transition-all disabled:opacity-50 text-xs sm:text-base"
                   />
                 </div>
 
-                {/* Action Buttons */}
-                <div className="flex gap-2 sm:gap-3 pt-2 sm:pt-4">
-                  <motion.button
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                    onClick={() => setIsOrderModalOpen(false)}
+                <div>
+                  <label className="block text-slate-700 font-semibold mb-2 text-xs sm:text-sm flex items-center gap-1.5">
+                    <Bike className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-600" />
+                    Delivery
+                  </label>
+                  <input
+                    type="number"
+                    value={orderDetails.deliveryCharge}
+                    onChange={(e) =>
+                      setOrderDetails({ ...orderDetails, deliveryCharge: parseFloat(e.target.value) || 0 })
+                    }
                     disabled={isSubmittingOrder}
-                    className="flex-1 py-2.5 sm:py-3.5 border-2 border-slate-200 text-slate-600 rounded-lg sm:rounded-xl font-semibold hover:bg-slate-50 transition-all text-sm sm:text-base disabled:opacity-50"
-                  >
-                    Cancel
-                  </motion.button>
-                  <motion.button
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                    onClick={submitOrder}
+                    min="0"
+                    className="w-full px-2 sm:px-4 py-2 sm:py-3 border-2 border-slate-200 rounded-lg sm:rounded-xl focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 transition-all disabled:opacity-50 text-xs sm:text-base"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-slate-700 font-semibold mb-2 text-xs sm:text-sm flex items-center gap-1.5">
+                    <BadgePercent className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-600" />
+                    Discount %
+                  </label>
+                  <input
+                    type="number"
+                    value={orderDetails.discountPercentage}
+                    onChange={(e) =>
+                      setOrderDetails({ ...orderDetails, discountPercentage: parseFloat(e.target.value) || 0 })
+                    }
                     disabled={isSubmittingOrder}
-                    className="flex-1 py-2.5 sm:py-3.5 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-lg sm:rounded-xl font-bold hover:shadow-2xl hover:shadow-emerald-500/30 transition-all flex items-center justify-center gap-2 text-sm sm:text-base disabled:opacity-50"
-                  >
-                    {isSubmittingOrder ? (
-                      <>
-                        <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 animate-spin" />
-                        Processing...
-                      </>
-                    ) : (
-                      <>
-                        <ChefHat className="w-4 h-4 sm:w-5 sm:h-5" />
-                        Send to Kitchen
-                        <span className="text-xs opacity-75">(Ctrl+K)</span>
-                      </>
-                    )}
-                  </motion.button>
+                    min="0"
+                    max="100"
+                    className="w-full px-2 sm:px-4 py-2 sm:py-3 border-2 border-slate-200 rounded-lg sm:rounded-xl focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 transition-all disabled:opacity-50 text-xs sm:text-base"
+                  />
                 </div>
               </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
 
+             
+
+              {/* Buttons - Stack on mobile */}
+              <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 pt-2 sticky bottom-0 sm:static bg-white sm:bg-transparent pb-2 sm:pb-0">
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => setIsOrderModalOpen(false)}
+                  disabled={isSubmittingOrder}
+                  className="w-full sm:flex-1 py-2.5 sm:py-4 border-2 border-slate-200 text-slate-600 rounded-lg sm:rounded-xl font-semibold hover:bg-slate-50 transition-all disabled:opacity-50 text-sm sm:text-base"
+                >
+                  Cancel
+                </motion.button>
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={submitOrder}
+                  disabled={isSubmittingOrder}
+                  className="w-full sm:flex-[2] py-2.5 sm:py-4 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-lg sm:rounded-xl font-bold hover:shadow-2xl hover:shadow-emerald-500/30 transition-all flex items-center justify-center gap-2 disabled:opacity-50 text-sm sm:text-base"
+                >
+                  {isSubmittingOrder ? (
+                    <>
+                      <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 animate-spin" />
+                      <span>Processing...</span>
+                    </>
+                  ) : (
+                    <>
+                      <ChefHat
+                       className="w-4 h-4 sm:w-5 sm:h-5" />
+                      <span>Send to Kitchen</span>
+                      <span className="text-[10px] sm:text-xs opacity-75 hidden sm:inline">(Ctrl+K)</span>
+                    </>
+                  )}
+                </motion.button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </motion.div>
+    </motion.div>
+  )}
+</AnimatePresence>
+
+<style jsx>{`
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: #d1d5db;
+    border-radius: 3px;
+  }
+  
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: #9ca3af;
+  }
+  
+  @media (max-width: 640px) {
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 3px;
+    }
+  }
+`}</style>
       {/* Pending Orders Modal */}
       <AnimatePresence>
         {isPendingOrdersOpen && (
@@ -1677,7 +1652,7 @@ export default function POSPage() {
                   <h1 className="text-2xl font-bold mb-1">UNSA RESTAURANT</h1>
                   <p className="text-xs">Allah Wala Chowk, Shikarpur</p>
                   <p className="text-xs">0333-7275912 | 0333-7265025</p>
-                  <p className="text-xs mt-1">TAX INVOICE</p>
+                  <p className="text-xs mt-1">BILL</p>
                 </div>
 
                 <div className="text-xs mb-3 border-b border-dashed border-black pb-2">
@@ -1754,7 +1729,7 @@ export default function POSPage() {
                     <span>₨{currentPrintOrder.subtotal.toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between mb-1">
-                    <span>Tax ({currentPrintOrder.taxPercentage}%):</span>
+                    <span>Service Charges ({currentPrintOrder.taxPercentage}%):</span>
                     <span>₨{currentPrintOrder.tax.toFixed(2)}</span>
                   </div>
                   {currentPrintOrder.deliveryCharge > 0 && (
@@ -1778,7 +1753,7 @@ export default function POSPage() {
                 <div className="text-center text-xs border-t border-dashed border-black pt-3">
                   <p className="mb-2 font-bold">Thank You for Dining with Us!</p>
                   <p className="mb-1">Please visit again</p>
-                  <p className="text-xs  mt-2">Print Time:{new Date().toLocaleString()}</p>
+                  <p className="text-[10px]  mt-2">Print Time:{new Date().toLocaleString()}</p>
                   <p className="text-xs mt-3 border-t border-dashed border-black pt-2">
                     Software and developed by :
                   </p>
