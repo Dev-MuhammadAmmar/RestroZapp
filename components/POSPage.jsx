@@ -1729,7 +1729,7 @@ export default function POSPage() {
                     <span>₨{currentPrintOrder.subtotal.toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between mb-1">
-                    <span>Service Charges ({process.env.NEXT_PUBLIC_TAX ||0}%):</span>
+                    <span>Service Charges ({currentPrintOrder.taxPercentage}%):</span>
                     <span>₨{currentPrintOrder.tax.toFixed(2)}</span>
                   </div>
                   {currentPrintOrder.deliveryCharge > 0 && (
