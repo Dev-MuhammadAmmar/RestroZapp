@@ -29,10 +29,22 @@ import {
 
 // Available emoji icons
 const availableIcons = [
-  '🌮','🍕', // 0'🍗', // 1'🍔', // 2 🍔 '🍟','🌯','🥪','🍽️',
-
-];
-
+  // Main Fast Food Items
+  '🍔', // Burger
+  '🍟', // Fries
+  '🍕', // Pizza
+  '🌭', // Hot Dog
+  '🌮', // Taco
+  '🌯', // Burrito/Wrap
+  '🥙', // Kebab/Shawarma
+  '🥪', // Sandwich
+  '🍗', // Fried Chicken
+  '🍖', // Meat on Bone
+    '🥖',
+     '🍿', '🍦', // Ice Cream Cone
+  '🍨','🥤', '🍷', // Wine
+  '🥂', '🍵',
+]
 
 // Color palette for categories
 const colorPalette = [
@@ -783,12 +795,14 @@ export default function InventoryPage() {
 
 // Item Modal Component
 function ItemModal({ isOpen, onClose, item, categories, onSave }) {
+  const [isSaving, setIsSaving] = useState(false);
   const [formData, setFormData] = useState(
     item || {
       name: '',
       categoryId: categories[0]?._id || '',
       costPrice: 0,
-      profitMargin: 50,
+      profitAmount: 0,
+      profitMargin: 0,
       sellingPrice: 0,
       isActive: true,
       description: '',
@@ -798,10 +812,12 @@ function ItemModal({ isOpen, onClose, item, categories, onSave }) {
 
   useEffect(() => {
     if (item) {
+      const profitAmt = item.sellingPrice - item.costPrice;
       setFormData({
         name: item.name,
         categoryId: typeof item.categoryId === 'object' ? item.categoryId._id : item.categoryId,
         costPrice: item.costPrice,
+        profitAmount: profitAmt,
         profitMargin: item.profitMargin,
         sellingPrice: item.sellingPrice,
         isActive: item.isActive,
@@ -811,283 +827,308 @@ function ItemModal({ isOpen, onClose, item, categories, onSave }) {
     }
   }, [item]);
 
-  const calculateSellingPrice = (cost, margin) => {
-    return Math.round(cost / (1 - margin / 100));
+  const calculateFromCostAndProfit = (cost, profit) => {
+    const selling = cost + profit;
+    const margin = cost > 0 ? Math.round((profit / cost) * 100) : 0;
+    return { sellingPrice: selling, profitMargin: margin };
   };
 
   const handleCostChange = (cost) => {
-    const sellingPrice = calculateSellingPrice(cost, formData.profitMargin);
-    setFormData({ ...formData, costPrice: cost, sellingPrice });
+    const { sellingPrice, profitMargin } = calculateFromCostAndProfit(cost, formData.profitAmount);
+    setFormData({ ...formData, costPrice: cost, sellingPrice, profitMargin });
   };
 
-  const handleProfitMarginChange = (margin) => {
-    const sellingPrice = calculateSellingPrice(formData.costPrice, margin);
-    setFormData({ ...formData, profitMargin: margin, sellingPrice });
+  const handleProfitAmountChange = (profit) => {
+    const { sellingPrice, profitMargin } = calculateFromCostAndProfit(formData.costPrice, profit);
+    setFormData({ ...formData, profitAmount: profit, sellingPrice, profitMargin });
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    onSave(formData);
+    if (isSaving) return;
+    
+    setIsSaving(true);
+    try {
+      await onSave(formData);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  const profitAmount = formData.sellingPrice - formData.costPrice;
+  const profitAmount = formData.profitAmount;
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50 overflow-y-auto"
-      onClick={onClose}
-    >
-      <motion.div
-        initial={{ scale: 0.95, opacity: 0, y: 20 }}
-        animate={{ scale: 1, opacity: 1, y: 0 }}
-        exit={{ scale: 0.95, opacity: 0, y: 20 }}
-        transition={{ type: "spring", duration: 0.5 }}
-        onClick={(e) => e.stopPropagation()}
-        className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full my-8"
+<motion.div
+  initial={{ opacity: 0 }}
+  animate={{ opacity: 1 }}
+  exit={{ opacity: 0 }}
+  className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50"
+  onClick={onClose}
+>
+  <motion.div
+    initial={{ scale: 0.95, opacity: 0 }}
+    animate={{ scale: 1, opacity: 1 }}
+    exit={{ scale: 0.95, opacity: 0 }}
+    transition={{ type: "spring", duration: 0.3 }}
+    onClick={(e) => e.stopPropagation()}
+    className="bg-white rounded-2xl shadow-2xl w-full max-w-6xl max-h-[90vh] flex flex-col"
+  >
+    {/* Header - Fixed */}
+    <div className="bg-gradient-to-r from-[#10b981] to-[#059669] text-white p-4 sm:p-6 flex items-center justify-between rounded-t-2xl flex-shrink-0">
+      <div>
+        <h2 className="text-xl sm:text-2xl font-bold flex items-center gap-2 sm:gap-3">
+          {item ? <Edit2 className="w-5 h-5 sm:w-6 sm:h-6" /> : <Plus className="w-5 h-5 sm:w-6 sm:h-6" />}
+          {item ? 'Edit Menu Item' : 'Add New Menu Item'}
+        </h2>
+        <p className="text-[#d1fae5] text-xs sm:text-sm mt-1 hidden sm:block">
+          Fill in the details below to {item ? 'update' : 'create'} a menu item
+        </p>
+      </div>
+      <button
+        onClick={onClose}
+        className="p-2 hover:bg-white/20 rounded-lg transition-all flex-shrink-0"
       >
-        <div className="sticky top-0 bg-gradient-to-r from-[#10b981] to-[#059669] text-white p-6 flex items-center justify-between rounded-t-2xl">
-          <div>
-            <h2 className="text-2xl font-bold flex items-center gap-3">
-              {item ? <Edit2 className="w-6 h-6" /> : <Plus className="w-6 h-6" />}
-              {item ? 'Edit Menu Item' : 'Add New Menu Item'}
-            </h2>
-            <p className="text-[#d1fae5] text-sm mt-1">
-              Fill in the details below to {item ? 'update' : 'create'} a menu item
-            </p>
-          </div>
-          <button
-            onClick={onClose}
-            className="p-2 hover:bg-white/20 rounded-lg transition-all"
-          >
-            <X className="w-6 h-6" />
-          </button>
-        </div>
+        <X className="w-5 h-5 sm:w-6 sm:h-6" />
+      </button>
+    </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-6 max-h-[calc(100vh-200px)] overflow-y-auto">
-          {/* Basic Information */}
+    {/* Form Content - Scrollable */}
+    <div className="overflow-y-auto flex-1">
+      <form onSubmit={handleSubmit} className="p-4 sm:p-6">
+        {/* Two Column Layout for Desktop */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+          
+          {/* Left Column - Basic Information */}
           <div className="space-y-4">
-            <h3 className="text-lg font-semibold text-[#1e293b] flex items-center gap-2">
-              <Tag className="w-5 h-5 text-[#10b981]" />
+            <h3 className="text-base sm:text-lg font-semibold text-[#1e293b] flex items-center gap-2 pb-2 border-b border-[#e2e8f0]">
+              <Tag className="w-4 h-4 sm:w-5 sm:h-5 text-[#10b981]" />
               Basic Information
             </h3>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="md:col-span-2">
-                <label className="block text-[#475569] font-medium mb-2 text-sm">
-                  Item Name *
-                </label>
-                <input
-                  type="text"
+            <div>
+              <label className="block text-[#475569] font-medium mb-2 text-xs sm:text-sm">
+                Item Name *
+              </label>
+              <input
+                type="text"
+                required
+                disabled={isSaving}
+                value={formData.name}
+                onChange={(e) =>
+                  setFormData({ ...formData, name: e.target.value })
+                }
+                className="w-full px-3 sm:px-4 py-2 sm:py-3 bg-[#f8fafc] border-2 border-[#e2e8f0] rounded-lg focus:outline-none focus:border-[#10b981] focus:ring-2 focus:ring-[#10b981]/20 transition-all text-[#1e293b] disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base"
+                placeholder="e.g., Beef Burger Deluxe"
+              />
+            </div>
+
+            <div>
+              <label className="block text-[#475569] font-medium mb-2 text-xs sm:text-sm">
+                Category *
+              </label>
+              <div className="relative">
+                <select
                   required
-                  value={formData.name}
+                  disabled={isSaving}
+                  value={formData.categoryId}
                   onChange={(e) =>
-                    setFormData({ ...formData, name: e.target.value })
+                    setFormData({ ...formData, categoryId: e.target.value })
                   }
-                  className="w-full px-4 py-3 bg-[#f8fafc] border-2 border-[#e2e8f0] rounded-lg focus:outline-none focus:border-[#10b981] focus:ring-2 focus:ring-[#10b981]/20 transition-all text-[#1e293b]"
-                  placeholder="e.g., Beef Burger Deluxe"
-                />
+                  className="w-full px-3 sm:px-4 py-2 sm:py-3 bg-[#f8fafc] border-2 border-[#e2e8f0] rounded-lg focus:outline-none focus:border-[#10b981] focus:ring-2 focus:ring-[#10b981]/20 transition-all text-[#1e293b] appearance-none disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base"
+                >
+                  {categories.map((cat) => (
+                    <option key={cat._id} value={cat._id}>
+                      {cat.icon} {cat.name}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown className="absolute right-3 sm:right-4 top-1/2 -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5 text-[#94a3b8] pointer-events-none" />
               </div>
+            </div>
 
+            <div>
+              <label className="block text-[#475569] font-medium mb-2 text-xs sm:text-sm">
+                Preparation Time
+              </label>
+              <input
+                type="text"
+                disabled={isSaving}
+                value={formData.preparationTime}
+                onChange={(e) =>
+                  setFormData({ ...formData, preparationTime: e.target.value })
+                }
+                className="w-full px-3 sm:px-4 py-2 sm:py-3 bg-[#f8fafc] border-2 border-[#e2e8f0] rounded-lg focus:outline-none focus:border-[#10b981] focus:ring-2 focus:ring-[#10b981]/20 transition-all text-[#1e293b] disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base"
+                placeholder="e.g., 10-12 mins (Optional)"
+              />
+            </div>
+
+            {/* Status Toggle - Mobile */}
+            <div className="lg:hidden flex items-center justify-between p-3 sm:p-4 bg-[#f8fafc] rounded-lg">
               <div>
-                <label className="block text-[#475569] font-medium mb-2 text-sm">
-                  Category *
-                </label>
-                <div className="relative">
-                  <select
-                    required
-                    value={formData.categoryId}
-                    onChange={(e) =>
-                      setFormData({ ...formData, categoryId: e.target.value })
-                    }
-                    className="w-full px-4 py-3 bg-[#f8fafc] border-2 border-[#e2e8f0] rounded-lg focus:outline-none focus:border-[#10b981] focus:ring-2 focus:ring-[#10b981]/20 transition-all text-[#1e293b] appearance-none"
-                  >
-                    {categories.map((cat) => (
-                      <option key={cat._id} value={cat._id}>
-                        {cat.icon} {cat.name}
-                      </option>
-                    ))}
-                  </select>
-                  <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#94a3b8] pointer-events-none" />
-                </div>
+                <p className="font-medium text-[#1e293b] text-sm sm:text-base">Item Status</p>
+                <p className="text-xs sm:text-sm text-[#64748b]">
+                  {formData.isActive ? 'Active & visible' : 'Hidden from menu'}
+                </p>
               </div>
-
-              <div>
-                <label className="block text-[#475569] font-medium mb-2 text-sm">
-                  Preparation Time
-                </label>
-                <input
-                  type="text"
-                  value={formData.preparationTime}
-                  onChange={(e) =>
-                    setFormData({ ...formData, preparationTime: e.target.value })
-                  }
-                  className="w-full px-4 py-3 bg-[#f8fafc] border-2 border-[#e2e8f0] rounded-lg focus:outline-none focus:border-[#10b981] focus:ring-2 focus:ring-[#10b981]/20 transition-all text-[#1e293b]"
-                  placeholder="e.g., 10-12 mins"
+              <button
+                type="button"
+                disabled={isSaving}
+                onClick={() => setFormData({ ...formData, isActive: !formData.isActive })}
+                className={`relative w-12 h-6 sm:w-14 sm:h-7 rounded-full transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
+                  formData.isActive ? 'bg-[#10b981]' : 'bg-[#cbd5e1]'
+                }`}
+              >
+                <motion.div
+                  animate={{ x: formData.isActive ? 24 : 2 }}
+                  transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                  className="absolute top-1 w-4 h-4 sm:w-5 sm:h-5 bg-white rounded-full shadow-md"
                 />
-              </div>
-
-              <div className="md:col-span-2">
-                <label className="block text-[#475569] font-medium mb-2 text-sm">
-                  Description
-                </label>
-                <textarea
-                  value={formData.description}
-                  onChange={(e) =>
-                    setFormData({ ...formData, description: e.target.value })
-                  }
-                  rows={3}
-                  className="w-full px-4 py-3 bg-[#f8fafc] border-2 border-[#e2e8f0] rounded-lg focus:outline-none focus:border-[#10b981] focus:ring-2 focus:ring-[#10b981]/20 transition-all text-[#1e293b] resize-none"
-                  placeholder="Brief description of the item..."
-                />
-              </div>
+              </button>
             </div>
           </div>
 
-          {/* Pricing Information */}
-          <div className="space-y-4 pt-6 border-t border-[#e2e8f0]">
-            <h3 className="text-lg font-semibold text-[#1e293b] flex items-center gap-2">
-              <DollarSign className="w-5 h-5 text-[#10b981]" />
+          {/* Right Column - Pricing Information */}
+          <div className="space-y-4">
+            <h3 className="text-base sm:text-lg font-semibold text-[#1e293b] flex items-center gap-2 pb-2 border-b border-[#e2e8f0]">
+              <DollarSign className="w-4 h-4 sm:w-5 sm:h-5 text-[#10b981]" />
               Pricing & Profit
             </h3>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-2 gap-3 sm:gap-4">
               <div>
-                <label className="block text-[#475569] font-medium mb-2 text-sm">
+                <label className="block text-[#475569] font-medium mb-2 text-xs sm:text-sm">
                   Cost Price (₨) *
                 </label>
                 <input
                   type="number"
                   required
+                  disabled={isSaving}
                   min="0"
-                  step="0.01"
+                  step="1"
                   value={formData.costPrice}
                   onChange={(e) => handleCostChange(Number(e.target.value))}
-                  className="w-full px-4 py-3 bg-[#f8fafc] border-2 border-[#e2e8f0] rounded-lg focus:outline-none focus:border-[#10b981] focus:ring-2 focus:ring-[#10b981]/20 transition-all text-[#1e293b] text-lg font-semibold"
+                  className="w-full px-3 sm:px-4 py-2 sm:py-3 bg-[#f8fafc] border-2 border-[#e2e8f0] rounded-lg focus:outline-none focus:border-[#10b981] focus:ring-2 focus:ring-[#10b981]/20 transition-all text-[#1e293b] font-semibold disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base"
                   placeholder="0"
                 />
-                <p className="text-xs text-[#94a3b8] mt-1">
-                  💡 Total cost to make this item
+                <p className="text-[10px] sm:text-xs text-[#94a3b8] mt-1">
+                  💡 Total cost to make
                 </p>
               </div>
 
               <div>
-                <label className="block text-[#475569] font-medium mb-2 text-sm">
-                  Profit Margin (%) *
+                <label className="block text-[#475569] font-medium mb-2 text-xs sm:text-sm">
+                  Profit Amount (₨) *
                 </label>
-                <div className="relative">
-                  <input
-                    type="number"
-                    required
-                    min="0"
-                    max="100"
-                    step="1"
-                    value={formData.profitMargin}
-                    onChange={(e) => handleProfitMarginChange(Number(e.target.value))}
-                    className="w-full px-4 py-3 pr-12 bg-[#f8fafc] border-2 border-[#e2e8f0] rounded-lg focus:outline-none focus:border-[#10b981] focus:ring-2 focus:ring-[#10b981]/20 transition-all text-[#1e293b] text-lg font-semibold"
-                    placeholder="0"
-                  />
-                  <Percent className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#94a3b8]" />
-                </div>
                 <input
-                  type="range"
+                  type="number"
+                  required
+                  disabled={isSaving}
                   min="0"
-                  max="100"
-                  value={formData.profitMargin}
-                  onChange={(e) => handleProfitMarginChange(Number(e.target.value))}
-                  className="w-full mt-2"
-                  style={{
-                    background: `linear-gradient(to right, #10b981 0%, #10b981 ${formData.profitMargin}%, #e2e8f0 ${formData.profitMargin}%, #e2e8f0 100%)`
-                  }}
+                  step="1"
+                  value={formData.profitAmount}
+                  onChange={(e) => handleProfitAmountChange(Number(e.target.value))}
+                  className="w-full px-3 sm:px-4 py-2 sm:py-3 bg-[#f8fafc] border-2 border-[#e2e8f0] rounded-lg focus:outline-none focus:border-[#10b981] focus:ring-2 focus:ring-[#10b981]/20 transition-all text-[#1e293b] font-semibold disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base"
+                  placeholder="0"
                 />
+                <p className="text-[10px] sm:text-xs text-[#94a3b8] mt-1">
+                  💰 Your profit amount
+                </p>
               </div>
             </div>
 
             {/* Calculation Summary */}
-            <div className="bg-gradient-to-br from-[#10b981]/10 via-[#8b5cf6]/10 to-[#3b82f6]/10 p-6 rounded-xl border-2 border-[#10b981]/20">
-              <div className="grid grid-cols-3 gap-4">
-                <div className="text-center p-4 bg-white rounded-lg">
-                  <p className="text-sm text-[#64748b] mb-1">Cost Price</p>
-                  <p className="text-2xl font-bold text-[#1e293b]">
+            <div className="bg-gradient-to-br from-[#10b981]/10 via-[#8b5cf6]/10 to-[#3b82f6]/10 p-3 sm:p-4 rounded-xl border-2 border-[#10b981]/20">
+              <div className="grid grid-cols-4 gap-2 sm:gap-3">
+                <div className="text-center p-2 sm:p-3 bg-white rounded-lg">
+                  <p className="text-[10px] sm:text-xs text-[#64748b] mb-1">Cost</p>
+                  <p className="text-sm sm:text-xl font-bold text-[#1e293b]">
                     ₨{formData.costPrice}
                   </p>
                 </div>
-                <div className="text-center p-4 bg-white rounded-lg">
-                  <p className="text-sm text-[#64748b] mb-1">Profit Amount</p>
-                  <p className="text-2xl font-bold text-[#8b5cf6]">
+                <div className="text-center p-2 sm:p-3 bg-white rounded-lg">
+                  <p className="text-[10px] sm:text-xs text-[#64748b] mb-1">Profit</p>
+                  <p className="text-sm sm:text-xl font-bold text-[#8b5cf6]">
                     ₨{profitAmount}
                   </p>
                 </div>
-                <div className="text-center p-4 bg-white rounded-lg border-2 border-[#10b981]">
-                  <p className="text-sm text-[#64748b] mb-1">Selling Price</p>
-                  <p className="text-3xl font-bold text-[#10b981]">
+                <div className="text-center p-2 sm:p-3 bg-white rounded-lg">
+                  <p className="text-[10px] sm:text-xs text-[#64748b] mb-1">Margin</p>
+                  <p className="text-sm sm:text-xl font-bold text-[#f59e0b]">
+                    {formData.profitMargin}%
+                  </p>
+                </div>
+                <div className="text-center p-2 sm:p-3 bg-white rounded-lg border-2 border-[#10b981]">
+                  <p className="text-[10px] sm:text-xs text-[#64748b] mb-1">Selling</p>
+                  <p className="text-base sm:text-2xl font-bold text-[#10b981]">
                     ₨{formData.sellingPrice}
                   </p>
                 </div>
               </div>
-              <div className="mt-4 text-center">
+            </div>
+
+            {/* Status Toggle - Desktop */}
+            <div className="hidden lg:flex items-center justify-between p-4 bg-[#f8fafc] rounded-lg">
+              <div>
+                <p className="font-medium text-[#1e293b]">Item Status</p>
                 <p className="text-sm text-[#64748b]">
-                  💰 You'll earn <span className="font-bold text-[#8b5cf6]">₨{profitAmount}</span> profit per item 
-                  ({formData.profitMargin}% margin)
+                  {formData.isActive ? 'Item is active and visible' : 'Item is hidden from menu'}
                 </p>
               </div>
+              <button
+                type="button"
+                disabled={isSaving}
+                onClick={() => setFormData({ ...formData, isActive: !formData.isActive })}
+                className={`relative w-14 h-7 rounded-full transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
+                  formData.isActive ? 'bg-[#10b981]' : 'bg-[#cbd5e1]'
+                }`}
+              >
+                <motion.div
+                  animate={{ x: formData.isActive ? 28 : 2 }}
+                  transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                  className="absolute top-1 w-5 h-5 bg-white rounded-full shadow-md"
+                />
+              </button>
             </div>
           </div>
+        </div>
 
-          {/* Status Toggle */}
-          <div className="flex items-center justify-between p-4 bg-[#f8fafc] rounded-lg">
-            <div>
-              <p className="font-medium text-[#1e293b]">Item Status</p>
-              <p className="text-sm text-[#64748b]">
-                {formData.isActive ? 'Item is active and visible' : 'Item is hidden from menu'}
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => setFormData({ ...formData, isActive: !formData.isActive })}
-              className={`relative w-14 h-7 rounded-full transition-all ${
-                formData.isActive ? 'bg-[#10b981]' : 'bg-[#cbd5e1]'
-              }`}
-            >
-              <motion.div
-                animate={{ x: formData.isActive ? 28 : 2 }}
-                transition={{ type: "spring", stiffness: 500, damping: 30 }}
-                className="absolute top-1 w-5 h-5 bg-white rounded-full shadow-md"
-              />
-            </button>
-          </div>
-
-          {/* Action Buttons */}
-          <div className="flex gap-4 pt-4">
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 px-6 py-3 border-2 border-[#e2e8f0] text-[#64748b] rounded-lg hover:bg-[#f8fafc] transition-all font-medium"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className="flex-1 px-6 py-3 bg-[#10b981] text-white rounded-lg hover:bg-[#059669] transition-all font-medium shadow-lg flex items-center justify-center gap-2"
-            >
-              {item ? (
-                <>
-                  <CheckCircle className="w-5 h-5" />
-                  Update Item
-                </>
-              ) : (
-                <>
-                  <Plus className="w-5 h-5" />
-                  Add Item
-                </>
-              )}
-            </button>
-          </div>
-        </form>
-      </motion.div>
-    </motion.div>
+        {/* Action Buttons */}
+        <div className="flex gap-3 sm:gap-4 pt-4 sm:pt-6 mt-4 sm:mt-6 border-t border-[#e2e8f0]">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={isSaving}
+            className="flex-1 px-4 sm:px-6 py-2.5 sm:py-3 border-2 border-[#e2e8f0] text-[#64748b] rounded-lg hover:bg-[#f8fafc] transition-all font-medium disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            disabled={isSaving}
+            className="flex-1 px-4 sm:px-6 py-2.5 sm:py-3 bg-[#10b981] text-white rounded-lg hover:bg-[#059669] transition-all font-medium shadow-lg flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base"
+          >
+            {isSaving ? (
+              <>
+                <div className="animate-spin rounded-full h-4 w-4 sm:h-5 sm:w-5 border-b-2 border-white"></div>
+                <span>Saving...</span>
+              </>
+            ) : item ? (
+              <>
+                <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5" />
+                Update Item
+              </>
+            ) : (
+              <>
+                <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
+                Add Item
+              </>
+            )}
+          </button>
+        </div>
+      </form>
+    </div>
+  </motion.div>
+</motion.div>
   );
 }
 
@@ -1095,6 +1136,7 @@ function ItemModal({ isOpen, onClose, item, categories, onSave }) {
 function CategoryModal({ isOpen, onClose, categories, onSave, onDelete }) {
   const [localCategories, setLocalCategories] = useState(categories);
   const [editingId, setEditingId] = useState(null);
+  const [isSaving, setIsSaving] = useState(false);
   const [newCategory, setNewCategory] = useState({
     name: '',
     icon: '🍽️',
@@ -1131,100 +1173,138 @@ function CategoryModal({ isOpen, onClose, categories, onSave, onDelete }) {
     setLocalCategories(localCategories.filter((_, idx) => idx !== index));
   };
 
-  const handleSave = () => {
-    onSave(localCategories);
-    onClose();
+  const handleSave = async () => {
+    if (isSaving) return;
+    
+    setIsSaving(true);
+    try {
+      await onSave(localCategories);
+      onClose();
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50 overflow-y-auto"
-      onClick={onClose}
-    >
-      <motion.div
-        initial={{ scale: 0.95, opacity: 0, y: 20 }}
-        animate={{ scale: 1, opacity: 1, y: 0 }}
-        exit={{ scale: 0.95, opacity: 0, y: 20 }}
-        transition={{ type: "spring", duration: 0.5 }}
-        onClick={(e) => e.stopPropagation()}
-        className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full my-8"
+  <motion.div
+  initial={{ opacity: 0 }}
+  animate={{ opacity: 1 }}
+  exit={{ opacity: 0 }}
+  className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50"
+  onClick={onClose}
+>
+  <motion.div
+    initial={{ scale: 0.95, opacity: 0, y: 20 }}
+    animate={{ scale: 1, opacity: 1, y: 0 }}
+    exit={{ scale: 0.95, opacity: 0, y: 20 }}
+    transition={{ type: "spring", duration: 0.3 }}
+    onClick={(e) => e.stopPropagation()}
+    className="bg-white rounded-2xl shadow-2xl w-full max-w-6xl max-h-[90vh] flex flex-col"
+  >
+    {/* Header - Fixed */}
+    <div className="bg-gradient-to-r from-[#8b5cf6] to-[#7c3aed] text-white p-4 sm:p-6 flex items-center justify-between rounded-t-2xl flex-shrink-0">
+      <div>
+        <h2 className="text-xl sm:text-2xl font-bold flex items-center gap-2 sm:gap-3">
+          <Settings className="w-5 h-5 sm:w-6 sm:h-6" />
+          Manage Categories
+        </h2>
+        <p className="text-[#e9d5ff] text-xs sm:text-sm mt-1 hidden sm:block">
+          Add, edit, or remove menu categories
+        </p>
+      </div>
+      <button
+        onClick={onClose}
+        className="p-2 hover:bg-white/20 rounded-lg transition-all flex-shrink-0"
       >
-        <div className="sticky top-0 bg-gradient-to-r from-[#8b5cf6] to-[#7c3aed] text-white p-6 flex items-center justify-between rounded-t-2xl">
-          <div>
-            <h2 className="text-2xl font-bold flex items-center gap-3">
-              <Settings className="w-6 h-6" />
-              Manage Categories
-            </h2>
-            <p className="text-[#e9d5ff] text-sm mt-1">
-              Add, edit, or remove menu categories
-            </p>
-          </div>
-          <button
-            onClick={onClose}
-            className="p-2 hover:bg-white/20 rounded-lg transition-all"
-          >
-            <X className="w-6 h-6" />
-          </button>
-        </div>
+        <X className="w-5 h-5 sm:w-6 sm:h-6" />
+      </button>
+    </div>
 
-        <div className="p-6 space-y-6 max-h-[calc(100vh-200px)] overflow-y-auto">
-          {/* Add New Category */}
-          <div className="bg-gradient-to-br from-[#8b5cf6]/10 to-[#3b82f6]/10 p-6 rounded-xl border-2 border-[#8b5cf6]/20">
-            <h3 className="text-lg font-semibold text-[#1e293b] mb-4 flex items-center gap-2">
-              <Plus className="w-5 h-5 text-[#8b5cf6]" />
+    {/* Content - Scrollable */}
+    <div className="overflow-y-auto flex-1">
+      <div className="p-4 sm:p-6">
+        {/* Two Column Layout for Desktop */}
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 sm:gap-6">
+          
+          {/* Left Column - Add New Category (3 columns) */}
+          <div className="lg:col-span-3 bg-gradient-to-br from-[#8b5cf6]/10 to-[#3b82f6]/10 p-4 sm:p-6 rounded-xl border-2 border-[#8b5cf6]/20">
+            <h3 className="text-base sm:text-lg font-semibold text-[#1e293b] mb-4 flex items-center gap-2">
+              <Plus className="w-4 h-4 sm:w-5 sm:h-5 text-[#8b5cf6]" />
               Add New Category
             </h3>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div className="md:col-span-2">
-                <label className="block text-[#475569] font-medium mb-2 text-sm">
-                  Category Name
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-[#475569] font-medium mb-2 text-xs sm:text-sm">
+                  Category Name *
                 </label>
                 <input
                   type="text"
+                  disabled={isSaving}
                   value={newCategory.name}
                   onChange={(e) =>
                     setNewCategory({ ...newCategory, name: e.target.value })
                   }
-                  className="w-full px-4 py-3 bg-white border-2 border-[#e2e8f0] rounded-lg focus:outline-none focus:border-[#8b5cf6] focus:ring-2 focus:ring-[#8b5cf6]/20 transition-all text-[#1e293b]"
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter' && newCategory.name.trim()) {
+                      handleAddCategory();
+                    }
+                  }}
+                  className="w-full px-3 sm:px-4 py-2 sm:py-3 bg-white border-2 border-[#e2e8f0] rounded-lg focus:outline-none focus:border-[#8b5cf6] focus:ring-2 focus:ring-[#8b5cf6]/20 transition-all text-[#1e293b] disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base"
                   placeholder="e.g., Appetizers"
                 />
               </div>
-              <div>
-                <label className="block text-[#475569] font-medium mb-2 text-sm">
-                  Icon
-                </label>
-                <select
-                  value={newCategory.icon}
-                  onChange={(e) =>
-                    setNewCategory({ ...newCategory, icon: e.target.value })
-                  }
-                  className="w-full px-4 py-3 bg-white border-2 border-[#e2e8f0] rounded-lg focus:outline-none focus:border-[#8b5cf6] focus:ring-2 focus:ring-[#8b5cf6]/20 transition-all text-2xl"
-                >
-                  {availableIcons.map((icon) => (
-                    <option key={icon} value={icon}>
-                      {icon}
-                    </option>
-                  ))}
-                </select>
+
+              <div className="grid grid-cols-2 gap-3 sm:gap-4">
+                <div>
+                  <label className="block text-[#475569] font-medium mb-2 text-xs sm:text-sm">
+                    Icon
+                  </label>
+                  <select
+                    disabled={isSaving}
+                    value={newCategory.icon}
+                    onChange={(e) =>
+                      setNewCategory({ ...newCategory, icon: e.target.value })
+                    }
+                    className="w-full px-3 sm:px-4 py-2 sm:py-3 bg-white border-2 border-[#e2e8f0] rounded-lg focus:outline-none focus:border-[#8b5cf6] focus:ring-2 focus:ring-[#8b5cf6]/20 transition-all text-xl sm:text-2xl disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {availableIcons.map((icon) => (
+                      <option key={icon} value={icon}>
+                        {icon}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-[#475569] font-medium mb-2 text-xs sm:text-sm">
+                    Preview
+                  </label>
+                  <div 
+                    className="w-full h-10 sm:h-12 rounded-lg flex items-center justify-center text-2xl sm:text-3xl font-bold border-2 border-[#e2e8f0]"
+                    style={{ backgroundColor: newCategory.color }}
+                  >
+                    {newCategory.icon}
+                  </div>
+                </div>
               </div>
+
               <div>
-                <label className="block text-[#475569] font-medium mb-2 text-sm">
+                <label className="block text-[#475569] font-medium mb-2 text-xs sm:text-sm">
                   Color
                 </label>
-                <div className="grid grid-cols-5 gap-1">
-                  {colorPalette.slice(0, 10).map((color) => (
+                <div className="grid grid-cols-8 sm:grid-cols-10 gap-1.5 sm:gap-2">
+                  {colorPalette.slice(0, 20).map((color) => (
                     <button
                       key={color}
                       type="button"
+                      disabled={isSaving}
                       onClick={() =>
                         setNewCategory({ ...newCategory, color })
                       }
-                      className={`w-10 h-10 rounded-lg transition-all ${
+                      className={`w-full aspect-square rounded-md sm:rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
                         newCategory.color === color
-                          ? 'ring-2 ring-offset-2 ring-[#8b5cf6] scale-110'
+                          ? 'ring-2 ring-offset-1 sm:ring-offset-2 ring-[#8b5cf6] scale-110'
                           : 'hover:scale-105'
                       }`}
                       style={{ backgroundColor: color }}
@@ -1232,23 +1312,24 @@ function CategoryModal({ isOpen, onClose, categories, onSave, onDelete }) {
                   ))}
                 </div>
               </div>
+
+              <button
+                onClick={handleAddCategory}
+                disabled={!newCategory.name.trim() || isSaving}
+                className="w-full px-4 sm:px-6 py-2.5 sm:py-3 bg-[#8b5cf6] text-white rounded-lg hover:bg-[#7c3aed] transition-all font-medium shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-sm sm:text-base"
+              >
+                <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
+                Add Category
+              </button>
             </div>
-            <button
-              onClick={handleAddCategory}
-              disabled={!newCategory.name.trim()}
-              className="mt-4 w-full px-6 py-3 bg-[#8b5cf6] text-white rounded-lg hover:bg-[#7c3aed] transition-all font-medium shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-            >
-              <Plus className="w-5 h-5" />
-              Add Category
-            </button>
           </div>
 
-          {/* Existing Categories */}
-          <div>
-            <h3 className="text-lg font-semibold text-[#1e293b] mb-4">
-              Existing Categories ({localCategories.length})
+          {/* Right Column - Existing Categories (2 columns) */}
+          <div className="lg:col-span-2">
+            <h3 className="text-base sm:text-lg font-semibold text-[#1e293b] mb-4 flex items-center justify-between">
+              <span>Categories ({localCategories.length})</span>
             </h3>
-            <div className="space-y-3">
+            <div className="space-y-2 sm:space-y-3 max-h-[400px] lg:max-h-[500px] overflow-y-auto pr-1 sm:pr-2">
               <AnimatePresence>
                 {localCategories.map((category, index) => (
                   <motion.div
@@ -1256,31 +1337,31 @@ function CategoryModal({ isOpen, onClose, categories, onSave, onDelete }) {
                     initial={{ opacity: 0, x: -20 }}
                     animate={{ opacity: 1, x: 0 }}
                     exit={{ opacity: 0, x: 20 }}
-                    className="bg-white border-2 border-[#e2e8f0] rounded-lg p-4 hover:shadow-md transition-all"
+                    className="bg-white border-2 border-[#e2e8f0] rounded-lg p-3 sm:p-4 hover:shadow-md transition-all"
                   >
                     {editingId === index ? (
-                      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-                        <div className="sm:col-span-2">
-                          <input
-                            type="text"
-                            value={category.name}
-                            onChange={(e) =>
-                              handleUpdateCategory(index, {
-                                name: e.target.value,
-                              })
-                            }
-                            className="w-full px-4 py-2 bg-[#f8fafc] border border-[#e2e8f0] rounded-lg focus:outline-none focus:border-[#8b5cf6] text-[#1e293b]"
-                          />
-                        </div>
-                        <div>
+                      <div className="space-y-2 sm:space-y-3">
+                        <input
+                          type="text"
+                          disabled={isSaving}
+                          value={category.name}
+                          onChange={(e) =>
+                            handleUpdateCategory(index, {
+                              name: e.target.value,
+                            })
+                          }
+                          className="w-full px-3 py-2 bg-[#f8fafc] border border-[#e2e8f0] rounded-lg focus:outline-none focus:border-[#8b5cf6] text-[#1e293b] disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                        />
+                        <div className="grid grid-cols-2 gap-2">
                           <select
+                            disabled={isSaving}
                             value={category.icon}
                             onChange={(e) =>
                               handleUpdateCategory(index, {
                                 icon: e.target.value,
                               })
                             }
-                            className="w-full px-4 py-2 bg-[#f8fafc] border border-[#e2e8f0] rounded-lg focus:outline-none focus:border-[#8b5cf6] text-xl"
+                            className="w-full px-2 py-2 bg-[#f8fafc] border border-[#e2e8f0] rounded-lg focus:outline-none focus:border-[#8b5cf6] text-lg disabled:opacity-50 disabled:cursor-not-allowed"
                           >
                             {availableIcons.map((icon) => (
                               <option key={icon} value={icon}>
@@ -1288,42 +1369,43 @@ function CategoryModal({ isOpen, onClose, categories, onSave, onDelete }) {
                               </option>
                             ))}
                           </select>
-                        </div>
-                        <div className="flex gap-2">
                           <button
                             onClick={() => setEditingId(null)}
-                            className="flex-1 px-4 py-2 bg-[#10b981] text-white rounded-lg hover:bg-[#059669] transition-all font-medium"
+                            disabled={isSaving}
+                            className="px-3 py-2 bg-[#10b981] text-white rounded-lg hover:bg-[#059669] transition-all font-medium disabled:opacity-50 disabled:cursor-not-allowed text-sm"
                           >
-                            ✓
+                            ✓ Done
                           </button>
                         </div>
                       </div>
                     ) : (
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-4">
-                          <span className="text-4xl">{category.icon}</span>
-                          <div>
-                            <p className="font-semibold text-[#1e293b] text-lg">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
+                          <span className="text-2xl sm:text-3xl flex-shrink-0">{category.icon}</span>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-semibold text-[#1e293b] text-sm sm:text-base truncate">
                               {category.name}
                             </p>
                             <div
-                              className="w-16 h-2 rounded-full mt-1"
+                              className="w-12 sm:w-16 h-1.5 sm:h-2 rounded-full mt-1"
                               style={{ backgroundColor: category.color }}
                             />
                           </div>
                         </div>
-                        <div className="flex gap-2">
+                        <div className="flex gap-1 sm:gap-2 flex-shrink-0">
                           <button
                             onClick={() => setEditingId(index)}
-                            className="p-2 bg-[#dbeafe] text-[#3b82f6] rounded-lg hover:bg-[#bfdbfe] transition-all"
+                            disabled={isSaving}
+                            className="p-1.5 sm:p-2 bg-[#dbeafe] text-[#3b82f6] rounded-lg hover:bg-[#bfdbfe] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                           >
-                            <Edit2 className="w-4 h-4" />
+                            <Edit2 className="w-3 h-3 sm:w-4 sm:h-4" />
                           </button>
                           <button
                             onClick={() => handleDeleteCategory(category, index)}
-                            className="p-2 bg-[#fee2e2] text-[#ef4444] rounded-lg hover:bg-[#fecaca] transition-all"
+                            disabled={isSaving}
+                            className="p-1.5 sm:p-2 bg-[#fee2e2] text-[#ef4444] rounded-lg hover:bg-[#fecaca] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                           >
-                            <Trash2 className="w-4 h-4" />
+                            <Trash2 className="w-3 h-3 sm:w-4 sm:h-4" />
                           </button>
                         </div>
                       </div>
@@ -1333,25 +1415,38 @@ function CategoryModal({ isOpen, onClose, categories, onSave, onDelete }) {
               </AnimatePresence>
             </div>
           </div>
-
-          {/* Action Buttons */}
-          <div className="flex gap-4 pt-4">
-            <button
-              onClick={onClose}
-              className="flex-1 px-6 py-3 border-2 border-[#e2e8f0] text-[#64748b] rounded-lg hover:bg-[#f8fafc] transition-all font-medium"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleSave}
-              className="flex-1 px-6 py-3 bg-[#8b5cf6] text-white rounded-lg hover:bg-[#7c3aed] transition-all font-medium shadow-lg flex items-center justify-center gap-2"
-            >
-              <CheckCircle className="w-5 h-5" />
-              Save Changes
-            </button>
-          </div>
         </div>
-      </motion.div>
-    </motion.div>
+
+        {/* Action Buttons */}
+        <div className="flex gap-3 sm:gap-4 pt-4 sm:pt-6 mt-4 sm:mt-6 border-t border-[#e2e8f0]">
+          <button
+            onClick={onClose}
+            disabled={isSaving}
+            className="flex-1 px-4 sm:px-6 py-2.5 sm:py-3 border-2 border-[#e2e8f0] text-[#64748b] rounded-lg hover:bg-[#f8fafc] transition-all font-medium disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={isSaving}
+            className="flex-1 px-4 sm:px-6 py-2.5 sm:py-3 bg-[#8b5cf6] text-white rounded-lg hover:bg-[#7c3aed] transition-all font-medium shadow-lg flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base"
+          >
+            {isSaving ? (
+              <>
+                <div className="animate-spin rounded-full h-4 w-4 sm:h-5 sm:w-5 border-b-2 border-white"></div>
+                <span>Saving...</span>
+              </>
+            ) : (
+              <>
+                <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5" />
+                Save Changes
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+    </div>
+  </motion.div>
+</motion.div>
   );
 }
