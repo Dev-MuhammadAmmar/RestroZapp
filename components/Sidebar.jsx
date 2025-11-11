@@ -100,13 +100,7 @@
             isOpen ? 'translate-x-0' : '-translate-x-full'
           } lg:translate-x-0`}
         >
-          {/* Ambient Background Effects */}
-          <div className="absolute inset-0 overflow-hidden pointer-events-none">
-            <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/10 rounded-full blur-3xl" />
-            <div className="absolute bottom-0 left-0 w-64 h-64 bg-teal-500/10 rounded-full blur-3xl" />
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_120%,rgba(16,185,129,0.1),transparent)]" />
-          </div>
-
+      
           {/* Header */}
           <motion.div
             className="relative p-8 border-b border-slate-700/50 overflow-hidden"
@@ -165,15 +159,7 @@
                       whileTap={{ scale: 0.97 }}
                       aria-current={Active ? 'page' : undefined}
                     >
-                      {/* Active shimmer effect */}
-                      {Active && (
-                        <motion.div
-                          className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent"
-                          initial={{ x: '-100%' }}
-                          animate={{ x: '200%' }}
-                          transition={{ duration: 2, repeat: Infinity, repeatDelay: 1, ease: 'linear' }}
-                        />
-                      )}
+                  
 
                       {/* Hover glow effect */}
                       <motion.div className="absolute inset-0 bg-gradient-to-r from-emerald-500/0 via-emerald-500/10 to-emerald-500/0 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />

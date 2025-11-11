@@ -1032,7 +1032,7 @@ export default function POSPage() {
               {cart.map((item) => (
                 <div
                   key={item._id}
-                  className="flex items-center justify-between text-xs sm:text-sm bg-white/80 backdrop-blur-sm p-2 sm:p-3 rounded-lg shadow-sm"
+                  className="flex items-center justify-between text-xs sm:text-sm bg-white/80 backdrop-blur-sm p-2 sm:p-3  rounded-lg shadow-sm"
                 >
                   <div className="flex items-center gap-1.5 sm:gap-2 flex-1 min-w-0">
                     <span className="text-base sm:text-2xl flex-shrink-0">{item.categoryId?.icon || '🍽️'}</span>
@@ -1098,7 +1098,7 @@ export default function POSPage() {
                         setOrderDetails({ ...orderDetails, orderType: type.value })
                       }
                       disabled={isSubmittingOrder}
-                      className={`p-2 sm:p-5 rounded-lg sm:rounded-xl border-2 transition-all flex flex-col items-center gap-1 sm:gap-3 disabled:opacity-50 ${
+                      className={`p-2 sm:p-5 sm:py-1 rounded-lg sm:rounded-xl border-2 transition-all flex flex-col items-center gap-1 sm:gap-3 disabled:opacity-50 ${
                         orderDetails.orderType === type.value
                           ? 'border-emerald-500 bg-emerald-50 shadow-lg shadow-emerald-500/20'
                           : 'border-slate-200 hover:border-slate-300 bg-white'
@@ -1164,12 +1164,12 @@ export default function POSPage() {
                       </label>
                       <input
                         type="text"
-                        value={orderDetails.customerName }
+                        value={orderDetails.customerName}
                         onChange={(e) =>
                           setOrderDetails({ ...orderDetails, customerName: e.target.value })
                         }
                         disabled={isSubmittingOrder}
-                        placeholder="Enter name (Optional)"
+                        placeholder="Enter name"
                         className="w-full px-3 sm:px-4 py-2 sm:py-3 border-2 border-slate-200 rounded-lg sm:rounded-xl focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 transition-all disabled:opacity-50 text-sm sm:text-base"
                       />
                     </div>
@@ -1181,12 +1181,12 @@ export default function POSPage() {
                       </label>
                       <input
                         type="tel"
-                        value={orderDetails.customerPhone }
+                        value={orderDetails.customerPhone}
                         onChange={(e) =>
                           setOrderDetails({ ...orderDetails, customerPhone: e.target.value })
                         }
                         disabled={isSubmittingOrder}
-                        placeholder="03XX-XXXXXXX (Optional)"
+                        placeholder="03XX-XXXXXXX"
                         className="w-full px-3 sm:px-4 py-2 sm:py-3 border-2 border-slate-200 rounded-lg sm:rounded-xl focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 transition-all disabled:opacity-50 text-sm sm:text-base"
                       />
                     </div>
@@ -1288,7 +1288,23 @@ export default function POSPage() {
                 </div>
               </div>
 
-             
+              {/* Notes - Optional */}
+              <div>
+                <label className="block text-slate-700 font-semibold mb-2 text-xs sm:text-sm flex items-center gap-1.5">
+                  <MessageSquare className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-600" />
+                  Order Notes (Optional)
+                </label>
+                <input
+                  value={orderDetails.notes}
+                  onChange={(e) =>
+                    setOrderDetails({ ...orderDetails, notes: e.target.value })
+                  }
+                  disabled={isSubmittingOrder}
+                  placeholder="Special instructions..."
+                  rows={2}
+                  className="w-full px-3 sm:px-4 py-2 sm:py-3 border-2 border-slate-200 rounded-lg sm:rounded-xl focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 transition-all resize-none disabled:opacity-50 text-sm sm:text-base"
+                />
+              </div>
 
               {/* Buttons - Stack on mobile */}
               <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 pt-2 sticky bottom-0 sm:static bg-white sm:bg-transparent pb-2 sm:pb-0">
