@@ -301,10 +301,7 @@ export default function POSPage() {
         return
       }
     }
-    if (orderDetails.orderType === 'takeaway' && !orderDetails.customerName) {
-      showNotification('Please enter customer name', 'error')
-      return
-    }
+
 
     setIsSubmittingOrder(true)
 
@@ -1167,12 +1164,12 @@ export default function POSPage() {
                       </label>
                       <input
                         type="text"
-                        value={orderDetails.customerName}
+                        value={orderDetails.customerName }
                         onChange={(e) =>
                           setOrderDetails({ ...orderDetails, customerName: e.target.value })
                         }
                         disabled={isSubmittingOrder}
-                        placeholder="Enter name"
+                        placeholder="Enter name (Optional)"
                         className="w-full px-3 sm:px-4 py-2 sm:py-3 border-2 border-slate-200 rounded-lg sm:rounded-xl focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 transition-all disabled:opacity-50 text-sm sm:text-base"
                       />
                     </div>
@@ -1184,12 +1181,12 @@ export default function POSPage() {
                       </label>
                       <input
                         type="tel"
-                        value={orderDetails.customerPhone}
+                        value={orderDetails.customerPhone }
                         onChange={(e) =>
                           setOrderDetails({ ...orderDetails, customerPhone: e.target.value })
                         }
                         disabled={isSubmittingOrder}
-                        placeholder="03XX-XXXXXXX"
+                        placeholder="03XX-XXXXXXX (Optional)"
                         className="w-full px-3 sm:px-4 py-2 sm:py-3 border-2 border-slate-200 rounded-lg sm:rounded-xl focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 transition-all disabled:opacity-50 text-sm sm:text-base"
                       />
                     </div>
