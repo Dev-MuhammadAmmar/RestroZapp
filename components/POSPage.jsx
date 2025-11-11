@@ -684,7 +684,7 @@ export default function POSPage() {
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="bg-white rounded-xl sm:rounded-2xl p-3 sm:p-4 shadow-sm border h-[44vh] overflow-x-scroll border-slate-100"
+                className="bg-white rounded-xl sm:rounded-2xl p-3 sm:p-4 shadow-sm border h-[50vh] overflow-x-scroll border-slate-100"
               >
                 {isLoadingMenuItems ? (
                   <div className="flex justify-center items-center py-16">
@@ -1169,7 +1169,7 @@ export default function POSPage() {
                           setOrderDetails({ ...orderDetails, customerName: e.target.value })
                         }
                         disabled={isSubmittingOrder}
-                        placeholder="Enter name"
+                        placeholder={`Enter name ${orderDetails.orderType==="takeaway"?"(Optional)":""}`}
                         className="w-full px-3 sm:px-4 py-2 sm:py-3 border-2 border-slate-200 rounded-lg sm:rounded-xl focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 transition-all disabled:opacity-50 text-sm sm:text-base"
                       />
                     </div>
@@ -1186,7 +1186,7 @@ export default function POSPage() {
                           setOrderDetails({ ...orderDetails, customerPhone: e.target.value })
                         }
                         disabled={isSubmittingOrder}
-                        placeholder="03XX-XXXXXXX"
+                        placeholder={`03XX-XXXXXXX ${orderDetails.orderType==="takeaway"?"(Optional)":""}`}
                         className="w-full px-3 sm:px-4 py-2 sm:py-3 border-2 border-slate-200 rounded-lg sm:rounded-xl focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 transition-all disabled:opacity-50 text-sm sm:text-base"
                       />
                     </div>
@@ -1237,7 +1237,7 @@ export default function POSPage() {
                 <div>
                   <label className="block text-slate-700 font-semibold mb-2 text-xs sm:text-sm flex items-center gap-1.5">
                     <Percent className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-600" />
-                    Tax %
+                   Service Charges %
                   </label>
                   <input
                     type="number"
@@ -1263,7 +1263,7 @@ export default function POSPage() {
                     onChange={(e) =>
                       setOrderDetails({ ...orderDetails, deliveryCharge: parseFloat(e.target.value) || 0 })
                     }
-                    disabled={isSubmittingOrder}
+                    disabled={isSubmittingOrder|| orderDetails.orderType==="dine-in" || orderDetails.orderType==="takeaway"}
                     min="0"
                     className="w-full px-2 sm:px-4 py-2 sm:py-3 border-2 border-slate-200 rounded-lg sm:rounded-xl focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 transition-all disabled:opacity-50 text-xs sm:text-base"
                   />
