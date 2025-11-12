@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Search,
@@ -13,7 +13,7 @@ import {
   CreditCard,
   Utensils,
   Package,
-  CheckCircle,
+  CheckCircle,  
   AlertCircle,
   ShoppingBag,
   Calendar,
@@ -25,6 +25,9 @@ import {
   CalendarRange,
   SlidersHorizontal,
   XCircle,
+  Loader2,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 
 // Status configuration with colors
@@ -75,7 +78,7 @@ const orderTypeConfig = {
 
 export default function OrdersPage() {
   const [orders, setOrders] = useState([]);
-  const [filteredOrders, setFilteredOrders] = useState([]);
+  const [allOrders, setAllOrders] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
   const [selectedOrder, setSelectedOrder] = useState(null);
@@ -84,6 +87,12 @@ export default function OrdersPage() {
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [isSearching, setIsSearching] = useState(false);
+  
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(100);
+  const [totalPages, setTotalPages] = useState(1);
   
   // Date range filters
   const [dateFrom, setDateFrom] = useState('');
@@ -91,28 +100,27 @@ export default function OrdersPage() {
   const [sortOrder, setSortOrder] = useState('desc');
   const [orderType, setOrderType] = useState('All');
 
-  // Fetch orders on mount
+  // Debounce search
+  const searchTimeoutRef = useRef(null);
+
+  // Fetch initial orders (100 most recent)
   useEffect(() => {
-    fetchOrders();
+    fetchInitialOrders();
   }, []);
 
-  const fetchOrders = async () => {
+  const fetchInitialOrders = async () => {
     try {
       setLoading(true);
       setError(null);
       
-      // Import the server action
       const { getOrders } = await import('@/lib/actions/orders');
       
-      const filters = {};
-      if (dateFrom) filters.startDate = dateFrom;
-      if (dateTo) filters.endDate = dateTo;
-      
-      const result = await getOrders(filters);
+      const result = await getOrders({ limit: 100 });
       
       if (result.success) {
         setOrders(result.data);
-        setFilteredOrders(result.data);
+        setAllOrders(result.data);
+        setTotalPages(Math.ceil(result.data.length / itemsPerPage));
       } else {
         setError(result.error || 'Failed to fetch orders');
       }
@@ -124,6 +132,76 @@ export default function OrdersPage() {
     }
   };
 
+  // Search with filters
+  const performSearch = useCallback(async () => {
+    if (!searchQuery.trim() && !dateFrom && !dateTo && statusFilter === 'All' && orderType === 'All') {
+      setOrders(allOrders);
+      return;
+    }
+
+    try {
+      setIsSearching(true);
+      const { getOrders } = await import('@/lib/actions/orders');
+      
+      const filters = {};
+      if (dateFrom) filters.startDate = dateFrom;
+      if (dateTo) filters.endDate = dateTo;
+      if (statusFilter !== 'All') filters.status = statusFilter.toLowerCase();
+      if (orderType !== 'All') filters.orderType = orderType.toLowerCase();
+      
+      const result = await getOrders(filters);
+      
+      if (result.success) {
+        let filtered = result.data;
+        
+        if (searchQuery.trim()) {
+          const query = searchQuery.toLowerCase();
+          filtered = filtered.filter(
+            order =>
+              order.orderNumber?.toLowerCase().includes(query) ||
+              order.customerName?.toLowerCase().includes(query) ||
+              order.tableNumber?.toLowerCase().includes(query)
+          );
+        }
+        
+        setOrders(filtered);
+        setAllOrders(filtered);
+        setTotalPages(Math.ceil(filtered.length / itemsPerPage));
+        setCurrentPage(1);
+      }
+    } catch (err) {
+      console.error('Error searching orders:', err);
+    } finally {
+      setIsSearching(false);
+    }
+  }, [searchQuery, dateFrom, dateTo, statusFilter, orderType, allOrders, itemsPerPage]);
+
+  // Debounced search
+  useEffect(() => {
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+
+    searchTimeoutRef.current = setTimeout(() => {
+      if (searchQuery.trim()) {
+        performSearch();
+      } else if (!dateFrom && !dateTo && statusFilter === 'All' && orderType === 'All') {
+        setOrders(allOrders);
+      }
+    }, 500);
+
+    return () => {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
+    };
+  }, [searchQuery, performSearch, dateFrom, dateTo, statusFilter, orderType, allOrders]);
+
+  // Apply filters when changed
+  useEffect(() => {
+    performSearch();
+  }, [dateFrom, dateTo, statusFilter, orderType]);
+
   // Calculate statistics
   const stats = {
     total: orders.length,
@@ -134,57 +212,24 @@ export default function OrdersPage() {
     avgOrder: orders.length > 0 ? Math.round(orders.reduce((sum, o) => sum + o.total, 0) / orders.length) : 0,
   };
 
-  // Filter and sort orders
-  useEffect(() => {
-    let filtered = [...orders];
-
-    // Filter by status
-    if (statusFilter !== 'All') {
-      filtered = filtered.filter(order => order.status === statusFilter.toLowerCase());
-    }
-
-    // Filter by order type
-    if (orderType !== 'All') {
-      filtered = filtered.filter(order => order.orderType === orderType.toLowerCase());
-    }
-
-    // Filter by date range
-    if (dateFrom) {
-      const fromDate = new Date(dateFrom);
-      fromDate.setHours(0, 0, 0, 0);
-      filtered = filtered.filter(order => new Date(order.orderDate) >= fromDate);
-    }
-    if (dateTo) {
-      const toDate = new Date(dateTo);
-      toDate.setHours(23, 59, 59, 999);
-      filtered = filtered.filter(order => new Date(order.orderDate) <= toDate);
-    }
-
-    // Filter by search query (Order Number, Customer Name, or Table Number)
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(
-        order =>
-          order.orderNumber?.toLowerCase().includes(query) ||
-          order.customerName?.toLowerCase().includes(query) ||
-          order.tableNumber?.toLowerCase().includes(query)
-      );
-    }
-
-    // Sort by date
-    filtered.sort((a, b) => {
+  // Paginated and sorted orders
+  const displayedOrders = React.useMemo(() => {
+    const sorted = [...orders].sort((a, b) => {
       const dateA = new Date(a.orderDate).getTime();
       const dateB = new Date(b.orderDate).getTime();
       return sortOrder === 'desc' ? dateB - dateA : dateA - dateB;
     });
 
-    setFilteredOrders(filtered);
-  }, [orders, statusFilter, orderType, searchQuery, dateFrom, dateTo, sortOrder]);
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    return sorted.slice(startIndex, endIndex);
+  }, [orders, sortOrder, currentPage, itemsPerPage]);
 
   // Handle refresh button
   const handleRefresh = async () => {
     setIsRefreshing(true);
-    await fetchOrders();
+    await fetchInitialOrders();
+    handleClearFilters();
     setTimeout(() => setIsRefreshing(false), 1000);
   };
 
@@ -196,13 +241,15 @@ export default function OrdersPage() {
     setDateFrom('');
     setDateTo('');
     setSortOrder('desc');
+    setCurrentPage(1);
+    setOrders(allOrders);
   };
 
   // Export to CSV
   const handleExport = () => {
     const csvContent = [
       ['Order Number', 'Customer', 'Type', 'Table', 'Total', 'Payment', 'Status', 'Date', 'Time'],
-      ...filteredOrders.map(order => {
+      ...orders.map(order => {
         const date = new Date(order.orderDate);
         return [
           order.orderNumber,
@@ -241,8 +288,8 @@ export default function OrdersPage() {
       const result = await updateOrderStatus(orderId, newStatus);
       
       if (result.success) {
-        // Update local state
         setOrders(prev => prev.map(o => o._id === orderId ? result.data : o));
+        setAllOrders(prev => prev.map(o => o._id === orderId ? result.data : o));
         if (selectedOrder && selectedOrder._id === orderId) {
           setSelectedOrder(result.data);
         }
@@ -264,7 +311,7 @@ export default function OrdersPage() {
       const result = await cancelOrder(orderId);
       
       if (result.success) {
-        await fetchOrders();
+        await fetchInitialOrders();
         setIsModalOpen(false);
       } else {
         alert(result.error || 'Failed to cancel order');
@@ -304,7 +351,7 @@ export default function OrdersPage() {
     return (
       <div className="min-h-screen bg-[#f5f7fa] flex items-center justify-center">
         <div className="text-center">
-          <RefreshCw className="w-12 h-12 text-[#10b981] animate-spin mx-auto mb-4" />
+          <Loader2 className="w-12 h-12 text-[#10b981] animate-spin mx-auto mb-4" />
           <p className="text-[#64748b] text-lg">Loading orders...</p>
         </div>
       </div>
@@ -313,13 +360,13 @@ export default function OrdersPage() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-[#f5f7fa] flex items-center justify-center p-8">
+      <div className="min-h-screen bg-[#f5f7fa] flex items-center justify-center p-4">
         <div className="bg-white rounded-xl p-8 shadow-lg max-w-md w-full text-center">
           <AlertCircle className="w-16 h-16 text-[#ef4444] mx-auto mb-4" />
           <h2 className="text-2xl font-bold text-[#1e293b] mb-2">Error Loading Orders</h2>
           <p className="text-[#64748b] mb-6">{error}</p>
           <button
-            onClick={fetchOrders}
+            onClick={fetchInitialOrders}
             className="px-6 py-3 bg-[#10b981] text-white rounded-lg hover:bg-[#059669] transition-all font-medium"
           >
             Try Again
@@ -330,49 +377,50 @@ export default function OrdersPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#f5f7fa] p-8">
+    <div className="min-h-screen bg-[#f5f7fa] p-4 md:p-8">
       <div className="max-w-[1600px] mx-auto">
         {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="mb-8 flex items-center justify-between flex-wrap gap-4"
+          className="mb-6 md:mb-8 flex items-center justify-between flex-wrap gap-4"
         >
           <div>
-            <h1 className="text-3xl font-bold text-[#1e293b] mb-2 flex items-center gap-3">
-              <ShoppingBag className="w-8 h-8 text-[#10b981]" />
+            <h1 className="text-2xl md:text-3xl font-bold text-[#1e293b] mb-2 flex items-center gap-3">
+              <ShoppingBag className="w-6 h-6 md:w-8 md:h-8 text-[#10b981]" />
               Orders Management
             </h1>
-            <p className="text-[#64748b]">
-              Track and manage all customer orders with advanced filtering
+            <p className="text-sm md:text-base text-[#64748b]">
+              Track and manage all customer orders
             </p>
           </div>
-          <div className="flex gap-3">
+          <div className="flex gap-2 md:gap-3">
             <button
               onClick={handleExport}
-              className="flex items-center gap-2 px-6 py-3 bg-[#8b5cf6] text-white rounded-lg hover:bg-[#7c3aed] transition-all font-medium shadow-md"
+              disabled={orders.length === 0}
+              className="flex items-center gap-2 px-4 md:px-6 py-2 md:py-3 bg-[#8b5cf6] text-white rounded-lg hover:bg-[#7c3aed] transition-all font-medium shadow-md text-sm md:text-base disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <Download className="w-5 h-5" />
-              Export CSV
+              <Download className="w-4 h-4 md:w-5 md:h-5" />
+              <span className="hidden sm:inline">Export</span>
             </button>
           </div>
         </motion.div>
 
         {/* Statistics Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-6 mb-8">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 md:gap-6 mb-6 md:mb-8">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 }}
-            className="bg-white rounded-xl p-6 shadow-sm border-l-4 border-[#10b981]"
+            className="bg-white rounded-xl p-4 md:p-6 shadow-sm border-l-4 border-[#10b981]"
           >
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-[#64748b] text-sm mb-1">Total Orders</p>
-                <p className="text-3xl font-bold text-[#1e293b]">{stats.total}</p>
+                <p className="text-[#64748b] text-xs md:text-sm mb-1">Total</p>
+                <p className="text-xl md:text-3xl font-bold text-[#1e293b]">{stats.total}</p>
               </div>
-              <div className="bg-[#10b981] p-3 rounded-xl">
-                <ShoppingBag className="w-6 h-6 text-white" />
+              <div className="bg-[#10b981] p-2 md:p-3 rounded-xl">
+                <ShoppingBag className="w-4 h-4 md:w-6 md:h-6 text-white" />
               </div>
             </div>
           </motion.div>
@@ -381,15 +429,15 @@ export default function OrdersPage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
-            className="bg-white rounded-xl p-6 shadow-sm border-l-4 border-[#f59e0b]"
+            className="bg-white rounded-xl p-4 md:p-6 shadow-sm border-l-4 border-[#f59e0b]"
           >
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-[#64748b] text-sm mb-1">Pending</p>
-                <p className="text-3xl font-bold text-[#1e293b]">{stats.pending}</p>
+                <p className="text-[#64748b] text-xs md:text-sm mb-1">Pending</p>
+                <p className="text-xl md:text-3xl font-bold text-[#1e293b]">{stats.pending}</p>
               </div>
-              <div className="bg-[#f59e0b] p-3 rounded-xl">
-                <Clock className="w-6 h-6 text-white" />
+              <div className="bg-[#f59e0b] p-2 md:p-3 rounded-xl">
+                <Clock className="w-4 h-4 md:w-6 md:h-6 text-white" />
               </div>
             </div>
           </motion.div>
@@ -398,15 +446,15 @@ export default function OrdersPage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.3 }}
-            className="bg-white rounded-xl p-6 shadow-sm border-l-4 border-[#3b82f6]"
+            className="bg-white rounded-xl p-4 md:p-6 shadow-sm border-l-4 border-[#3b82f6]"
           >
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-[#64748b] text-sm mb-1">Preparing</p>
-                <p className="text-3xl font-bold text-[#1e293b]">{stats.preparing}</p>
+                <p className="text-[#64748b] text-xs md:text-sm mb-1">Preparing</p>
+                <p className="text-xl md:text-3xl font-bold text-[#1e293b]">{stats.preparing}</p>
               </div>
-              <div className="bg-[#3b82f6] p-3 rounded-xl">
-                <Utensils className="w-6 h-6 text-white" />
+              <div className="bg-[#3b82f6] p-2 md:p-3 rounded-xl">
+                <Utensils className="w-4 h-4 md:w-6 md:h-6 text-white" />
               </div>
             </div>
           </motion.div>
@@ -415,15 +463,15 @@ export default function OrdersPage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.4 }}
-            className="bg-white rounded-xl p-6 shadow-sm border-l-4 border-[#10b981]"
+            className="bg-white rounded-xl p-4 md:p-6 shadow-sm border-l-4 border-[#10b981]"
           >
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-[#64748b] text-sm mb-1">Completed</p>
-                <p className="text-3xl font-bold text-[#1e293b]">{stats.completed}</p>
+                <p className="text-[#64748b] text-xs md:text-sm mb-1">Completed</p>
+                <p className="text-xl md:text-3xl font-bold text-[#1e293b]">{stats.completed}</p>
               </div>
-              <div className="bg-[#10b981] p-3 rounded-xl">
-                <CheckCircle className="w-6 h-6 text-white" />
+              <div className="bg-[#10b981] p-2 md:p-3 rounded-xl">
+                <CheckCircle className="w-4 h-4 md:w-6 md:h-6 text-white" />
               </div>
             </div>
           </motion.div>
@@ -432,15 +480,15 @@ export default function OrdersPage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.5 }}
-            className="bg-white rounded-xl p-6 shadow-sm border-l-4 border-[#8b5cf6]"
+            className="bg-white rounded-xl p-4 md:p-6 shadow-sm border-l-4 border-[#8b5cf6]"
           >
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-[#64748b] text-sm mb-1">Revenue</p>
-                <p className="text-2xl font-bold text-[#1e293b]">₨{stats.revenue.toLocaleString()}</p>
+                <p className="text-[#64748b] text-xs md:text-sm mb-1">Revenue</p>
+                <p className="text-lg md:text-2xl font-bold text-[#1e293b]">₨{stats.revenue.toLocaleString()}</p>
               </div>
-              <div className="bg-[#8b5cf6] p-3 rounded-xl">
-                <TrendingUp className="w-6 h-6 text-white" />
+              <div className="bg-[#8b5cf6] p-2 md:p-3 rounded-xl">
+                <TrendingUp className="w-4 h-4 md:w-6 md:h-6 text-white" />
               </div>
             </div>
           </motion.div>
@@ -449,15 +497,15 @@ export default function OrdersPage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.6 }}
-            className="bg-white rounded-xl p-6 shadow-sm border-l-4 border-[#06b6d4]"
+            className="bg-white rounded-xl p-4 md:p-6 shadow-sm border-l-4 border-[#06b6d4]"
           >
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-[#64748b] text-sm mb-1">Avg Order</p>
-                <p className="text-2xl font-bold text-[#1e293b]">₨{stats.avgOrder}</p>
+                <p className="text-[#64748b] text-xs md:text-sm mb-1">Avg Order</p>
+                <p className="text-lg md:text-2xl font-bold text-[#1e293b]">₨{stats.avgOrder}</p>
               </div>
-              <div className="bg-[#06b6d4] p-3 rounded-xl">
-                <DollarSign className="w-6 h-6 text-white" />
+              <div className="bg-[#06b6d4] p-2 md:p-3 rounded-xl">
+                <DollarSign className="w-4 h-4 md:w-6 md:h-6 text-white" />
               </div>
             </div>
           </motion.div>
@@ -468,7 +516,7 @@ export default function OrdersPage() {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.7 }}
-          className="bg-white rounded-xl p-6 shadow-sm mb-6"
+          className="bg-white rounded-xl p-4 md:p-6 shadow-sm mb-6"
         >
           {/* Main Filter Row */}
           <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between mb-4">
@@ -477,25 +525,28 @@ export default function OrdersPage() {
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#94a3b8]" />
               <input
                 type="text"
-                placeholder="Search by Order #, Customer, or Table..."
+                placeholder="Search by Order #, Customer, Table..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-12 pr-4 py-3 bg-[#f8fafc] border border-[#e2e8f0] rounded-lg focus:outline-none focus:border-[#10b981] focus:ring-2 focus:ring-[#10b981]/20 transition-all text-[#1e293b]"
+                className="w-full pl-12 pr-4 py-3 bg-[#f8fafc] border border-[#e2e8f0] rounded-lg focus:outline-none focus:border-[#10b981] focus:ring-2 focus:ring-[#10b981]/20 transition-all text-[#1e293b] text-sm md:text-base"
               />
+              {isSearching && (
+                <Loader2 className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#10b981] animate-spin" />
+              )}
             </div>
 
             {/* Action Buttons */}
-            <div className="flex gap-3 flex-wrap">
+            <div className="flex gap-2 md:gap-3 flex-wrap w-full lg:w-auto">
               <button
                 onClick={() => setIsFilterOpen(!isFilterOpen)}
-                className={`flex items-center gap-2 px-4 py-3 rounded-lg font-medium transition-all ${
+                className={`flex items-center gap-2 px-3 md:px-4 py-2 md:py-3 rounded-lg font-medium transition-all text-sm md:text-base ${
                   isFilterOpen || activeFiltersCount > 0
                     ? 'bg-[#10b981] text-white shadow-md'
                     : 'bg-[#f1f5f9] text-[#475569] hover:bg-[#e2e8f0]'
                 }`}
               >
-                <SlidersHorizontal className="w-5 h-5" />
-                Filters
+                <SlidersHorizontal className="w-4 h-4 md:w-5 md:h-5" />
+                <span className="hidden sm:inline">Filters</span>
                 {activeFiltersCount > 0 && (
                   <span className="px-2 py-0.5 bg-white text-[#10b981] rounded-full text-xs font-bold">
                     {activeFiltersCount}
@@ -505,20 +556,21 @@ export default function OrdersPage() {
 
               <button
                 onClick={() => setSortOrder(sortOrder === 'desc' ? 'asc' : 'desc')}
-                className="flex items-center gap-2 px-4 py-3 bg-[#f1f5f9] text-[#475569] rounded-lg hover:bg-[#e2e8f0] transition-all font-medium"
+                className="flex items-center gap-2 px-3 md:px-4 py-2 md:py-3 bg-[#f1f5f9] text-[#475569] rounded-lg hover:bg-[#e2e8f0] transition-all font-medium text-sm md:text-base"
               >
-                <ArrowUpDown className="w-5 h-5" />
-                {sortOrder === 'desc' ? 'Newest' : 'Oldest'}
+                <ArrowUpDown className="w-4 h-4 md:w-5 md:h-5" />
+                <span className="hidden sm:inline">{sortOrder === 'desc' ? 'Newest' : 'Oldest'}</span>
               </button>
 
               <button
                 onClick={handleRefresh}
-                className={`p-3 bg-[#10b981] text-white rounded-lg hover:bg-[#059669] transition-all shadow-md ${
+                disabled={isRefreshing}
+                className={`p-2 md:p-3 bg-[#10b981] text-white rounded-lg hover:bg-[#059669] transition-all shadow-md ${
                   isRefreshing ? 'animate-spin' : ''
                 }`}
                 aria-label="Refresh orders"
               >
-                <RefreshCw className="w-5 h-5" />
+                <RefreshCw className="w-4 h-4 md:w-5 md:h-5" />
               </button>
             </div>
           </div>
@@ -545,7 +597,7 @@ export default function OrdersPage() {
                         type="date"
                         value={dateFrom}
                         onChange={(e) => setDateFrom(e.target.value)}
-                        className="w-full px-4 py-2 bg-[#f8fafc] border border-[#e2e8f0] rounded-lg focus:outline-none focus:border-[#10b981] focus:ring-2 focus:ring-[#10b981]/20 transition-all text-[#1e293b]"
+                        className="w-full px-4 py-2 bg-[#f8fafc] border border-[#e2e8f0] rounded-lg focus:outline-none focus:border-[#10b981] focus:ring-2 focus:ring-[#10b981]/20 transition-all text-[#1e293b] text-sm"
                       />
                     </div>
 
@@ -559,7 +611,7 @@ export default function OrdersPage() {
                         type="date"
                         value={dateTo}
                         onChange={(e) => setDateTo(e.target.value)}
-                        className="w-full px-4 py-2 bg-[#f8fafc] border border-[#e2e8f0] rounded-lg focus:outline-none focus:border-[#10b981] focus:ring-2 focus:ring-[#10b981]/20 transition-all text-[#1e293b]"
+                        className="w-full px-4 py-2 bg-[#f8fafc] border border-[#e2e8f0] rounded-lg focus:outline-none focus:border-[#10b981] focus:ring-2 focus:ring-[#10b981]/20 transition-all text-[#1e293b] text-sm"
                       />
                     </div>
 
@@ -573,7 +625,7 @@ export default function OrdersPage() {
                         <select
                           value={orderType}
                           onChange={(e) => setOrderType(e.target.value)}
-                          className="w-full px-4 py-2 bg-[#f8fafc] border border-[#e2e8f0] rounded-lg focus:outline-none focus:border-[#10b981] focus:ring-2 focus:ring-[#10b981]/20 transition-all text-[#1e293b] appearance-none"
+                          className="w-full px-4 py-2 bg-[#f8fafc] border border-[#e2e8f0] rounded-lg focus:outline-none focus:border-[#10b981] focus:ring-2 focus:ring-[#10b981]/20 transition-all text-[#1e293b] appearance-none text-sm"
                         >
                           <option value="All">All Types</option>
                           <option value="dine-in">Dine-in</option>
@@ -588,22 +640,23 @@ export default function OrdersPage() {
                     <div className="flex items-end">
                       <button
                         onClick={handleClearFilters}
-                        className="w-full px-4 py-2 bg-[#ef4444] text-white rounded-lg hover:bg-[#dc2626] transition-all font-medium"
+                        disabled={activeFiltersCount === 0}
+                        className="w-full px-4 py-2 bg-[#ef4444] text-white rounded-lg hover:bg-[#dc2626] transition-all font-medium disabled:opacity-50 disabled:cursor-not-allowed text-sm"
                       >
-                        Clear All Filters
+                        Clear All
                       </button>
                     </div>
                   </div>
 
                   {/* Status Filter Pills */}
                   <div className="mt-4 pt-4 border-t border-[#e2e8f0]">
-                    <p className="text-[#475569] font-medium mb-3 text-sm">Status Filter:</p>
+                    <p className="text-[#475569] font-medium mb-3 text-sm">Status:</p>
                     <div className="flex gap-2 flex-wrap">
                       {['All', 'Pending', 'Preparing', 'Ready', 'Completed', 'Cancelled'].map((status) => (
                         <button
                           key={status}
                           onClick={() => setStatusFilter(status)}
-                          className={`px-4 py-2 rounded-lg font-medium transition-all ${
+                          className={`px-3 md:px-4 py-2 rounded-lg font-medium transition-all text-sm ${
                             statusFilter === status
                               ? 'bg-[#10b981] text-white shadow-md'
                               : 'bg-[#f1f5f9] text-[#475569] hover:bg-[#e2e8f0]'
@@ -619,18 +672,44 @@ export default function OrdersPage() {
             )}
           </AnimatePresence>
 
-          {/* Results Summary */}
-          <div className="mt-4 pt-4 border-t border-[#e2e8f0]">
-            <p className="text-[#64748b] text-sm">
-              Showing <span className="font-bold text-[#10b981]">{filteredOrders.length}</span> of{' '}
+          {/* Results Summary & Pagination */}
+          <div className="mt-4 pt-4 border-t border-[#e2e8f0] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <p className="text-[#64748b] text-xs md:text-sm">
+              Showing <span className="font-bold text-[#10b981]">{displayedOrders.length}</span> of{' '}
               <span className="font-bold text-[#1e293b]">{orders.length}</span> orders
-              {dateFrom && dateTo && (
-                <span className="ml-2">
-                  from <span className="font-semibold">{dateFrom}</span> to{' '}
-                  <span className="font-semibold">{dateTo}</span>
+              {(dateFrom || dateTo) && (
+                <span className="ml-2 text-xs">
+                  {dateFrom && <span>from <span className="font-semibold">{dateFrom}</span></span>}
+                  {dateFrom && dateTo && ' '}
+                  {dateTo && <span>to <span className="font-semibold">{dateTo}</span></span>}
                 </span>
               )}
             </p>
+            
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                  disabled={currentPage === 1}
+                  className="p-2 rounded-lg bg-[#f1f5f9] text-[#475569] hover:bg-[#e2e8f0] disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                  aria-label="Previous page"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                <span className="text-sm text-[#64748b] px-2">
+                  Page {currentPage} of {totalPages}
+                </span>
+                <button
+                  onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                  disabled={currentPage === totalPages}
+                  className="p-2 rounded-lg bg-[#f1f5f9] text-[#475569] hover:bg-[#e2e8f0] disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                  aria-label="Next page"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+            )}
           </div>
         </motion.div>
 
@@ -672,8 +751,8 @@ export default function OrdersPage() {
                 </tr>
               </thead>
               <tbody>
-                <AnimatePresence>
-                  {filteredOrders.map((order, index) => {
+                <AnimatePresence mode="popLayout">
+                  {displayedOrders.map((order, index) => {
                     const status = statusConfig[order.status] || statusConfig.pending;
                     const StatusIcon = status.icon;
                     const orderTypeInfo = orderTypeConfig[order.orderType] || orderTypeConfig['dine-in'];
@@ -684,7 +763,7 @@ export default function OrdersPage() {
                         initial={{ opacity: 0, x: -20 }}
                         animate={{ opacity: 1, x: 0 }}
                         exit={{ opacity: 0, x: 20 }}
-                        transition={{ delay: index * 0.05 }}
+                        transition={{ delay: index * 0.03 }}
                         className="border-b border-[#f1f5f9] hover:bg-[#f8fafc] transition-all"
                       >
                         <td className="px-6 py-4 font-bold text-[#1e293b]">
@@ -753,12 +832,54 @@ export default function OrdersPage() {
               </tbody>
             </table>
           </div>
+
+          {/* Table Pagination */}
+          {totalPages > 1 && (
+            <div className="px-6 py-4 border-t border-[#e2e8f0] flex items-center justify-between bg-[#f8fafc]">
+              <p className="text-sm text-[#64748b]">
+                Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, orders.length)} of {orders.length} orders
+              </p>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setCurrentPage(1)}
+                  disabled={currentPage === 1}
+                  className="px-3 py-2 rounded-lg bg-white border border-[#e2e8f0] text-[#475569] hover:bg-[#f8fafc] disabled:opacity-50 disabled:cursor-not-allowed transition-all text-sm"
+                >
+                  First
+                </button>
+                <button
+                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                  disabled={currentPage === 1}
+                  className="p-2 rounded-lg bg-white border border-[#e2e8f0] text-[#475569] hover:bg-[#f8fafc] disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                <span className="text-sm text-[#64748b] px-3">
+                  Page {currentPage} of {totalPages}
+                </span>
+                <button
+                  onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                  disabled={currentPage === totalPages}
+                  className="p-2 rounded-lg bg-white border border-[#e2e8f0] text-[#475569] hover:bg-[#f8fafc] disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => setCurrentPage(totalPages)}
+                  disabled={currentPage === totalPages}
+                  className="px-3 py-2 rounded-lg bg-white border border-[#e2e8f0] text-[#475569] hover:bg-[#f8fafc] disabled:opacity-50 disabled:cursor-not-allowed transition-all text-sm"
+                >
+                  Last
+                </button>
+              </div>
+            </div>
+          )}
         </motion.div>
 
         {/* Orders Cards - Mobile View */}
         <div className="md:hidden space-y-4">
-          <AnimatePresence>
-            {filteredOrders.map((order, index) => {
+          <AnimatePresence mode="popLayout">
+            {displayedOrders.map((order, index) => {
               const status = statusConfig[order.status] || statusConfig.pending;
               const StatusIcon = status.icon;
               const orderTypeInfo = orderTypeConfig[order.orderType] || orderTypeConfig['dine-in'];
@@ -769,46 +890,46 @@ export default function OrdersPage() {
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -20 }}
-                  transition={{ delay: index * 0.05 }}
-                  className="bg-white rounded-xl shadow-sm p-6 border-l-4"
+                  transition={{ delay: index * 0.03 }}
+                  className="bg-white rounded-xl shadow-sm p-5 border-l-4"
                   style={{ borderLeftColor: status.color }}
                 >
                   <div className="flex items-start justify-between mb-4">
-                    <div>
-                      <p className="font-bold text-[#1e293b] text-lg">{order.orderNumber}</p>
-                      <p className="text-sm text-[#64748b] mt-1">{order.customerName || 'Guest'}</p>
-                      <p className="text-xs text-[#94a3b8] mt-1 flex items-center gap-1">
+                    <div className="flex-1">
+                      <p className="font-bold text-[#1e293b] text-base mb-1">{order.orderNumber}</p>
+                      <p className="text-sm text-[#64748b]">{order.customerName || 'Guest'}</p>
+                      <p className="text-xs text-[#94a3b8] mt-2 flex items-center gap-1">
                         <Calendar className="w-3 h-3" />
                         {formatDate(order.orderDate)} • <Clock className="w-3 h-3" /> {formatTime(order.orderDate)}
                       </p>
                     </div>
                     <span
-                      className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium"
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium"
                       style={{
                         backgroundColor: status.bgColor,
                         color: status.textColor,
                       }}
                     >
-                      <StatusIcon className="w-4 h-4" />
+                      <StatusIcon className="w-3.5 h-3.5" />
                       {status.label}
                     </span>
                   </div>
 
-                  <div className="space-y-3 mb-4">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[#64748b] text-sm">Type:</span>
+                  <div className="space-y-2.5 mb-4">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-[#64748b]">Type:</span>
                       <span className="font-medium text-[#1e293b]">
                         {orderTypeInfo.icon} {orderTypeInfo.label}
                         {order.tableNumber && order.orderType === 'dine-in' && ` ${order.tableNumber}`}
                       </span>
                     </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-[#64748b] text-sm">Payment:</span>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-[#64748b]">Payment:</span>
                       <span className="font-medium text-[#1e293b]">{order.paymentMethod}</span>
                     </div>
-                    <div className="flex items-center justify-between pt-3 border-t border-[#f1f5f9]">
-                      <span className="text-[#64748b] font-medium">Total:</span>
-                      <span className="font-bold text-[#10b981] text-xl">
+                    <div className="flex items-center justify-between pt-2.5 border-t border-[#f1f5f9]">
+                      <span className="text-[#64748b] font-medium text-sm">Total:</span>
+                      <span className="font-bold text-[#10b981] text-lg">
                         ₨{order.total.toLocaleString()}
                       </span>
                     </div>
@@ -816,28 +937,53 @@ export default function OrdersPage() {
 
                   <button
                     onClick={() => handleViewOrder(order)}
-                    className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-[#10b981] text-white rounded-lg hover:bg-[#059669] transition-all font-medium shadow-md"
+                    className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-[#10b981] text-white rounded-lg hover:bg-[#059669] transition-all font-medium shadow-md text-sm"
                   >
-                    <Eye className="w-5 h-5" />
+                    <Eye className="w-4 h-4" />
                     View Details
                   </button>
                 </motion.div>
               );
             })}
           </AnimatePresence>
+
+          {/* Mobile Pagination */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between bg-white rounded-xl shadow-sm p-4">
+              <button
+                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                disabled={currentPage === 1}
+                className="flex items-center gap-2 px-4 py-2 bg-[#f1f5f9] text-[#475569] rounded-lg hover:bg-[#e2e8f0] disabled:opacity-50 disabled:cursor-not-allowed transition-all text-sm font-medium"
+              >
+                <ChevronLeft className="w-4 h-4" />
+                Previous
+              </button>
+              <span className="text-sm text-[#64748b] font-medium">
+                {currentPage} / {totalPages}
+              </span>
+              <button
+                onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                disabled={currentPage === totalPages}
+                className="flex items-center gap-2 px-4 py-2 bg-[#f1f5f9] text-[#475569] rounded-lg hover:bg-[#e2e8f0] disabled:opacity-50 disabled:cursor-not-allowed transition-all text-sm font-medium"
+              >
+                Next
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Empty State */}
-        {filteredOrders.length === 0 && (
+        {displayedOrders.length === 0 && !loading && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             className="text-center py-16 bg-white rounded-xl"
           >
-            <ShoppingBag className="w-20 h-20 text-[#cbd5e1] mx-auto mb-4" />
-            <p className="text-[#64748b] text-lg font-medium">No orders found</p>
+            <ShoppingBag className="w-16 h-16 md:w-20 md:h-20 text-[#cbd5e1] mx-auto mb-4" />
+            <p className="text-[#64748b] text-base md:text-lg font-medium">No orders found</p>
             <p className="text-[#94a3b8] text-sm mt-2">
-              Try adjusting your search or filters
+              {activeFiltersCount > 0 ? 'Try adjusting your search or filters' : 'No orders available yet'}
             </p>
             {activeFiltersCount > 0 && (
               <button
@@ -870,15 +1016,15 @@ export default function OrdersPage() {
               className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto"
             >
               {/* Modal Header */}
-              <div className="sticky top-0 bg-gradient-to-r from-[#10b981] to-[#059669] text-white p-6 flex items-center justify-between rounded-t-2xl z-10">
+              <div className="sticky top-0 bg-gradient-to-r from-[#10b981] to-[#059669] text-white p-4 md:p-6 flex items-center justify-between rounded-t-2xl z-10">
                 <div>
-                  <h2 className="text-2xl font-bold flex items-center gap-2">
-                    <ShoppingBag className="w-6 h-6" />
+                  <h2 className="text-xl md:text-2xl font-bold flex items-center gap-2">
+                    <ShoppingBag className="w-5 h-5 md:w-6 md:h-6" />
                     {selectedOrder.orderNumber}
                   </h2>
-                  <p className="text-[#d1fae5] text-sm mt-1 flex items-center gap-2">
-                    <Calendar className="w-4 h-4" />
-                    {formatDate(selectedOrder.orderDate)} • <Clock className="w-4 h-4" /> {formatTime(selectedOrder.orderDate)}
+                  <p className="text-[#d1fae5] text-xs md:text-sm mt-1 flex items-center gap-2">
+                    <Calendar className="w-3 h-3 md:w-4 md:h-4" />
+                    {formatDate(selectedOrder.orderDate)} • <Clock className="w-3 h-3 md:w-4 md:h-4" /> {formatTime(selectedOrder.orderDate)}
                   </p>
                 </div>
                 <button
@@ -886,24 +1032,24 @@ export default function OrdersPage() {
                   className="p-2 hover:bg-white/20 rounded-lg transition-all"
                   aria-label="Close modal"
                 >
-                  <X className="w-6 h-6" />
+                  <X className="w-5 h-5 md:w-6 md:h-6" />
                 </button>
               </div>
 
               {/* Modal Content */}
-              <div className="p-6 space-y-6">
+              <div className="p-4 md:p-6 space-y-4 md:space-y-6">
                 {/* Order Info Cards */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4">
                   <div className="bg-gradient-to-br from-[#dbeafe] to-[#bfdbfe] p-4 rounded-xl">
                     <p className="text-[#3b82f6] text-xs font-medium mb-1">Customer</p>
-                    <p className="font-bold text-[#1e293b] text-lg">{selectedOrder.customerName || 'Guest'}</p>
+                    <p className="font-bold text-[#1e293b] text-base md:text-lg">{selectedOrder.customerName || 'Guest'}</p>
                     {selectedOrder.phoneNumber && (
                       <p className="text-xs text-[#64748b] mt-1">📞 {selectedOrder.phoneNumber}</p>
                     )}
                   </div>
                   <div className="bg-gradient-to-br from-[#fef3c7] to-[#fde68a] p-4 rounded-xl">
                     <p className="text-[#d97706] text-xs font-medium mb-1">Order Type</p>
-                    <p className="font-bold text-[#1e293b] text-lg">
+                    <p className="font-bold text-[#1e293b] text-base md:text-lg">
                       {orderTypeConfig[selectedOrder.orderType]?.icon} {orderTypeConfig[selectedOrder.orderType]?.label}
                     </p>
                     {selectedOrder.tableNumber && (
@@ -925,9 +1071,9 @@ export default function OrdersPage() {
                     >
                       Status
                     </p>
-                    <p className="font-bold text-[#1e293b] text-lg flex items-center gap-2">
+                    <p className="font-bold text-[#1e293b] text-base md:text-lg flex items-center gap-2">
                       {React.createElement(statusConfig[selectedOrder.status]?.icon, {
-                        className: 'w-5 h-5',
+                        className: 'w-4 h-4 md:w-5 md:h-5',
                         style: { color: statusConfig[selectedOrder.status]?.textColor },
                       })}
                       {statusConfig[selectedOrder.status]?.label}
@@ -937,15 +1083,15 @@ export default function OrdersPage() {
 
                 {/* Payment Info */}
                 <div className="bg-[#f8fafc] p-4 rounded-xl">
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2">
-                      <CreditCard className="w-5 h-5 text-[#64748b]" />
-                      <span className="font-medium text-[#475569]">Payment Method:</span>
+                      <CreditCard className="w-4 h-4 md:w-5 md:h-5 text-[#64748b]" />
+                      <span className="font-medium text-[#475569] text-sm md:text-base">Payment Method:</span>
                     </div>
-                    <span className="font-bold text-[#1e293b]">{selectedOrder.paymentMethod}</span>
+                    <span className="font-bold text-[#1e293b] text-sm md:text-base">{selectedOrder.paymentMethod}</span>
                   </div>
-                  <div className="flex items-center justify-between mt-2">
-                    <span className="font-medium text-[#475569]">Payment Status:</span>
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium text-[#475569] text-sm md:text-base">Payment Status:</span>
                     <span className={`px-3 py-1 rounded-full text-xs font-medium ${
                       selectedOrder.paymentStatus === 'paid' 
                         ? 'bg-[#d1fae5] text-[#059669]' 
@@ -958,30 +1104,30 @@ export default function OrdersPage() {
 
                 {/* Order Items */}
                 <div>
-                  <h3 className="text-lg font-semibold text-[#1e293b] mb-4 flex items-center gap-2">
-                    <ShoppingBag className="w-5 h-5 text-[#10b981]" />
+                  <h3 className="text-base md:text-lg font-semibold text-[#1e293b] mb-3 md:mb-4 flex items-center gap-2">
+                    <ShoppingBag className="w-4 h-4 md:w-5 md:h-5 text-[#10b981]" />
                     Order Items ({selectedOrder.items.length})
                   </h3>
-                  <div className="space-y-3">
+                  <div className="space-y-2 md:space-y-3 max-h-64 overflow-y-auto">
                     {selectedOrder.items.map((item, index) => (
                       <motion.div
                         key={index}
                         initial={{ opacity: 0, x: -10 }}
                         animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: index * 0.1 }}
-                        className="flex items-center justify-between p-4 bg-gradient-to-r from-[#f8fafc] to-[#f1f5f9] rounded-lg hover:shadow-md transition-all"
+                        transition={{ delay: index * 0.05 }}
+                        className="flex items-center justify-between p-3 md:p-4 bg-gradient-to-r from-[#f8fafc] to-[#f1f5f9] rounded-lg hover:shadow-md transition-all"
                       >
-                        <div className="flex items-center gap-3 flex-1">
-                          <span className="text-2xl">{item.icon || '🍽️'}</span>
+                        <div className="flex items-center gap-2 md:gap-3 flex-1">
+                          <span className="text-xl md:text-2xl">{item.icon || '🍽️'}</span>
                           <div>
-                            <p className="font-medium text-[#1e293b]">{item.name}</p>
-                            <p className="text-sm text-[#64748b] mt-1">
+                            <p className="font-medium text-[#1e293b] text-sm md:text-base">{item.name}</p>
+                            <p className="text-xs md:text-sm text-[#64748b] mt-0.5 md:mt-1">
                               ₨{item.price} × {item.quantity}
                             </p>
                             <p className="text-xs text-[#94a3b8]">{item.category}</p>
                           </div>
                         </div>
-                        <p className="font-bold text-[#1e293b] text-lg">
+                        <p className="font-bold text-[#1e293b] text-base md:text-lg">
                           ₨{(item.price * item.quantity).toLocaleString()}
                         </p>
                       </motion.div>
@@ -993,53 +1139,53 @@ export default function OrdersPage() {
                 {selectedOrder.notes && (
                   <div className="bg-[#fef3c7] p-4 rounded-xl border-l-4 border-[#f59e0b]">
                     <p className="text-[#d97706] text-sm font-medium mb-1">📝 Order Notes:</p>
-                    <p className="text-[#475569]">{selectedOrder.notes}</p>
+                    <p className="text-[#475569] text-sm">{selectedOrder.notes}</p>
                   </div>
                 )}
 
                 {/* Bill Summary */}
-                <div className="bg-gradient-to-br from-[#10b981]/10 via-[#8b5cf6]/10 to-[#3b82f6]/10 p-6 rounded-xl border-2 border-[#10b981]/20">
-                  <h3 className="text-lg font-semibold text-[#1e293b] mb-4 flex items-center gap-2">
-                    <DollarSign className="w-5 h-5 text-[#10b981]" />
+                <div className="bg-gradient-to-br from-[#10b981]/10 via-[#8b5cf6]/10 to-[#3b82f6]/10 p-4 md:p-6 rounded-xl border-2 border-[#10b981]/20">
+                  <h3 className="text-base md:text-lg font-semibold text-[#1e293b] mb-3 md:mb-4 flex items-center gap-2">
+                    <DollarSign className="w-4 h-4 md:w-5 md:h-5 text-[#10b981]" />
                     Bill Summary
                   </h3>
-                  <div className="space-y-3">
-                    <div className="flex justify-between items-center">
+                  <div className="space-y-2 md:space-y-3">
+                    <div className="flex justify-between items-center text-sm md:text-base">
                       <span className="text-[#64748b]">Subtotal:</span>
                       <span className="font-semibold text-[#1e293b]">
                         ₨{selectedOrder.subtotal.toLocaleString()}
                       </span>
                     </div>
                     {selectedOrder.discount > 0 && (
-                      <div className="flex justify-between items-center text-[#ef4444]">
+                      <div className="flex justify-between items-center text-[#ef4444] text-sm md:text-base">
                         <span>Discount ({selectedOrder.discountPercentage}%):</span>
                         <span className="font-semibold">-₨{selectedOrder.discount.toLocaleString()}</span>
                       </div>
                     )}
-                    <div className="flex justify-between items-center">
+                    <div className="flex justify-between items-center text-sm md:text-base">
                       <span className="text-[#64748b]">Tax ({selectedOrder.taxPercentage}%):</span>
                       <span className="font-semibold text-[#1e293b]">
                         ₨{selectedOrder.tax.toLocaleString()}
                       </span>
                     </div>
                     {selectedOrder.deliveryCharge > 0 && (
-                      <div className="flex justify-between items-center">
+                      <div className="flex justify-between items-center text-sm md:text-base">
                         <span className="text-[#64748b]">Delivery Charge:</span>
                         <span className="font-semibold text-[#1e293b]">
                           ₨{selectedOrder.deliveryCharge.toLocaleString()}
                         </span>
                       </div>
                     )}
-                    <div className="flex justify-between items-center pt-3 border-t-2 border-[#10b981]/30">
-                      <span className="font-bold text-[#1e293b] text-lg">Grand Total:</span>
-                      <span className="font-bold text-[#10b981] text-2xl">
+                    <div className="flex justify-between items-center pt-2 md:pt-3 border-t-2 border-[#10b981]/30">
+                      <span className="font-bold text-[#1e293b] text-base md:text-lg">Grand Total:</span>
+                      <span className="font-bold text-[#10b981] text-xl md:text-2xl">
                         ₨{selectedOrder.total.toLocaleString()}
                       </span>
                     </div>
                     {selectedOrder.totalProfit !== undefined && (
                       <div className="flex justify-between items-center pt-2 border-t border-[#e2e8f0]">
-                        <span className="text-[#64748b] text-sm">Profit:</span>
-                        <span className="font-bold text-[#8b5cf6] text-lg">
+                        <span className="text-[#64748b] text-xs md:text-sm">Profit:</span>
+                        <span className="font-bold text-[#8b5cf6] text-base md:text-lg">
                           ₨{selectedOrder.totalProfit.toLocaleString()}
                         </span>
                       </div>
@@ -1058,7 +1204,7 @@ export default function OrdersPage() {
                       <select
                         value={selectedOrder.status}
                         onChange={(e) => handleStatusUpdate(selectedOrder._id, e.target.value)}
-                        className="w-full px-4 py-3 bg-white border-2 border-[#e2e8f0] rounded-lg focus:outline-none focus:border-[#10b981] focus:ring-2 focus:ring-[#10b981]/20 transition-all text-[#1e293b] appearance-none font-medium"
+                        className="w-full px-4 py-3 bg-white border-2 border-[#e2e8f0] rounded-lg focus:outline-none focus:border-[#10b981] focus:ring-2 focus:ring-[#10b981]/20 transition-all text-[#1e293b] appearance-none font-medium text-sm md:text-base"
                         style={{
                           color: statusConfig[selectedOrder.status]?.textColor,
                         }}
@@ -1074,39 +1220,36 @@ export default function OrdersPage() {
                 )}
 
                 {/* Action Buttons */}
-                <div className="flex flex-col sm:flex-row gap-4 pt-4">
+                <div className="flex flex-col sm:flex-row gap-3 md:gap-4 pt-4">
                   <button
                     onClick={handlePrint}
-                    className="flex-1 px-6 py-3 bg-[#8b5cf6] text-white rounded-lg hover:bg-[#7c3aed] transition-all font-medium shadow-lg flex items-center justify-center gap-2 hover:shadow-xl"
+                    className="flex-1 px-4 md:px-6 py-2.5 md:py-3 bg-[#8b5cf6] text-white rounded-lg hover:bg-[#7c3aed] transition-all font-medium shadow-lg flex items-center justify-center gap-2 hover:shadow-xl text-sm md:text-base"
                   >
-                    <Printer className="w-5 h-5" />
+                    <Printer className="w-4 h-4 md:w-5 md:h-5" />
                     Print Bill
                   </button>
                   {selectedOrder.status !== 'completed' && selectedOrder.status !== 'cancelled' && (
                     <button
                       onClick={() => handleCancelOrder(selectedOrder._id)}
-                      className="flex-1 px-6 py-3 bg-[#ef4444] text-white rounded-lg hover:bg-[#dc2626] transition-all font-medium shadow-lg flex items-center justify-center gap-2"
+                      className="flex-1 px-4 md:px-6 py-2.5 md:py-3 bg-[#ef4444] text-white rounded-lg hover:bg-[#dc2626] transition-all font-medium shadow-lg flex items-center justify-center gap-2 text-sm md:text-base"
                     >
-                      <XCircle className="w-5 h-5" />
+                      <XCircle className="w-4 h-4 md:w-5 md:h-5" />
                       Cancel Order
                     </button>
                   )}
                   <button
                     onClick={() => setIsModalOpen(false)}
-                    className="flex-1 px-6 py-3 border-2 border-[#e2e8f0] text-[#64748b] rounded-lg hover:bg-[#f8fafc] transition-all font-medium"
+                    className="flex-1 px-4 md:px-6 py-2.5 md:py-3 border-2 border-[#e2e8f0] text-[#64748b] rounded-lg hover:bg-[#f8fafc] transition-all font-medium text-sm md:text-base"
                   >
                     Close
                   </button>
                 </div>
               </div>
-
             </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Separate Print Bill Section (Outside Modal) */}
-      
       {/* Thermal Receipt Print Style */}
       {selectedOrder && (
         <div className="hidden print:block print-receipt">
@@ -1222,11 +1365,11 @@ export default function OrdersPage() {
               <p className="mb-2 font-bold">Thank You for Dining with Us!</p>
               <p className="mb-1">Please visit again</p>
               <p className="text-[10px] mt-2">Print Time: {new Date().toLocaleString()}</p>
-                 <p className="text-xs mt-3 border-t border-dashed border-black pt-2">
-                    Software and developed by :
-                  </p>
-            <p>Dev : M.Ammar Shaikh</p>
-                  <p className="text-xs">03160346330 | 03702741544</p>
+              <p className="text-xs mt-3 border-t border-dashed border-black pt-2">
+                Software developed by:
+              </p>
+              <p>Dev: M.Ammar Shaikh</p>
+              <p className="text-xs">03160346330 | 03702741544</p>
             </div>
           </div>
         </div>
@@ -1279,6 +1422,3 @@ export default function OrdersPage() {
     </div>
   );
 }
-
-
-//i am making restaurant mangement system and now i  am on order managemnet so i need to make it optimized and responisive on mobile and also show 100 order on ui rest of when user search then fetch it mean make it professional and mordern give me full final production ready code no mockdata use serveractions as i do and and add what to add dont change anything existing so plz give me final code 
