@@ -85,7 +85,7 @@ export default function POSPage() {
     address: '',
     discountPercentage: 0,
     deliveryCharge: 0,
-    taxPercentage: Number(process.env.NEXT_PUBLIC_TAX) || 0,
+    taxPercentage: process.env.NEXT_PUBLIC_TAX ? Number(process.env.NEXT_PUBLIC_TAX) : 0,
     notes: '',
   })
   console.log('Tax Percentage:', orderDetails.taxPercentage , process.env.NEXT_PUBLIC_TAX);
