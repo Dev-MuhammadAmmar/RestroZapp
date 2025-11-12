@@ -260,10 +260,10 @@ export default function ReportsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#f5f7fa] flex items-center justify-center">
+      <div className="min-h-screen bg-[#f5f7fa] flex items-center justify-center p-4">
         <div className="text-center">
-          <Loader2 className="w-12 h-12 text-[#10b981] animate-spin mx-auto mb-4" />
-          <p className="text-[#64748b] text-lg">Loading reports data...</p>
+          <Loader2 className="w-10 h-10 sm:w-12 sm:h-12 text-[#10b981] animate-spin mx-auto mb-4" />
+          <p className="text-[#64748b] text-base sm:text-lg">Loading reports data...</p>
         </div>
       </div>
     );
@@ -271,9 +271,9 @@ export default function ReportsPage() {
 
   if (!reportsData) {
     return (
-      <div className="min-h-screen bg-[#f5f7fa] flex items-center justify-center">
+      <div className="min-h-screen bg-[#f5f7fa] flex items-center justify-center p-4">
         <div className="text-center">
-          <p className="text-[#64748b] text-lg">No data available</p>
+          <p className="text-[#64748b] text-base sm:text-lg">No data available</p>
         </div>
       </div>
     );
@@ -299,9 +299,9 @@ export default function ReportsPage() {
         >
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div>
-              <h1 className="text-2xl sm:text-3xl font-bold text-[#1e293b] mb-2 flex items-center gap-3">
-                <BarChart3 className="w-6 h-6 sm:w-8 sm:h-8 text-[#10b981]" />
-                Business Reports & Analytics
+              <h1 className="text-2xl sm:text-3xl font-bold text-[#1e293b] mb-2 flex items-center gap-2 sm:gap-3">
+                <BarChart3 className="w-6 h-6 sm:w-8 sm:h-8 text-[#10b981] flex-shrink-0" />
+                <span className="leading-tight">Business Reports & Analytics</span>
               </h1>
               <p className="text-sm sm:text-base text-[#64748b]">
                 Comprehensive insights into your restaurant's performance
@@ -315,14 +315,14 @@ export default function ReportsPage() {
                 className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 sm:px-5 py-2 sm:py-3 bg-white border-2 border-[#10b981] text-[#10b981] rounded-lg hover:bg-[#10b981] hover:text-white transition-all font-medium shadow-sm text-sm"
               >
                 <FileText className="w-4 h-4 sm:w-5 sm:h-5" />
-                <span className="hidden sm:inline">Export</span> CSV
+                <span className="hidden xs:inline">Export</span> CSV
               </button>
               <button
                 onClick={handleExportPDF}
                 className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 sm:px-5 py-2 sm:py-3 bg-[#10b981] text-white rounded-lg hover:bg-[#059669] transition-all font-medium shadow-md text-sm"
               >
                 <Download className="w-4 h-4 sm:w-5 sm:h-5" />
-                <span className="hidden sm:inline">Export</span> PDF
+                <span className="hidden xs:inline">Export</span> PDF
               </button>
             </div>
           </div>
@@ -337,7 +337,7 @@ export default function ReportsPage() {
         >
           <div className="flex flex-col gap-4">
             <div className="flex items-center gap-2 flex-wrap">
-              <Calendar className="w-4 h-4 sm:w-5 sm:h-5 text-[#10b981]" />
+              <Calendar className="w-4 h-4 sm:w-5 sm:h-5 text-[#10b981] flex-shrink-0" />
               <span className="font-semibold text-[#1e293b] text-sm sm:text-base">Report Period:</span>
               <div className="flex flex-wrap gap-2 w-full sm:w-auto">
                 {['Today', 'This Week', 'This Month', 'Custom Range'].map((type) => (
@@ -350,7 +350,7 @@ export default function ReportsPage() {
                         fetchReportsData();
                       }
                     }}
-                    className={`px-3 sm:px-4 py-2 rounded-lg font-medium transition-all text-sm ${
+                    className={`px-3 sm:px-4 py-2 rounded-lg font-medium transition-all text-xs sm:text-sm ${
                       reportType === type
                         ? 'bg-[#10b981] text-white shadow-md'
                         : 'bg-[#f1f5f9] text-[#475569] hover:bg-[#e2e8f0]'
@@ -566,7 +566,7 @@ export default function ReportsPage() {
                 <p className="text-xs sm:text-sm text-[#64748b] mt-1">Daily revenue breakdown</p>
               </div>
             </div>
-            <ResponsiveContainer width="100%" height={250}>
+            <ResponsiveContainer width="100%" height={250} className="sm:h-[300px]">
               <BarChart data={chartData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                 <XAxis 
@@ -613,7 +613,7 @@ export default function ReportsPage() {
                 <p className="text-xs sm:text-sm text-[#64748b] mt-1">Breakdown by order type</p>
               </div>
             </div>
-            <ResponsiveContainer width="100%" height={250}>
+            <ResponsiveContainer width="100%" height={250} className="sm:h-[300px]">
               <PieChart>
                 <Pie
                   data={orderTypeChartData}
@@ -767,7 +767,7 @@ export default function ReportsPage() {
                 <div className="bg-white/20 p-2 sm:p-3 rounded-xl backdrop-blur-sm">
                   <Trophy className="w-6 h-6 sm:w-8 sm:h-8" />
                 </div>
-                <div>
+                <div className="min-w-0 flex-1">
                   <p className="text-[#d1fae5] text-xs sm:text-sm">Best Selling Item</p>
                   <p className="text-lg sm:text-2xl font-bold truncate">{insights.bestItem.name}</p>
                 </div>
@@ -838,7 +838,7 @@ export default function ReportsPage() {
             <h4 className="text-base sm:text-lg font-bold text-[#1e293b] mb-4">Profit Margin Analysis</h4>
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <span className="text-[#64748b] text-sm">Gross Profit Margin:</span>
+                <span className="text-[#64748b] text-xs sm:text-sm">Gross Profit Margin:</span>
                 <span className="font-bold text-[#10b981] text-base sm:text-lg">
                   {((summary.totalProfit / summary.totalRevenue) * 100).toFixed(1)}%
                 </span>
@@ -879,7 +879,7 @@ export default function ReportsPage() {
                   <>
                     <div>
                       <div className="flex items-center justify-between mb-2">
-                        <span className="text-[#64748b] flex items-center gap-2 text-sm">
+                        <span className="text-[#64748b] flex items-center gap-2 text-xs sm:text-sm">
                           💵 Cash
                         </span>
                         <span className="font-bold text-[#1e293b] text-xs sm:text-sm">
@@ -895,7 +895,7 @@ export default function ReportsPage() {
                     </div>
                     <div>
                       <div className="flex items-center justify-between mb-2">
-                        <span className="text-[#64748b] flex items-center gap-2 text-sm">
+                        <span className="text-[#64748b] flex items-center gap-2 text-xs sm:text-sm">
                           💳 Card
                         </span>
                         <span className="font-bold text-[#1e293b] text-xs sm:text-sm">
@@ -912,7 +912,7 @@ export default function ReportsPage() {
                     {onlineOrders > 0 && (
                       <div>
                         <div className="flex items-center justify-between mb-2">
-                          <span className="text-[#64748b] flex items-center gap-2 text-sm">
+                          <span className="text-[#64748b] flex items-center gap-2 text-xs sm:text-sm">
                             🌐 Online
                           </span>
                           <span className="font-bold text-[#1e293b] text-xs sm:text-sm">
@@ -939,31 +939,31 @@ export default function ReportsPage() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 1.5 }}
-          className="mt-8 bg-white rounded-xl shadow-sm overflow-hidden"
+          className="mt-6 sm:mt-8 bg-white rounded-xl shadow-sm overflow-hidden"
         >
-          <div className="p-6 border-b border-[#e2e8f0]">
-            <h3 className="text-lg font-bold text-[#1e293b] flex items-center gap-2">
-              <Trophy className="w-5 h-5 text-[#10b981]" />
+          <div className="p-4 sm:p-6 border-b border-[#e2e8f0]">
+            <h3 className="text-base sm:text-lg font-bold text-[#1e293b] flex items-center gap-2">
+              <Trophy className="w-4 h-4 sm:w-5 sm:h-5 text-[#10b981]" />
               Top Selling Menu Items
             </h3>
-            <p className="text-sm text-[#64748b] mt-1">
+            <p className="text-xs sm:text-sm text-[#64748b] mt-1">
               Most popular items in the selected period
             </p>
           </div>
           <div className="overflow-x-auto">
-            <table className="w-full">
+            <table className="w-full min-w-[500px]">
               <thead className="bg-[#f8fafc] border-b border-[#e2e8f0]">
                 <tr>
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-[#475569]">
+                  <th className="px-3 sm:px-6 py-3 sm:py-4 text-left text-xs sm:text-sm font-semibold text-[#475569]">
                     Rank
                   </th>
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-[#475569]">
+                  <th className="px-3 sm:px-6 py-3 sm:py-4 text-left text-xs sm:text-sm font-semibold text-[#475569]">
                     Item Name
                   </th>
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-[#475569]">
+                  <th className="px-3 sm:px-6 py-3 sm:py-4 text-left text-xs sm:text-sm font-semibold text-[#475569]">
                     Units Sold
                   </th>
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-[#475569]">
+                  <th className="px-3 sm:px-6 py-3 sm:py-4 text-left text-xs sm:text-sm font-semibold text-[#475569] hidden sm:table-cell">
                     Performance
                   </th>
                 </tr>
@@ -974,8 +974,8 @@ export default function ReportsPage() {
                     key={item.name}
                     className="border-b border-[#f1f5f9] hover:bg-[#f8fafc] transition-all"
                   >
-                    <td className="px-6 py-4">
-                      <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold ${
+                    <td className="px-3 sm:px-6 py-3 sm:py-4">
+                      <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center font-bold text-sm ${
                         index === 0
                           ? 'bg-gradient-to-br from-[#f59e0b] to-[#d97706] text-white'
                           : index === 1
@@ -987,15 +987,15 @@ export default function ReportsPage() {
                         {index + 1}
                       </div>
                     </td>
-                    <td className="px-6 py-4 font-medium text-[#1e293b]">
+                    <td className="px-3 sm:px-6 py-3 sm:py-4 font-medium text-[#1e293b] text-xs sm:text-sm">
                       {item.name}
                     </td>
-                    <td className="px-6 py-4">
-                      <span className="text-lg font-bold text-[#10b981]">
+                    <td className="px-3 sm:px-6 py-3 sm:py-4">
+                      <span className="text-base sm:text-lg font-bold text-[#10b981]">
                         {item.sold}
                       </span>
                     </td>
-                    <td className="px-6 py-4">
+                    <td className="px-3 sm:px-6 py-3 sm:py-4 hidden sm:table-cell">
                       <div className="flex items-center gap-2">
                         <div className="flex-1 bg-[#f1f5f9] rounded-full h-2 overflow-hidden max-w-[150px]">
                           <div 
@@ -1003,7 +1003,7 @@ export default function ReportsPage() {
                             style={{ width: `${popularItems.length > 0 ? (item.sold / popularItems[0].sold) * 100 : 0}%` }}
                           />
                         </div>
-                        <span className="text-sm text-[#64748b]">
+                        <span className="text-xs sm:text-sm text-[#64748b]">
                           {popularItems.length > 0 ? ((item.sold / popularItems[0].sold) * 100).toFixed(0) : 0}%
                         </span>
                       </div>
@@ -1020,7 +1020,7 @@ export default function ReportsPage() {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 1.6 }}
-          className="mt-8 text-center text-[#64748b] text-sm"
+          className="mt-6 sm:mt-8 text-center text-[#64748b] text-xs sm:text-sm"
         >
           <p>
             Report generated for <span className="font-semibold text-[#1e293b]">{reportType}</span>
