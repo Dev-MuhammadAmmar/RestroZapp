@@ -13,9 +13,33 @@
     X,
     ChefHat,
     ClipboardList,
+    SettingsIcon,
   } from 'lucide-react'
+import { getSettings } from '@/lib/actions/settings'
+
+
+
+
 
   export default function Sidebar() {
+
+const [restaurantSettings, setRestaurantSettings] = useState(null)
+
+useEffect(() => {
+  const fetchSettings = async () => {
+    try {
+      const response = await getSettings()
+      if (response.success) {
+        setRestaurantSettings(response.data.restaurantName)
+      }
+    } catch (error) {
+      console.error('Error loading restaurant settings:', error)
+    }
+  }
+
+  fetchSettings()
+}, [])
+
     const pathname = usePathname() || ''
     const [isOpen, setIsOpen] = useState(false)
 
@@ -25,6 +49,7 @@
       { icon: Package, label: 'Inventory', href: '/inventory' },
       { icon: ClipboardList, label: 'Orders', href: '/orders' },
       { icon: BarChart3, label: 'Reports', href: '/reports' },
+      { icon: SettingsIcon, label: 'Settings', href: '/settings' },
     ]
 
     // Close mobile menu on desktop resize
@@ -121,7 +146,7 @@
 
               <div>
                 <h1 className="text-3xl font-bold bg-gradient-to-r from-emerald-400 via-teal-400 to-cyan-400 bg-clip-text text-transparent tracking-tight">
-                  Unsa Restaurant
+                  {restaurantSettings ? restaurantSettings: 'Restaurant'}
                 </h1>
                 <p className="text-xs text-slate-400 mt-1 font-semibold tracking-wider uppercase">
                   Management System

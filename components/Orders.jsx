@@ -29,7 +29,7 @@ import {
   ChevronLeft,
   ChevronRight,
 } from 'lucide-react';
-
+import { getSettings } from '@/lib/actions/settings';
 // Status configuration with colors
 const statusConfig = {
   pending: {
@@ -76,7 +76,11 @@ const orderTypeConfig = {
   'delivery': { icon: '🚗', label: 'Delivery', color: '#7c3aed' },
 };
 
+
+
+
 export default function OrdersPage() {
+   const [restaurantSettings, setRestaurantSettings] = useState(null)
   const [orders, setOrders] = useState([]);
   const [allOrders, setAllOrders] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -103,9 +107,22 @@ export default function OrdersPage() {
   // Debounce search
   const searchTimeoutRef = useRef(null);
 
+const loadRestaurantSettings = async () => {
+  try {
+    const response = await getSettings()
+    if (response.success) {
+      setRestaurantSettings(response.data)
+     
+    }
+  } catch (error) {
+    console.error('Error loading restaurant settings:', error)
+  }
+}
+
   // Fetch initial orders (100 most recent)
   useEffect(() => {
     fetchInitialOrders();
+       loadRestaurantSettings() 
   }, []);
 
   const fetchInitialOrders = async () => {
@@ -1255,12 +1272,12 @@ export default function OrdersPage() {
         <div className="hidden print:block print-receipt">
           <div className="receipt-container">
             {/* Header */}
-            <div className="text-center mb-4 pb-3 border-b-2 border-dashed border-black">
-              <h1 className="text-2xl font-bold mb-1">UNSA RESTAURANT</h1>
-              <p className="text-xs">Allah Wala Chowk, Shikarpur</p>
-              <p className="text-xs">0333-7275912 | 0333-7265025</p>
-              <p className="text-xs mt-2">BILL</p>
-            </div>
+            <div className="text-center mb-3 border-b-2 border-dashed border-black pb-3">
+                  <h1 className="text-2xl font-bold mb-1 uppercase">{restaurantSettings?.restaurantName || 'RESTAURANT'}</h1>
+                  <p className="text-xs">{restaurantSettings?.address || ''}</p>
+                  <p className="text-xs"> {restaurantSettings?.phone1 || ''}{restaurantSettings?.phone2 ? ` | ${restaurantSettings.phone2}` : ''}</p>
+                  <p className="text-xs mt-1">BILL RECEIPT</p>
+                </div>
 
             {/* Order Info */}
             <div className="text-xs mb-3 pb-2 border-b border-dashed border-black">
@@ -1338,10 +1355,10 @@ export default function OrdersPage() {
                 <span>Subtotal:</span>
                 <span>₨{selectedOrder.subtotal.toFixed(2)}</span>
               </div>
-              <div className="flex justify-between mb-1">
+           { selectedOrder.tax > 0 &&  <div className="flex justify-between mb-1">
                 <span>Service Charges ({selectedOrder.taxPercentage}%):</span>
                 <span>₨{selectedOrder.tax.toFixed(2)}</span>
-              </div>
+              </div>}
               {selectedOrder.deliveryCharge > 0 && (
                 <div className="flex justify-between mb-1">
                   <span>Delivery Charges:</span>
@@ -1361,18 +1378,24 @@ export default function OrdersPage() {
             </div>
 
             {/* Footer */}
-            <div className="text-center text-xs border-t border-dashed border-black pt-3">
-              <p className="mb-2 font-bold">Thank You for Dining with Us!</p>
-              <p className="mb-1">Please visit again</p>
-              <p className="text-[10px] mt-2">Print Time: {new Date().toLocaleString()}</p>
-              <p className="text-xs mt-3 border-t border-dashed border-black pt-2">
-                Software developed by:
-              </p>
-              <p>Dev: M.Ammar Shaikh</p>
-              <p className="text-xs">03160346330 | 03702741544</p>
-            </div>
-          </div>
-        </div>
+                           <div className="text-center text-xs border-t border-dashed border-black pt-3">
+                  <p className="mb-2 font-bold">{restaurantSettings?.footerMessage || 'Thank You for Dining with Us!'}</p>
+                  <p className="mb-1">Please visit again</p>
+                  <p className="text-[10px]  mt-2">Print Time:{new Date().toLocaleString()}</p>
+            <div className="mt-3 border-t border-dashed border-black pt-2 text-center leading-tight">
+  <p className="text-sm font-semibold tracking-wide">
+    SOFTWARE DEVELOPED BY
+  </p>
+  <p className="text-base font-bold mt-1">
+   Dev: M.Ammar Shaikh  
+  </p>
+  <p className="text-xs font-semibold mt-1">
+    📞 0316-0346330 | 0370-2741544
+  </p>
+</div>
+</div>
+</div>
+</div>
       )}
 
       {/* Print Styles */}

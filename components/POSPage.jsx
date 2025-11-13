@@ -43,6 +43,7 @@ import {
 import { getCategories } from '@/lib/actions/categories'
 import { getActiveMenuItems } from '@/lib/actions/menuItems'
 import { createOrder, getPendingOrders, completeOrder } from '@/lib/actions/orders'
+import { getSettings } from '@/lib/actions/settings'
 
 const ORDER_TYPES = [
   { value: 'dine-in', label: 'Dine In', icon: UtensilsCrossed, color: 'from-blue-500 to-cyan-500' },
@@ -74,6 +75,8 @@ export default function POSPage() {
   const [isLoadingMenuItems, setIsLoadingMenuItems] = useState(true)
   const [isSubmittingOrder, setIsSubmittingOrder] = useState(false)
   const [isLoadingPendingOrders, setIsLoadingPendingOrders] = useState(false)
+  const [restaurantSettings, setRestaurantSettings] = useState(null)
+
   
   // Order details
   const [orderDetails, setOrderDetails] = useState({
@@ -85,10 +88,10 @@ export default function POSPage() {
     address: '',
     discountPercentage: 0,
     deliveryCharge: 0,
-    taxPercentage: process.env.NEXT_PUBLIC_TAX ? Number(process.env.NEXT_PUBLIC_TAX) : 0,
+    taxPercentage: 0 ,
     notes: '',
   })
-  console.log('Tax Percentage:', orderDetails.taxPercentage , process.env.NEXT_PUBLIC_TAX);
+
   // Search dropdown
   const [showSearchDropdown, setShowSearchDropdown] = useState(false)
   const [searchResults, setSearchResults] = useState([])
@@ -101,6 +104,7 @@ export default function POSPage() {
     loadCategories()
     loadMenuItems()
     loadPendingOrders()
+      loadRestaurantSettings() 
   }, [])
 
   const loadCategories = async () => {
@@ -157,16 +161,38 @@ export default function POSPage() {
       setIsLoadingPendingOrders(false)
     }
   }
-
+const loadRestaurantSettings = async () => {
+  try {
+    const response = await getSettings()
+    if (response.success) {
+      setRestaurantSettings(response.data)
+      // Update tax percentage from settings
+      setOrderDetails(prev => ({
+        ...prev,
+        taxPercentage: response.data.taxPercentage || 0, 
+    
+      }))
+    }
+  } catch (error) {
+    console.error('Error loading restaurant settings:', error)
+  }
+}
   // Auto-update delivery charge based on order type
-  useEffect(() => {
+ // Auto-update delivery charge and tax based on order type
+   useEffect(() => {
     if (orderDetails.orderType === 'delivery' && orderDetails.deliveryCharge === 0) {
-      setOrderDetails(prev => ({ ...prev, deliveryCharge: 50 }))
+      setOrderDetails(prev => ({ ...prev, deliveryCharge: restaurantSettings?.deliveryCharges || 50 }))
     } else if (orderDetails.orderType !== 'delivery') {
       setOrderDetails(prev => ({ ...prev, deliveryCharge: 0 }))
     }
-  }, [orderDetails.orderType])
-
+    
+    // Set tax percentage based on order type
+    if (orderDetails.orderType === 'dine-in') {
+      setOrderDetails(prev => ({ ...prev, taxPercentage: restaurantSettings?.taxPercentage || 0 }))
+    } else {
+      setOrderDetails(prev => ({ ...prev, taxPercentage: 0 }))
+    }
+  }, [orderDetails.orderType, restaurantSettings?.taxPercentage])
   // Calculations
   const subtotal = cart.reduce((sum, item) => sum + item.sellingPrice * item.quantity, 0)
   const tax = subtotal * (orderDetails.taxPercentage / 100)
@@ -296,6 +322,7 @@ export default function POSPage() {
       return
     }
     if (orderDetails.orderType === 'delivery') {
+
       if (!orderDetails.customerName || !orderDetails.phoneNumber || !orderDetails.address) {
         showNotification('Please fill all delivery details', 'error')
         return
@@ -366,25 +393,25 @@ export default function POSPage() {
     }
   }
 
-  const finalizePendingOrder = async (order) => {
-    await loadPendingOrders() // Refresh pending orders
-    setCart([])
-    setOrderDetails({
-      orderType: 'dine-in',
-      tableNumber: '',
-      paymentMethod: 'Cash',
-      customerName: '',
-      phoneNumber: '',
-      address: '',
-      discountPercentage: 0,
-      deliveryCharge: 0,
-      taxPercentage: 0,
-      notes: '',
-    })
-    setPrintType(null)
-    setCurrentPrintOrder(null)
-    showNotification('Order sent to kitchen!', 'success')
-  }
+const finalizePendingOrder = async (order) => {
+  await loadPendingOrders()
+  setCart([])
+  setOrderDetails({
+    orderType: 'dine-in',
+    tableNumber: '',
+    paymentMethod: 'Cash',
+    customerName: '',
+    phoneNumber: '',
+    address: '',
+    discountPercentage: 0,
+    deliveryCharge: 0,
+    taxPercentage: restaurantSettings?.taxPercentage || 0,  // Changed this line
+    notes: '',
+  })
+  setPrintType(null)
+  setCurrentPrintOrder(null)
+  showNotification('Order sent to kitchen!', 'success')
+}
 
   const completeOrderHandler = async (orderId) => {
     try {
@@ -844,7 +871,7 @@ export default function POSPage() {
                         <span className="font-bold">₨{subtotal.toFixed(2)}</span>
                       </div>
                       <div className="flex justify-between text-xs sm:text-sm text-slate-600">
-                        <span className="font-medium">Tax ({orderDetails.taxPercentage}%):</span>
+                        <span className="font-medium">Service Charges ({orderDetails.taxPercentage}%):</span>
                         <span className="font-bold">₨{tax.toFixed(2)}</span>
                       </div>
                       {orderDetails.deliveryCharge > 0 && (
@@ -1057,7 +1084,7 @@ export default function POSPage() {
                 <span className="font-semibold">₨{subtotal.toFixed(2)}</span>
               </div>
               <div className="flex justify-between text-slate-600">
-                <span>Tax ({orderDetails.taxPercentage}%):</span>
+                <span>Service Charges ({orderDetails.taxPercentage}%):</span>
                 <span className="font-semibold">₨{tax.toFixed(2)}</span>
               </div>
               {orderDetails.deliveryCharge > 0 && (
@@ -1149,6 +1176,7 @@ export default function POSPage() {
                         setOrderDetails({ ...orderDetails, tableNumber: e.target.value })
                       }
                       disabled={isSubmittingOrder}
+                      autoFocus 
                       placeholder="e.g., T-5"
                       className="w-full px-3 sm:px-4 py-2 sm:py-3 border-2 border-slate-200 rounded-lg sm:rounded-xl focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 transition-all disabled:opacity-50 text-sm sm:text-base"
                     />
@@ -1164,6 +1192,7 @@ export default function POSPage() {
                       </label>
                       <input
                         type="text"
+                        autoFocus 
                         value={orderDetails.customerName}
                         onChange={(e) =>
                           setOrderDetails({ ...orderDetails, customerName: e.target.value })
@@ -1181,9 +1210,9 @@ export default function POSPage() {
                       </label>
                       <input
                         type="tel"
-                        value={orderDetails.customerPhone}
+                        value={orderDetails.phoneNumber}
                         onChange={(e) =>
-                          setOrderDetails({ ...orderDetails, customerPhone: e.target.value })
+                          setOrderDetails({ ...orderDetails, phoneNumber: e.target.value })
                         }
                         disabled={isSubmittingOrder}
                         placeholder={`03XX-XXXXXXX ${orderDetails.orderType==="takeaway"?"(Optional)":""}`}
@@ -1200,9 +1229,10 @@ export default function POSPage() {
                       Delivery Address *
                     </label>
                     <textarea
-                      value={orderDetails.deliveryAddress}
+                      value={orderDetails.address}
+                      autoFocus
                       onChange={(e) =>
-                        setOrderDetails({ ...orderDetails, deliveryAddress: e.target.value })
+                        setOrderDetails({ ...orderDetails, address: e.target.value })
                       }
                       disabled={isSubmittingOrder}
                       placeholder="Enter complete address"
@@ -1234,7 +1264,14 @@ export default function POSPage() {
                   </select>
                 </div>
 
-                <div>
+          
+
+
+
+            { orderDetails.orderType==="dine-in" &&  (  
+              <>
+              
+                   <div>
                   <label className="block text-slate-700 font-semibold mb-2 text-xs sm:text-sm flex items-center gap-1.5">
                     <Percent className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-600" />
                    Service Charges %
@@ -1251,9 +1288,15 @@ export default function POSPage() {
                     className="w-full px-2 sm:px-4 py-2 sm:py-3 border-2 border-slate-200 rounded-lg sm:rounded-xl focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 transition-all disabled:opacity-50 text-xs sm:text-base"
                   />
                 </div>
-
+               
+</>
+                )}
+            { orderDetails.orderType==="delivery" &&  (  
+              <>
+              
                 <div>
-                  <label className="block text-slate-700 font-semibold mb-2 text-xs sm:text-sm flex items-center gap-1.5">
+              
+              <label className="block text-slate-700 font-semibold mb-2 text-xs sm:text-sm flex items-center gap-1.5">
                     <Bike className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-600" />
                     Delivery
                   </label>
@@ -1268,6 +1311,8 @@ export default function POSPage() {
                     className="w-full px-2 sm:px-4 py-2 sm:py-3 border-2 border-slate-200 rounded-lg sm:rounded-xl focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 transition-all disabled:opacity-50 text-xs sm:text-base"
                   />
                 </div>
+</>
+                )}
 
                 <div>
                   <label className="block text-slate-700 font-semibold mb-2 text-xs sm:text-sm flex items-center gap-1.5">
@@ -1525,6 +1570,7 @@ export default function POSPage() {
       </AnimatePresence>
 
       {/* Print Templates - Hidden from UI */}
+      {/* Print Templates - Hidden from UI */}
       {currentPrintOrder && (
         <>
           {/* KOT - Kitchen Order Ticket */}
@@ -1597,9 +1643,9 @@ export default function POSPage() {
             <div className="hidden print:block print-content">
               <div className="receipt-container">
                 <div className="text-center mb-3 border-b-2 border-dashed border-black pb-3">
-                  <h1 className="text-2xl font-bold mb-1">UNSA RESTAURANT</h1>
-                  <p className="text-xs">Allah Wala Chowk, Shikarpur</p>
-                  <p className="text-xs">Tel: 0333 7275912</p>
+                  <h1 className="text-2xl font-bold mb-1 uppercase"> {restaurantSettings?.restaurantName || 'RESTAURANT'}</h1>
+                  <p className="text-xs">{restaurantSettings?.address || ''}</p>
+                  <p className="text-xs">{restaurantSettings?.phone1 || ''}{restaurantSettings?.phone2 ? ` | ${restaurantSettings.phone2}` : ''}</p>
                   <p className="text-sm font-bold mt-2">WAITING TOKEN</p>
                 </div>
 
@@ -1653,6 +1699,17 @@ export default function POSPage() {
                   <p className="text-xs mt-1">Estimated time: 15-20 minutes</p>
                   <p className="text-xs mt-2">Thank you for your patience!</p>
                 </div>
+           <div className="mt-3 border-t border-dashed border-black pt-2 text-center leading-tight">
+  <p className="text-sm font-semibold tracking-wide">
+    SOFTWARE DEVELOPED BY
+  </p>
+  <p className="text-base font-bold mt-1">
+   Dev: M.Ammar Shaikh  
+  </p>
+  <p className="text-xs font-semibold mt-1">
+    📞 0316-0346330 | 0370-2741544
+  </p>
+</div>
               </div>
             </div>
           )}
@@ -1662,10 +1719,10 @@ export default function POSPage() {
             <div className="hidden print:block print-content">
               <div className="receipt-container">
                 <div className="text-center mb-3 border-b-2 border-dashed border-black pb-3">
-                  <h1 className="text-2xl font-bold mb-1">UNSA RESTAURANT</h1>
-                  <p className="text-xs">Allah Wala Chowk, Shikarpur</p>
-                  <p className="text-xs">0333-7275912 | 0333-7265025</p>
-                  <p className="text-xs mt-1">BILL</p>
+                  <h1 className="text-2xl font-bold mb-1 uppercase">{restaurantSettings?.restaurantName || 'RESTAURANT'}</h1>
+                  <p className="text-xs">{restaurantSettings?.address || ''}</p>
+                  <p className="text-xs"> {restaurantSettings?.phone1 || ''}{restaurantSettings?.phone2 ? ` | ${restaurantSettings.phone2}` : ''}</p>
+                  <p className="text-xs mt-1">BILL RECEIPT</p>
                 </div>
 
                 <div className="text-xs mb-3 border-b border-dashed border-black pb-2">
@@ -1741,10 +1798,12 @@ export default function POSPage() {
                     <span>Subtotal:</span>
                     <span>₨{currentPrintOrder.subtotal.toFixed(2)}</span>
                   </div>
-                  <div className="flex justify-between mb-1">
-                    <span>Service Charges ({currentPrintOrder.taxPercentage}%):</span>
-                    <span>₨{currentPrintOrder.tax.toFixed(2)}</span>
-                  </div>
+             {currentPrintOrder.tax > 0 && (
+  <div className="flex justify-between mb-1">
+    <span>Service Charges ({currentPrintOrder.taxPercentage}%):</span>
+    <span>₨{currentPrintOrder.tax.toFixed(2)}</span>
+  </div>
+)}
                   {currentPrintOrder.deliveryCharge > 0 && (
                     <div className="flex justify-between mb-1">
                       <span>Delivery Charges:</span>
@@ -1764,20 +1823,38 @@ export default function POSPage() {
                 </div>
 
                 <div className="text-center text-xs border-t border-dashed border-black pt-3">
-                  <p className="mb-2 font-bold">Thank You for Dining with Us!</p>
+                  <p className="mb-2 font-bold">{restaurantSettings?.footerMessage || 'Thank You for Dining with Us!'}</p>
                   <p className="mb-1">Please visit again</p>
                   <p className="text-[10px]  mt-2">Print Time:{new Date().toLocaleString()}</p>
-                  <p className="text-xs mt-3 border-t border-dashed border-black pt-2">
-                    Software and developed by :
-                  </p>
-            <p>Dev : M.Ammar Shaikh</p>
-                  <p className="text-xs">03160346330 | 03702741544</p>
+            <div className="mt-3 border-t border-dashed border-black pt-2 text-center leading-tight">
+  <p className="text-sm font-semibold tracking-wide">
+    SOFTWARE DEVELOPED BY
+  </p>
+  <p className="text-base font-bold mt-1">
+   Dev: M.Ammar Shaikh  
+  </p>
+  <p className="text-xs font-semibold mt-1">
+    📞 0316-0346330 | 0370-2741544
+  </p>
+</div>
+
                 </div>
               </div>
             </div>
           )}
         </>
       )}
+
+
+
+
+
+
+
+
+
+
+
 
       {/* Print Styles */}
       <style jsx global>{`
