@@ -51,11 +51,27 @@ export default function ReportsPage() {
   const [customRange, setCustomRange] = useState(false);
   const [loading, setLoading] = useState(true);
   const [reportsData, setReportsData] = useState(null);
-
+ useEffect(() => {
+ 
+    
+    // Prevent zoom on mobile inputs
+    const metaViewport = document.querySelector('meta[name=viewport]')
+    if (metaViewport) {
+      metaViewport.setAttribute('content', 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no')
+    }
+    
+    return () => {
+      if (metaViewport) {
+        metaViewport.setAttribute('content', 'width=device-width, initial-scale=1.0')
+      }
+    }
+  }, [])
   // Fetch data on mount and when filters change
+
   useEffect(() => {
     fetchReportsData();
   }, []);
+  
 
   const fetchReportsData = async () => {
     setLoading(true);
@@ -289,8 +305,8 @@ export default function ReportsPage() {
   ].filter(item => item.value > 0);
 
   return (
-    <div className="min-h-screen bg-[#f5f7fa] p-4 sm:p-6 lg:p-8">
-      <div className="max-w-[1600px] mx-auto">
+    <div className="w-[94vw] md:w-[100%] mx-auto bg-[#f5f7fa] p-4 sm:p-6 lg:p-8">
+      <div className="md:max-w-[1600px] mx-auto">
         {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: -20 }}
