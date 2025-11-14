@@ -29,21 +29,12 @@ import {
 
 // Available emoji icons
 const availableIcons = [
-  // Main Fast Food Items
-  '🍔', // Burger
-  '🍟', // Fries
-  '🍕', // Pizza
-  '🌭', // Hot Dog
-  '🌮', // Taco
-  '🌯', // Burrito/Wrap
-  '🥙', // Kebab/Shawarma
-  '🥪', // Sandwich
-  '🍗', // Fried Chicken
-  '🍖', // Meat on Bone
-    '🥖',
-     '🍿', '🍦', // Ice Cream Cone
-  '🍨','🥤', '🍷', // Wine
-  '🥂', '🍵',
+  "🥗","🍔","🍗","🍟","🥓",
+  "🍖","♨️","🔥","🥩","🥓","🍳",
+  "🍧","🍨","🧁","🥞","🧋","🍜",
+  "🍕","🥗","🍔","🎁","🍚","🐟",
+  "🍟","🌯","🥚","🍲","🍱","🍿",
+  "🍛","🍹","🍸","🍷","🍾","🥤"
 ]
 
 // Color palette for categories
