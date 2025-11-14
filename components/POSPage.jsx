@@ -1877,7 +1877,7 @@ const finalizePendingOrder = async (order) => {
             width: 80mm;
             max-width: 80mm;
             margin: 0;
-            padding: 10mm;
+            padding: 8mm;
             font-family: 'Courier New', monospace;
             color: #000;
             background: #fff;
