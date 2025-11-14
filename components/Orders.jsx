@@ -1276,7 +1276,7 @@ const loadRestaurantSettings = async () => {
                   <h1 className="text-2xl font-bold uppercase">{restaurantSettings?.restaurantName || 'RESTAURANT'}</h1>
                   <p className="text-xs">{restaurantSettings?.address || ''}</p>
                   <p className="text-xs"> {restaurantSettings?.phone1 || ''}{restaurantSettings?.phone2 ? ` | ${restaurantSettings.phone2}` : ''}</p>
-                  <p className="text-xs">BILL RECEIPT</p>
+                  <p className="text-xs text-center font-bold">BILL RECEIPT</p>
                 </div>
 
             {/* Order Info */}
@@ -1301,7 +1301,7 @@ const loadRestaurantSettings = async () => {
                   <span className="font-bold">{selectedOrder.tableNumber}</span>
                 </div>
               )}
-              {selectedOrder.customerName && (
+              {selectedOrder.customerName !=="Guest" && (
                 <div className="flex justify-between">
                   <span>Customer:</span>
                   <span>{selectedOrder.customerName}</span>
@@ -1319,10 +1319,10 @@ const loadRestaurantSettings = async () => {
                   <p className="text-xs">{selectedOrder.address}</p>
                 </div>
               )}
-              <div className="flex justify-between">
+             {selectedOrder.paymentMethod !=="cash" &&  <div className="flex justify-between">
                 <span>Payment:</span>
                 <span className="font-bold">{selectedOrder.paymentMethod}</span>
-              </div>
+              </div>}
             </div>
 
             {/* Items Table */}
@@ -1380,7 +1380,7 @@ const loadRestaurantSettings = async () => {
             {/* Footer */}
                            <div className="text-center text-xs border-t border-dashed border-black pt-1">
                   <p className="font-bold">{restaurantSettings?.footerMessage || 'Thank You for Dining with Us!'}</p>
-                  <p>Please visit again</p>
+          
                   <p className="text-[10px]">Print Time:{new Date().toLocaleString()}</p>
 <div className="pt-1 border-t text-center border-black">
   <p className="text-[10px] font-semibold">
