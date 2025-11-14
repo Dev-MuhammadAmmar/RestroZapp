@@ -1382,15 +1382,12 @@ const loadRestaurantSettings = async () => {
                   <p className="mb-2 font-bold">{restaurantSettings?.footerMessage || 'Thank You for Dining with Us!'}</p>
                   <p className="mb-1">Please visit again</p>
                   <p className="text-[10px]  mt-2">Print Time:{new Date().toLocaleString()}</p>
-            <div className="mt-3 border-t border-dashed border-black pt-2 text-center leading-tight">
-  <p className="text-sm font-semibold tracking-wide">
-    SOFTWARE DEVELOPED BY
+<div className="mt-3 pt-2 border-t text-center border-black">
+  <p className="text-[10px] font-semibold">
+    SOFTWARE BY: M. AMMAR SHAIKH
   </p>
-  <p className="text-base font-bold mt-1">
-   Dev: M.Ammar Shaikh  
-  </p>
-  <p className="text-xs font-semibold mt-1">
-    📞 0316-0346330 | 0370-2741544
+  <p className="text-[9px]">
+    Tel: 0316-0346330 | 0370-2741544
   </p>
 </div>
 </div>
