@@ -1833,16 +1833,6 @@ const finalizePendingOrder = async (order) => {
         </>
       )}
 
-
-
-
-
-
-
-
-
-
-
       {/* Print Styles */}
       <style jsx global>{`
         @media print {
@@ -1870,7 +1860,7 @@ const finalizePendingOrder = async (order) => {
             width: 80mm;
             max-width: 80mm;
             margin: 0;
-            padding: 8mm;
+           padding: 3mm 2mm;
             font-family: 'Courier New', monospace;
             color: #000;
             background: #fff;
