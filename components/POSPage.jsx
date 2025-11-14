@@ -1690,18 +1690,18 @@ const finalizePendingOrder = async (order) => {
                   </div>
                 </div>
 
-                <div className="text-center text-[10px] border-t border-dashed border-black pt-1">
+                <div className="text-center text-[12px] border-t border-dashed border-black pt-1">
                   <p className="font-bold">Preparing... Thanks for your patience!</p>
               
                 </div>
-                <div className="pt-1 border-t text-center border-black">
-                  <p className="text-[10px] font-semibold">
-                    SOFTWARE BY: M.Ammar Shaikh
-                  </p>
-                  <p className="text-[9px]">
-                    Tel: 0316-0346330 | 0370-2741544
-                  </p>
-                </div>
+               <div className="pt-1 border-t text-center border-black">
+                    <p className="text-[15px] font-medium">
+                      SOFTWARE BY: M.Ammar Shaikh
+                    </p>
+                    <p className="text-[14px] font-[400]">
+                      Tel: 0316-0346330 | 0370-2741544
+                    </p>
+                  </div>
               </div>
             </div>
           )}
@@ -1818,11 +1818,11 @@ const finalizePendingOrder = async (order) => {
                   <p className="font-bold">{restaurantSettings?.footerMessage || 'Thank You for Dining with Us!'}</p>
             
                   <p className="text-[10px]">Print Time:{new Date().toLocaleString()}</p>
-                  <div className="pt-1 border-t text-center border-black">
-                    <p className="text-[10px] font-semibold">
+                 <div className="pt-1 border-t text-center border-black">
+                    <p className="text-[15px] font-medium">
                       SOFTWARE BY: M.Ammar Shaikh
                     </p>
-                    <p className="text-[9px]">
+                    <p className="text-[14px] font-[400]">
                       Tel: 0316-0346330 | 0370-2741544
                     </p>
                   </div>

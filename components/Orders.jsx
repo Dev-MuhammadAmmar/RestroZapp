@@ -1382,14 +1382,14 @@ const loadRestaurantSettings = async () => {
                   <p className="font-bold">{restaurantSettings?.footerMessage || 'Thank You for Dining with Us!'}</p>
           
                   <p className="text-[10px]">Print Time:{new Date().toLocaleString()}</p>
-<div className="pt-1 border-t text-center border-black">
-  <p className="text-[10px] font-semibold">
-    SOFTWARE BY: M.Ammar Shaikh
-  </p>
-  <p className="text-[9px]">
-    Tel: 0316-0346330 | 0370-2741544
-  </p>
-</div>
+   <div className="pt-1 border-t text-center border-black">
+                    <p className="text-[15px] font-medium">
+                      SOFTWARE BY: M.Ammar Shaikh
+                    </p>
+                    <p className="text-[14px] font-[400]">
+                      Tel: 0316-0346330 | 0370-2741544
+                    </p>
+                  </div>
 </div>
 </div>
 </div>
