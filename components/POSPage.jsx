@@ -1572,32 +1572,32 @@ const finalizePendingOrder = async (order) => {
 
       {/* Print Templates - Hidden from UI */}
       {/* Print Templates - Hidden from UI */}
-      {currentPrintOrder && (
+    {currentPrintOrder && (
         <>
           {/* KOT - Kitchen Order Ticket */}
           {printType === 'kot' && (
             <div className="hidden print:block print-content">
               <div className="receipt-container">
-                <div className="text-center mb-3 border-b-2 border-black pb-2">
-                  <h1 className="text-3xl font-bold mb-1">KOT</h1>
+                <div className="text-center mb-1 border-b-2 border-black pb-1">
+                  <h1 className="text-3xl font-bold">KOT</h1>
                   <p className="text-sm">KITCHEN ORDER TICKET</p>
                 </div>
 
-                <div className="text-sm mb-3 border-b border-dashed border-black pb-2">
-                  <div className="flex justify-between mb-1">
+                <div className="text-sm mb-1 border-b border-dashed border-black pb-1">
+                  <div className="flex justify-between">
                     <span className="font-bold">Order#:</span>
                     <span className="font-bold">{currentPrintOrder.orderNumber}</span>
                   </div>
-                  <div className="flex justify-between mb-1">
+                  <div className="flex justify-between">
                     <span>Time:</span>
                     <span>{new Date(currentPrintOrder.orderDate || new Date()).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}</span>
                   </div>
-                  <div className="flex justify-between mb-1">
+                  <div className="flex justify-between">
                     <span className="font-bold">Type:</span>
                     <span className="font-bold uppercase">{currentPrintOrder.orderType}</span>
                   </div>
                   {currentPrintOrder.orderType === 'dine-in' && currentPrintOrder.tableNumber && (
-                    <div className="flex justify-between mb-1">
+                    <div className="flex justify-between">
                       <span className="font-bold">Table:</span>
                       <span className="font-bold text-lg">{currentPrintOrder.tableNumber}</span>
                     </div>
@@ -1610,10 +1610,10 @@ const finalizePendingOrder = async (order) => {
                   )}
                 </div>
 
-                <div className="mb-3">
-                  <h3 className="font-bold text-lg mb-2 border-b border-black pb-1">ITEMS:</h3>
+                <div className="mb-1">
+                  <h3 className="font-bold text-lg border-b border-black">ITEMS:</h3>
                   {currentPrintOrder.items.map((item, index) => (
-                    <div key={index} className="flex justify-between py-2 border-b border-dashed border-gray-400">
+                    <div key={index} className="flex justify-between py-1 border-b border-dashed border-gray-400">
                       <div className="flex-1">
                         <p className="font-bold text-base">{item.name}</p>
                       </div>
@@ -1625,15 +1625,15 @@ const finalizePendingOrder = async (order) => {
                 </div>
 
                 {currentPrintOrder.notes && (
-                  <div className="mb-3 border-t border-dashed border-black pt-2">
-                    <p className="font-bold text-sm mb-1">NOTES:</p>
+                  <div className="mb-1 border-t border-dashed border-black pt-1">
+                    <p className="font-bold text-sm">NOTES:</p>
                     <p className="text-xs">{currentPrintOrder.notes}</p>
                   </div>
                 )}
 
-                <div className="text-center text-sm border-t-2 border-black pt-2">
+                <div className="text-center text-sm border-t-2 border-black pt-1">
                   <p className="font-bold">PREPARE IMMEDIATELY</p>
-                  <p className="text-xs mt-1">{new Date().toLocaleString()}</p>
+                  <p className="text-xs">{new Date().toLocaleString()}</p>
                 </div>
               </div>
             </div>
@@ -1643,32 +1643,32 @@ const finalizePendingOrder = async (order) => {
           {printType === 'customer-ticket' && (
             <div className="hidden print:block print-content">
               <div className="receipt-container">
-                <div className="text-center mb-3 border-b-2 border-dashed border-black pb-3">
-                  <h1 className="text-2xl font-bold mb-1 uppercase"> {restaurantSettings?.restaurantName || 'RESTAURANT'}</h1>
+                <div className="text-center mb-1 border-b-2 border-dashed border-black pb-1">
+                  <h1 className="text-2xl font-bold uppercase"> {restaurantSettings?.restaurantName || 'RESTAURANT'}</h1>
                   <p className="text-xs">{restaurantSettings?.address || ''}</p>
                   <p className="text-xs">{restaurantSettings?.phone1 || ''}{restaurantSettings?.phone2 ? ` | ${restaurantSettings.phone2}` : ''}</p>
-                  <p className="text-sm font-bold mt-2">WAITING TOKEN</p>
+                  <p className="text-sm font-bold">WAITING TOKEN</p>
                 </div>
 
-                <div className="text-center mb-4">
-                  <div className="border-4 border-black rounded-lg p-4 mb-3">
-                    <p className="text-sm mb-1">Order Number</p>
+                <div className="text-center mb-1">
+                  <div className="border-4 border-black rounded-lg p-2 mb-1">
+                    <p className="text-sm">Order Number</p>
                     <p className="text-4xl font-bold">{currentPrintOrder.orderNumber.split('-')[1]}</p>
                   </div>
                 </div>
 
-                <div className="text-sm mb-3 border-b border-dashed border-black pb-2">
-                  <div className="flex justify-between mb-1">
+                <div className="text-sm mb-1 border-b border-dashed border-black pb-1">
+                  <div className="flex justify-between">
                     <span>Customer:</span>
                     <span className="font-bold">{currentPrintOrder.customerName}</span>
                   </div>
                   {currentPrintOrder.phoneNumber && (
-                    <div className="flex justify-between mb-1">
+                    <div className="flex justify-between">
                       <span>Phone:</span>
                       <span>{currentPrintOrder.phoneNumber}</span>
                     </div>
                   )}
-                  <div className="flex justify-between mb-1">
+                  <div className="flex justify-between">
                     <span>Time:</span>
                     <span>{new Date(currentPrintOrder.orderDate || new Date()).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}</span>
                   </div>
@@ -1678,36 +1678,36 @@ const finalizePendingOrder = async (order) => {
                   </div>
                 </div>
 
-                <div className="mb-3">
-                  <p className="font-bold text-sm mb-2">ORDER SUMMARY:</p>
+                <div className="mb-1">
+                  <p className="font-bold text-sm">ORDER SUMMARY:</p>
                   {currentPrintOrder.items.map((item, index) => (
-                    <div key={index} className="flex justify-between text-xs py-1">
+                    <div key={index} className="flex justify-between text-xs">
                       <span>{item.name} x{item.quantity}</span>
                       <span>₨{(item.price * item.quantity).toFixed(2)}</span>
                     </div>
                   ))}
                 </div>
 
-                <div className="text-sm border-t-2 border-black pt-2 mb-3">
+                <div className="text-sm border-t-2 border-black pt-1 mb-1">
                   <div className="flex justify-between font-bold text-base">
                     <span>TOTAL:</span>
                     <span>₨{currentPrintOrder.total.toFixed(2)}</span>
                   </div>
                 </div>
 
-                <div className="text-center text-sm border-t border-dashed border-black pt-3">
+                <div className="text-center text-sm border-t border-dashed border-black pt-1">
                   <p className="font-bold">Please wait for your order</p>
-                  <p className="text-xs mt-1">Estimated time: 15-20 minutes</p>
-                  <p className="text-xs mt-2">Thank you for your patience!</p>
+                  <p className="text-xs">Estimated time: 15-20 minutes</p>
+                  <p className="text-xs">Thank you for your patience!</p>
                 </div>
- <div className="mt-3 pt-2 border-t text-center border-black">
-  <p className="text-[10px]  font-semibold">
-    SOFTWARE BY: M. AMMAR SHAIKH
-  </p>
-  <p className="text-[9px]">
-    Tel: 0316-0346330 | 0370-2741544
-  </p>
-</div>
+                <div className="pt-1 border-t text-center border-black">
+                  <p className="text-[10px] font-semibold">
+                    SOFTWARE BY: M.Ammar Shaikh
+                  </p>
+                  <p className="text-[9px]">
+                    Tel: 0316-0346330 | 0370-2741544
+                  </p>
+                </div>
               </div>
             </div>
           )}
@@ -1716,73 +1716,73 @@ const finalizePendingOrder = async (order) => {
           {printType === 'bill' && (
             <div className="hidden print:block print-content">
               <div className="receipt-container">
-                <div className="text-center mb-3 border-b-2 border-dashed border-black pb-3">
-                  <h1 className="text-2xl font-bold mb-1 uppercase">{restaurantSettings?.restaurantName || 'RESTAURANT'}</h1>
+                <div className="text-center mb-1 border-b-2 border-dashed border-black pb-1">
+                  <h1 className="text-2xl font-bold uppercase">{restaurantSettings?.restaurantName || 'RESTAURANT'}</h1>
                   <p className="text-xs">{restaurantSettings?.address || ''}</p>
                   <p className="text-xs"> {restaurantSettings?.phone1 || ''}{restaurantSettings?.phone2 ? ` | ${restaurantSettings.phone2}` : ''}</p>
-                  <p className="text-xs mt-1">BILL RECEIPT</p>
+                  <p className="text-xs">BILL RECEIPT</p>
                 </div>
 
-                <div className="text-xs mb-3 border-b border-dashed border-black pb-2">
-                  <div className="flex justify-between mb-1">
+                <div className="text-xs mb-1 border-b border-dashed border-black pb-1">
+                  <div className="flex justify-between">
                     <span>Invoice#:</span>
                     <span className="font-bold">{currentPrintOrder.orderNumber}</span>
                   </div>
-                  <div className="flex justify-between mb-1">
+                  <div className="flex justify-between">
                     <span>Date:</span>
                     <span>{new Date(currentPrintOrder.orderDate || new Date()).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
                   </div>
-                  <div className="flex justify-between mb-1">
+                  <div className="flex justify-between">
                     <span>Type:</span>
                     <span className="font-bold uppercase">{currentPrintOrder.orderType}</span>
                   </div>
                   {currentPrintOrder.orderType === 'dine-in' && currentPrintOrder.tableNumber && (
-                    <div className="flex justify-between mb-1">
+                    <div className="flex justify-between">
                       <span>Table:</span>
                       <span className="font-bold">{currentPrintOrder.tableNumber}</span>
                     </div>
                   )}
                   {currentPrintOrder.customerName && (
-                    <div className="flex justify-between mb-1">
+                    <div className="flex justify-between">
                       <span>Customer:</span>
                       <span>{currentPrintOrder.customerName}</span>
                     </div>
                   )}
                   {currentPrintOrder.phoneNumber && (
-                    <div className="flex justify-between mb-1">
+                    <div className="flex justify-between">
                       <span>Phone:</span>
                       <span>{currentPrintOrder.phoneNumber}</span>
                     </div>
                   )}
                   {currentPrintOrder.address && (
-                    <div className="mb-1">
+                    <div>
                       <span>Address:</span>
-                      <p className="text-xs mt-1">{currentPrintOrder.address}</p>
+                      <p className="text-xs">{currentPrintOrder.address}</p>
                     </div>
                   )}
-                  <div className="flex justify-between mb-1">
+                  <div className="flex justify-between">
                     <span>Payment:</span>
                     <span className="font-bold">{currentPrintOrder.paymentMethod}</span>
                   </div>
                 </div>
 
-                <div className="text-xs mb-3">
+                <div className="text-xs mb-1">
                   <table className="w-full">
                     <thead>
                       <tr className="border-b border-black">
-                        <th className="text-left py-1">Item</th>
-                        <th className="text-center py-1">Qty</th>
-                        <th className="text-right py-1">Price</th>
-                        <th className="text-right py-1">Total</th>
+                        <th className="text-left">Item</th>
+                        <th className="text-center">Qty</th>
+                        <th className="text-right">Price</th>
+                        <th className="text-right">Total</th>
                       </tr>
                     </thead>
                     <tbody>
                       {currentPrintOrder.items.map((item, index) => (
                         <tr key={index} className="border-b border-dashed border-gray-300">
-                          <td className="py-1 text-xs">{item.name}</td>
-                          <td className="text-center py-1">{item.quantity}</td>
-                          <td className="text-right py-1">{item.price}</td>
-                          <td className="text-right py-1 font-bold">
+                          <td className="text-xs">{item.name}</td>
+                          <td className="text-center">{item.quantity}</td>
+                          <td className="text-right">{item.price}</td>
+                          <td className="text-right font-bold">
                             {(item.price * item.quantity).toFixed(2)}
                           </td>
                         </tr>
@@ -1791,54 +1791,53 @@ const finalizePendingOrder = async (order) => {
                   </table>
                 </div>
 
-                <div className="text-xs mb-3 border-t-2 border-black pt-2">
-                  <div className="flex justify-between mb-1">
+                <div className="text-xs mb-1 border-t-2 border-black pt-1">
+                  <div className="flex justify-between">
                     <span>Subtotal:</span>
                     <span>₨{currentPrintOrder.subtotal.toFixed(2)}</span>
                   </div>
-             {currentPrintOrder.tax > 0 && (
-  <div className="flex justify-between mb-1">
-    <span>Service Charges ({currentPrintOrder.taxPercentage}%):</span>
-    <span>₨{currentPrintOrder.tax.toFixed(2)}</span>
-  </div>
-)}
+                  {currentPrintOrder.tax > 0 && (
+                    <div className="flex justify-between">
+                      <span>Service Charges ({currentPrintOrder.taxPercentage}%):</span>
+                      <span>₨{currentPrintOrder.tax.toFixed(2)}</span>
+                    </div>
+                  )}
                   {currentPrintOrder.deliveryCharge > 0 && (
-                    <div className="flex justify-between mb-1">
+                    <div className="flex justify-between">
                       <span>Delivery Charges:</span>
                       <span>₨{currentPrintOrder.deliveryCharge.toFixed(2)}</span>
                     </div>
                   )}
                   {currentPrintOrder.discountPercentage > 0 && (
-                    <div className="flex justify-between mb-1">
+                    <div className="flex justify-between">
                       <span>Discount ({currentPrintOrder.discountPercentage}%):</span>
                       <span>-₨{currentPrintOrder.discount.toFixed(2)}</span>
                     </div>
                   )}
-                  <div className="flex justify-between text-base font-bold border-t border-black pt-1 mt-1">
+                  <div className="flex justify-between text-base font-bold border-t border-black pt-1">
                     <span>TOTAL:</span>
                     <span>₨{currentPrintOrder.total.toFixed(2)}</span>
                   </div>
                 </div>
 
-                <div className="text-center text-xs border-t border-dashed border-black pt-3">
-                  <p className="mb-2 font-bold">{restaurantSettings?.footerMessage || 'Thank You for Dining with Us!'}</p>
-                  <p className="mb-1">Please visit again</p>
-                  <p className="text-[10px]  mt-2">Print Time:{new Date().toLocaleString()}</p>
-<div className="mt-3 pt-2 border-t text-center border-black">
-  <p className="text-[10px] font-semibold">
-    SOFTWARE BY: M. AMMAR SHAIKH
-  </p>
-  <p className="text-[9px]">
-    Tel: 0316-0346330 | 0370-2741544
-  </p>
-</div>
+                <div className="text-center text-xs border-t border-dashed border-black pt-1">
+                  <p className="font-bold">{restaurantSettings?.footerMessage || 'Thank You for Dining with Us!'}</p>
+                  <p>Please visit again</p>
+                  <p className="text-[10px]">Print Time:{new Date().toLocaleString()}</p>
+                  <div className="pt-1 border-t text-center border-black">
+                    <p className="text-[10px] font-semibold">
+                      SOFTWARE BY: M.Ammar Shaikh
+                    </p>
+                    <p className="text-[9px]">
+                      Tel: 0316-0346330 | 0370-2741544
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>
           )}
         </>
       )}
-
 
 
 

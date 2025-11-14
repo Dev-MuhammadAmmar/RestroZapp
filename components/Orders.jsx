@@ -1268,81 +1268,81 @@ const loadRestaurantSettings = async () => {
       </AnimatePresence>
 
       {/* Thermal Receipt Print Style */}
-      {selectedOrder && (
+   {selectedOrder && (
         <div className="hidden print:block print-receipt">
           <div className="receipt-container">
             {/* Header */}
-            <div className="text-center mb-3 border-b-2 border-dashed border-black pb-3">
-                  <h1 className="text-2xl font-bold mb-1 uppercase">{restaurantSettings?.restaurantName || 'RESTAURANT'}</h1>
+            <div className="text-center mb-1 border-b-2 border-dashed border-black pb-1">
+                  <h1 className="text-2xl font-bold uppercase">{restaurantSettings?.restaurantName || 'RESTAURANT'}</h1>
                   <p className="text-xs">{restaurantSettings?.address || ''}</p>
                   <p className="text-xs"> {restaurantSettings?.phone1 || ''}{restaurantSettings?.phone2 ? ` | ${restaurantSettings.phone2}` : ''}</p>
-                  <p className="text-xs mt-1">BILL RECEIPT</p>
+                  <p className="text-xs">BILL RECEIPT</p>
                 </div>
 
             {/* Order Info */}
-            <div className="text-xs mb-3 pb-2 border-b border-dashed border-black">
-              <div className="flex justify-between mb-1">
+            <div className="text-xs mb-1 pb-1 border-b border-dashed border-black">
+              <div className="flex justify-between">
                 <span>Invoice#:</span>
                 <span className="font-bold">{selectedOrder.orderNumber}</span>
               </div>
-              <div className="flex justify-between mb-1">
+              <div className="flex justify-between">
                 <span>Date:</span>
                 <span>{new Date(selectedOrder.orderDate).toLocaleString('en-US', { 
                   month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' 
                 })}</span>
               </div>
-              <div className="flex justify-between mb-1">
+              <div className="flex justify-between">
                 <span>Type:</span>
                 <span className="font-bold uppercase">{selectedOrder.orderType}</span>
               </div>
               {selectedOrder.orderType === 'dine-in' && selectedOrder.tableNumber && (
-                <div className="flex justify-between mb-1">
+                <div className="flex justify-between">
                   <span>Table:</span>
                   <span className="font-bold">{selectedOrder.tableNumber}</span>
                 </div>
               )}
               {selectedOrder.customerName && (
-                <div className="flex justify-between mb-1">
+                <div className="flex justify-between">
                   <span>Customer:</span>
                   <span>{selectedOrder.customerName}</span>
                 </div>
               )}
               {selectedOrder.phoneNumber && (
-                <div className="flex justify-between mb-1">
+                <div className="flex justify-between">
                   <span>Phone:</span>
                   <span>{selectedOrder.phoneNumber}</span>
                 </div>
               )}
               {selectedOrder.address && (
-                <div className="mb-1">
+                <div>
                   <span>Address:</span>
-                  <p className="text-xs mt-1">{selectedOrder.address}</p>
+                  <p className="text-xs">{selectedOrder.address}</p>
                 </div>
               )}
-              <div className="flex justify-between mb-1">
+              <div className="flex justify-between">
                 <span>Payment:</span>
                 <span className="font-bold">{selectedOrder.paymentMethod}</span>
               </div>
             </div>
 
             {/* Items Table */}
-            <div className="text-xs mb-3">
+            <div className="text-xs mb-1">
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-black">
-                    <th className="text-left py-1">Item</th>
-                    <th className="text-center py-1">Qty</th>
-                    <th className="text-right py-1">Price</th>
-                    <th className="text-right py-1">Total</th>
+                    <th className="text-left">Item</th>
+                    <th className="text-center">Qty</th>
+                    <th className="text-right">Price</th>
+                    <th className="text-right">Total</th>
                   </tr>
                 </thead>
                 <tbody>
                   {selectedOrder.items.map((item, index) => (
                     <tr key={index} className="border-b border-dashed border-gray-300">
-                      <td className="py-1 text-xs">{item.name}</td>
-                      <td className="text-center py-1">{item.quantity}</td>
-                      <td className="text-right py-1">{item.price}</td>
-                      <td className="text-right py-1 font-bold">{(item.price * item.quantity).toFixed(2)}</td>
+                      <td className="text-xs">{item.name}</td>
+                      <td className="text-center">{item.quantity}</td>
+                      <td className="text-right">{item.price}</td>
+                      <td className="text-right font-bold">{(item.price * item.quantity).toFixed(2)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -1350,41 +1350,41 @@ const loadRestaurantSettings = async () => {
             </div>
 
             {/* Bill Summary */}
-            <div className="text-xs mb-3 border-t-2 border-black pt-2">
-              <div className="flex justify-between mb-1">
+            <div className="text-xs mb-1 border-t-2 border-black pt-1">
+              <div className="flex justify-between">
                 <span>Subtotal:</span>
                 <span>₨{selectedOrder.subtotal.toFixed(2)}</span>
               </div>
-           { selectedOrder.tax > 0 &&  <div className="flex justify-between mb-1">
+           { selectedOrder.tax > 0 &&  <div className="flex justify-between">
                 <span>Service Charges ({selectedOrder.taxPercentage}%):</span>
                 <span>₨{selectedOrder.tax.toFixed(2)}</span>
               </div>}
               {selectedOrder.deliveryCharge > 0 && (
-                <div className="flex justify-between mb-1">
+                <div className="flex justify-between">
                   <span>Delivery Charges:</span>
                   <span>₨{selectedOrder.deliveryCharge.toFixed(2)}</span>
                 </div>
               )}
               {selectedOrder.discountPercentage > 0 && (
-                <div className="flex justify-between mb-1">
+                <div className="flex justify-between">
                   <span>Discount ({selectedOrder.discountPercentage}%):</span>
                   <span>-₨{selectedOrder.discount.toFixed(2)}</span>
                 </div>
               )}
-              <div className="flex justify-between text-base font-bold border-t border-black pt-1 mt-1">
+              <div className="flex justify-between text-base font-bold border-t border-black pt-1">
                 <span>TOTAL:</span>
                 <span>₨{selectedOrder.total.toFixed(2)}</span>
               </div>
             </div>
 
             {/* Footer */}
-                           <div className="text-center text-xs border-t border-dashed border-black pt-3">
-                  <p className="mb-2 font-bold">{restaurantSettings?.footerMessage || 'Thank You for Dining with Us!'}</p>
-                  <p className="mb-1">Please visit again</p>
-                  <p className="text-[10px]  mt-2">Print Time:{new Date().toLocaleString()}</p>
-<div className="mt-3 pt-2 border-t text-center border-black">
+                           <div className="text-center text-xs border-t border-dashed border-black pt-1">
+                  <p className="font-bold">{restaurantSettings?.footerMessage || 'Thank You for Dining with Us!'}</p>
+                  <p>Please visit again</p>
+                  <p className="text-[10px]">Print Time:{new Date().toLocaleString()}</p>
+<div className="pt-1 border-t text-center border-black">
   <p className="text-[10px] font-semibold">
-    SOFTWARE BY: M. AMMAR SHAIKH
+    SOFTWARE BY: M.Ammar Shaikh
   </p>
   <p className="text-[9px]">
     Tel: 0316-0346330 | 0370-2741544
@@ -1394,7 +1394,6 @@ const loadRestaurantSettings = async () => {
 </div>
 </div>
       )}
-
       {/* Print Styles */}
       <style jsx global>{`
         @media print {
