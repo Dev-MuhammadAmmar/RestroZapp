@@ -621,6 +621,7 @@ const finalizePendingOrder = async (order) => {
                   <input
                     ref={searchInputRef}
                     type="text"
+                    autoFocus
                     placeholder="Search menu... (Ctrl+F)"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
@@ -791,7 +792,7 @@ const finalizePendingOrder = async (order) => {
                 </div>
 
                 {/* Cart Items */}
-                <div className="p-3 sm:p-4 max-h-[350px] sm:max-h-[450px] overflow-y-auto scrollbar-thin scrollbar-thumb-emerald-300 scrollbar-track-slate-100">
+                <div className="p-3 sm:p-4 max-h-[350px] sm:max-h-[350px] overflow-y-auto scrollbar-thin scrollbar-thumb-emerald-300 scrollbar-track-slate-100">
                   <AnimatePresence>
                     {cart.length === 0 ? (
                       <motion.div

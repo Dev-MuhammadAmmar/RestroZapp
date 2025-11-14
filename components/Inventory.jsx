@@ -912,6 +912,7 @@ function ItemModal({ isOpen, onClose, item, categories, onSave }) {
               <input
                 type="text"
                 required
+                autoFocus
                 disabled={isSaving}
                 value={formData.name}
                 onChange={(e) =>
@@ -1241,6 +1242,7 @@ function CategoryModal({ isOpen, onClose, categories, onSave, onDelete }) {
                 <input
                   type="text"
                   disabled={isSaving}
+                  autoFocus
                   value={newCategory.name}
                   onChange={(e) =>
                     setNewCategory({ ...newCategory, name: e.target.value })
