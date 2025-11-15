@@ -1384,9 +1384,9 @@ const loadRestaurantSettings = async () => {
                   <p className="text-[10px]">Print Time:{new Date().toLocaleString()}</p>
    <div className="pt-1 border-t text-center border-black">
                     <p className="text-[15px] font-medium">
-                      SOFTWARE BY: M.Ammar Shaikh
+                      Software By: M.Ammar Shaikh
                     </p>
-                    <p className="text-[14px] font-[400]">
+                    <p className="text-[13px] font-[400] break-all">
                       Tel: 0316-0346330 | 0370-2741544
                     </p>
                   </div>
@@ -1410,23 +1410,23 @@ const loadRestaurantSettings = async () => {
             position: absolute;
             left: 0;
             top: 0;
-            width: 80mm;
+            width: 72mm;
           }
           
           .receipt-container {
-            width: 80mm;
-            max-width: 80mm;
+            width: 72mm;
+            max-width: 72mm;
             margin: 0;
-           padding: 3mm 2mm;
+           padding: 2mm 2mm;
             font-family: 'Courier New', monospace;
             color: #000;
             background: #fff;
-            font-size: 12px;
-            line-height: 1.4;
+            font-size: 11px;
+            line-height: 1.3;
           }
           
           @page {
-            size: 80mm auto;
+            size: 72mm auto;
             margin: 0;
           }
           

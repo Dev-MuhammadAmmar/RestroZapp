@@ -1690,15 +1690,15 @@ const finalizePendingOrder = async (order) => {
                   </div>
                 </div>
 
-                <div className="text-center text-[12px] border-t border-dashed border-black pt-1">
+                <div className="text-center text-[11px] border-t border-dashed border-black pt-1">
                   <p className="font-bold">Preparing... Thanks for your patience!</p>
               
                 </div>
                <div className="pt-1 border-t text-center border-black">
                     <p className="text-[15px] font-medium">
-                      SOFTWARE BY: M.Ammar Shaikh
+                      Software By: M.Ammar Shaikh
                     </p>
-                    <p className="text-[14px] font-[400]">
+                    <p className="text-[13px] font-[400] break-all">
                       Tel: 0316-0346330 | 0370-2741544
                     </p>
                   </div>
@@ -1820,9 +1820,9 @@ const finalizePendingOrder = async (order) => {
                   <p className="text-[10px]">Print Time:{new Date().toLocaleString()}</p>
                  <div className="pt-1 border-t text-center border-black">
                     <p className="text-[15px] font-medium">
-                      SOFTWARE BY: M.Ammar Shaikh
+                      Software By: M.Ammar Shaikh
                     </p>
-                    <p className="text-[14px] font-[400]">
+                    <p className="text-[13px] font-[400] break-all">
                       Tel: 0316-0346330 | 0370-2741544
                     </p>
                   </div>
@@ -1835,7 +1835,7 @@ const finalizePendingOrder = async (order) => {
 
       {/* Print Styles */}
       <style jsx global>{`
-        @media print {
+  @media print {
           /* Hide everything first */
           body * {
             visibility: hidden;
@@ -1852,20 +1852,20 @@ const finalizePendingOrder = async (order) => {
             position: absolute;
             left: 0;
             top: 0;
-            width: 80mm;
+            width: 72mm;
           }
           
           /* Receipt container styling */
           .receipt-container {
-            width: 80mm;
-            max-width: 80mm;
+            width: 72mm;
+            max-width: 72mm;
             margin: 0;
-           padding: 3mm 2mm;
+            padding: 2mm 2mm;
             font-family: 'Courier New', monospace;
             color: #000;
             background: #fff;
-            font-size: 12px;
-            line-height: 1.4;
+            font-size: 11px;
+            line-height: 1.3;
           }
           
           /* Hide non-print elements */
@@ -1875,7 +1875,7 @@ const finalizePendingOrder = async (order) => {
           
           /* Page setup */
           @page {
-            size: 80mm auto;
+            size: 72mm auto;
             margin: 0;
           }
           
