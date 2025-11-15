@@ -98,6 +98,7 @@ export default function POSPage() {
   const [selectedSearchIndex, setSelectedSearchIndex] = useState(-1)
   const searchInputRef = useRef(null)
   const searchDropdownRef = useRef(null)
+  const orderDetailsRef = useRef(orderDetails)
 
   // Load initial data
   useEffect(() => {
@@ -314,84 +315,86 @@ const loadRestaurantSettings = async () => {
     }
     setIsOrderModalOpen(true)
   }
-
-  const submitOrder = async () => {
-    // Validation
-    if (orderDetails.orderType === 'dine-in' && !orderDetails.tableNumber) {
-      showNotification('Please enter table number', 'error')
+const submitOrder = async () => {
+  const currentDetails = orderDetailsRef.current
+  
+  // Validation
+  if (currentDetails.orderType === 'dine-in' && !currentDetails.tableNumber.trim()) {
+    showNotification('Please enter table number', 'error')
+    return
+  }
+  if (currentDetails.orderType === 'delivery') {
+    if (!currentDetails.customerName.trim() || !currentDetails.phoneNumber.trim() || !currentDetails.address.trim()) {
+      showNotification('Please fill all delivery details', 'error')
       return
     }
-    if (orderDetails.orderType === 'delivery') {
-
-      if (!orderDetails.customerName || !orderDetails.phoneNumber || !orderDetails.address) {
-        showNotification('Please fill all delivery details', 'error')
-        return
-      }
-    }
-
-
-    setIsSubmittingOrder(true)
-
-    try {
-      const orderData = {
-        items: cart.map(item => ({
-          menuItemId: item._id,
-          name: item.name,
-          price: item.sellingPrice,
-          quantity: item.quantity,
-          categoryId: item.categoryId
-        })),
-        orderType: orderDetails.orderType,
-        subtotal,
-        tax,
-        taxPercentage: orderDetails.taxPercentage,
-        discount: discountAmount,
-        discountPercentage: orderDetails.discountPercentage,
-        deliveryCharge: orderDetails.deliveryCharge,
-        total,
-        paymentMethod: orderDetails.paymentMethod,
-        customerName: orderDetails.customerName || 'Guest',
-        phoneNumber: orderDetails.phoneNumber || null,
-        tableNumber: orderDetails.tableNumber || null,
-        address: orderDetails.address || null,
-        notes: orderDetails.notes || null
-      }
-
-      const response = await createOrder(orderData)
-
-      if (response.success) {
-        // Set for printing
-        setCurrentPrintOrder(response.data)
-        setIsOrderModalOpen(false)
-
-        // Print KOT first
-        setPrintType('kot')
-        setTimeout(() => {
-          window.print()
-          
-          // After KOT, print customer ticket for takeaway
-          if (orderDetails.orderType === 'takeaway') {
-            setTimeout(() => {
-              setPrintType('customer-ticket')
-              setTimeout(() => {
-                window.print()
-                finalizePendingOrder(response.data)
-              }, 100)
-            }, 500)
-          } else {
-            finalizePendingOrder(response.data)
-          }
-        }, 100)
-      } else {
-        showNotification(response.error || 'Failed to create order', 'error')
-      }
-    } catch (error) {
-      showNotification('Error creating order', 'error')
-      console.error('Order creation error:', error)
-    } finally {
-      setIsSubmittingOrder(false)
-    }
   }
+
+  setIsSubmittingOrder(true)
+
+  try {
+    const orderData = {
+      items: cart.map(item => ({
+        menuItemId: item._id,
+        name: item.name,
+        price: item.sellingPrice,
+        quantity: item.quantity,
+        categoryId: item.categoryId
+      })),
+      orderType: currentDetails.orderType,
+      subtotal,
+      tax,
+      taxPercentage: currentDetails.taxPercentage,
+      discount: discountAmount,
+      discountPercentage: currentDetails.discountPercentage,
+      deliveryCharge: currentDetails.deliveryCharge,
+      total,
+      paymentMethod: currentDetails.paymentMethod,
+      customerName: currentDetails.customerName || 'Guest',
+      phoneNumber: currentDetails.phoneNumber || null,
+      tableNumber: currentDetails.tableNumber || null,
+      address: currentDetails.address || null,
+      notes: currentDetails.notes || null
+    }
+
+    const response = await createOrder(orderData)
+
+    if (response.success) {
+      // Set for printing
+      setCurrentPrintOrder(response.data)
+      setIsOrderModalOpen(false)
+
+      // Print KOT first
+      setPrintType('kot')
+      setTimeout(() => {
+        window.print()
+        
+        // After KOT, print customer ticket for takeaway - USE currentDetails here!
+        if (currentDetails.orderType === 'takeaway') {
+          setTimeout(() => {
+            setPrintType('customer-ticket')
+            setTimeout(() => {
+              window.print()
+              finalizePendingOrder(response.data)
+            }, 100)
+          }, 500)
+        } else {
+          finalizePendingOrder(response.data)
+        }
+      }, 100)
+    } else {
+      showNotification(response.error || 'Failed to create order', 'error')
+    }
+  } catch (error) {
+    showNotification('Error creating order', 'error')
+    console.error('Order creation error:', error)
+  } finally {
+    setIsSubmittingOrder(false)
+  }
+}
+useEffect(() => {
+  orderDetailsRef.current = orderDetails
+}, [orderDetails])
 
 const finalizePendingOrder = async (order) => {
   await loadPendingOrders()
@@ -451,67 +454,66 @@ const finalizePendingOrder = async (order) => {
     showNotification('Data refreshed', 'success')
   }
 
-  // Keyboard shortcuts
-  useEffect(() => {
-    const handleKeyboard = (e) => {
-      // Ignore if user is typing in input fields
-      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
-        return
-      }
+// Keyboard shortcuts
+useEffect(() => {
+  const handleKeyboard = (e) => {
+    const isTyping = e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA'
 
-      // Ctrl/Cmd + C - Confirm Order
-      if ((e.ctrlKey || e.metaKey) && e.key === 'c') {
-        e.preventDefault()
-        if (cart.length > 0 && !isOrderModalOpen) {
-          confirmOrder()
-        }
-      }
-
-      // Ctrl/Cmd + K - Send to Kitchen (from order modal)
-      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
-        e.preventDefault()
-        if (isOrderModalOpen && !isSubmittingOrder) {
-          submitOrder()
-        }
-      }
-
-      // Ctrl/Cmd + P - Pending Orders
-      if ((e.ctrlKey || e.metaKey) && e.key === 'p') {
-        e.preventDefault()
-        setIsPendingOrdersOpen(!isPendingOrdersOpen)
-      }
-
-      // Ctrl/Cmd + D - Clear Cart
-      if ((e.ctrlKey || e.metaKey) && e.key === 'd') {
-        e.preventDefault()
-        clearCart()
-      }
-
-      // Ctrl/Cmd + F - Focus Search
-      if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
-        e.preventDefault()
-        searchInputRef.current?.focus()
-      }
-
-      // Escape - Close modals
-      if (e.key === 'Escape') {
-        if (isOrderModalOpen) setIsOrderModalOpen(false)
-        if (isPendingOrdersOpen) setIsPendingOrdersOpen(false)
-        if (isShortcutsModalOpen) setIsShortcutsModalOpen(false)
-        if (showSearchDropdown) setShowSearchDropdown(false)
-      }
-
-      // ? - Show shortcuts
-      if (e.key === '?' && !e.shiftKey) {
-        e.preventDefault()
-        setIsShortcutsModalOpen(!isShortcutsModalOpen)
+    // Ctrl/Cmd + C - Confirm Order (skip if typing, except for copy)
+    if ((e.ctrlKey || e.metaKey) && e.key === 'c') {
+      if (isTyping) return // Allow normal copy
+      e.preventDefault()
+      if (cart.length > 0 && !isOrderModalOpen) {
+        confirmOrder()
       }
     }
 
-    window.addEventListener('keydown', handleKeyboard)
-    return () => window.removeEventListener('keydown', handleKeyboard)
-  }, [cart, isOrderModalOpen, isPendingOrdersOpen, isSubmittingOrder, isShortcutsModalOpen, showSearchDropdown])
+    // Ctrl/Cmd + K - Send to Kitchen (works even when typing in modal)
+    if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+      e.preventDefault()
+      if (isOrderModalOpen && !isSubmittingOrder) {
+        submitOrder()
+      }
+    }
 
+    // Ctrl/Cmd + P - Pending Orders
+    if ((e.ctrlKey || e.metaKey) && e.key === 'p') {
+      e.preventDefault()
+      setIsPendingOrdersOpen(!isPendingOrdersOpen)
+    }
+
+    // Ctrl/Cmd + D - Clear Cart (skip if typing)
+    if ((e.ctrlKey || e.metaKey) && e.key === 'd') {
+      if (isTyping) return
+      e.preventDefault()
+      clearCart()
+    }
+
+    // Ctrl/Cmd + F - Focus Search
+    if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+      e.preventDefault()
+      searchInputRef.current?.focus()
+    }
+
+    // Escape - Close modals (works everywhere)
+    if (e.key === 'Escape') {
+      if (isOrderModalOpen) setIsOrderModalOpen(false)
+      if (isPendingOrdersOpen) setIsPendingOrdersOpen(false)
+      if (isShortcutsModalOpen) setIsShortcutsModalOpen(false)
+      if (showSearchDropdown) setShowSearchDropdown(false)
+    }
+
+    // ? - Show shortcuts (skip if typing)
+    if (e.key === '?' && !e.shiftKey) {
+      if (isTyping) return
+      e.preventDefault()
+      setIsShortcutsModalOpen(!isShortcutsModalOpen)
+    }
+  }
+
+  window.addEventListener('keydown', handleKeyboard)
+  return () => window.removeEventListener('keydown', handleKeyboard)
+}, [cart, isOrderModalOpen, isPendingOrdersOpen, isSubmittingOrder, isShortcutsModalOpen, showSearchDropdown])
     return (
     <>
       {/* Main UI */}
