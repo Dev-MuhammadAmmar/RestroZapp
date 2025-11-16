@@ -82,7 +82,7 @@ const orderSchema = new mongoose.Schema(
     },
     taxPercentage: {
       type: Number,
-      default: 10,
+      default: 0,
       min: 0,
       max: 100,
     },
@@ -122,7 +122,7 @@ const orderSchema = new mongoose.Schema(
       type: String,
       required: true,
       enum: ['cash', 'card', 'online', 'other'],
-      default: 'Cash',
+      default: 'cash',
     },
     paymentStatus: {
       type: String,
@@ -145,6 +145,7 @@ const orderSchema = new mongoose.Schema(
     tableNumber: {
       type: String,
       trim: true,
+      default: null,
       sparse: true,
     },
     address: {

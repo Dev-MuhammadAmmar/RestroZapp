@@ -953,6 +953,21 @@ function ItemModal({ isOpen, onClose, item, categories, onSave }) {
                 placeholder="e.g., 10-12 mins (Optional)"
               />
             </div>
+            <div>
+              <label className="block text-[#475569] font-medium mb-2 text-xs sm:text-sm">
+                Description
+              </label>
+              <input
+                type="text"
+                disabled={isSaving}
+                value={formData.description}
+                onChange={(e) =>
+                  setFormData({ ...formData, description: e.target.value })
+                }
+                className="w-full px-3 sm:px-4 py-2 sm:py-3 bg-[#f8fafc] border-2 border-[#e2e8f0] rounded-lg focus:outline-none focus:border-[#10b981] focus:ring-2 focus:ring-[#10b981]/20 transition-all text-[#1e293b] disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base"
+                placeholder="e.g., Freshly brewed coffee (Optional)"
+              />
+            </div>
 
             {/* Status Toggle - Mobile */}
             <div className="lg:hidden flex items-center justify-between p-3 sm:p-4 bg-[#f8fafc] rounded-lg">

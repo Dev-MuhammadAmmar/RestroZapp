@@ -44,6 +44,8 @@ import { getCategories } from '@/lib/actions/categories'
 import { getActiveMenuItems } from '@/lib/actions/menuItems'
 import { createOrder, getPendingOrders, completeOrder } from '@/lib/actions/orders'
 import { getSettings } from '@/lib/actions/settings'
+import { searchCustomers as searchCustomersAPI } from '@/lib/actions/customers'
+import { Users } from 'lucide-react'
 
 const ORDER_TYPES = [
   { value: 'dine-in', label: 'Dine In', icon: UtensilsCrossed, color: 'from-blue-500 to-cyan-500' },
@@ -76,9 +78,14 @@ export default function POSPage() {
   const [isSubmittingOrder, setIsSubmittingOrder] = useState(false)
   const [isLoadingPendingOrders, setIsLoadingPendingOrders] = useState(false)
   const [restaurantSettings, setRestaurantSettings] = useState(null)
-
-  
-  // Order details
+//costumer search states
+// Customer search states - SEPARATE for name and phone
+const [customerSearchResults, setCustomerSearchResults] = useState([])
+const [showCustomerDropdown, setShowCustomerDropdown] = useState(false)
+const [selectedCustomerIndex, setSelectedCustomerIndex] = useState(-1)
+const [searchingCustomers, setSearchingCustomers] = useState(false)
+const customerSearchRef = useRef(null)
+const customerDropdownRef = useRef(null)
   const [orderDetails, setOrderDetails] = useState({
     orderType: 'dine-in',
     tableNumber: '',
@@ -91,6 +98,140 @@ export default function POSPage() {
     taxPercentage: 0 ,
     notes: '',
   })
+// Optimized customer search with proper debounce
+useEffect(() => {
+  const performSearch = async () => {
+    // Get search term from either name or phone field
+    const nameQuery = orderDetails.customerName?.trim() || ''
+    const phoneQuery = orderDetails.phoneNumber?.trim() || ''
+    
+    // Use whichever field has more characters
+    const searchTerm = nameQuery.length >= phoneQuery.length ? nameQuery : phoneQuery
+    
+    // Don't search if query is too short
+    if (searchTerm.length < 2) {
+      setCustomerSearchResults([])
+      setShowCustomerDropdown(false)
+      return
+    }
+
+    setSearchingCustomers(true)
+    try {
+      const response = await searchCustomersAPI(searchTerm)
+      if (response.success) {
+        setCustomerSearchResults(response.data)
+        setShowCustomerDropdown(response.data.length > 0)
+        setSelectedCustomerIndex(-1)
+      }
+    } catch (error) {
+      console.error('Error searching customers:', error)
+      setCustomerSearchResults([])
+      setShowCustomerDropdown(false)
+    } finally {
+      setSearchingCustomers(false)
+    }
+  }
+
+  // Debounce search - wait 400ms after user stops typing
+  const debounceTimer = setTimeout(performSearch, 400)
+  
+  return () => clearTimeout(debounceTimer)
+}, [orderDetails.customerName, orderDetails.phoneNumber]) // Watch BOTH fields
+
+// ===== REPLACE handleCustomerSelect =====
+
+const handleCustomerSelect = (customer) => {
+  // Fill all order details with customer data
+  setOrderDetails(prev => ({
+    ...prev,
+    customerName: customer.name,
+    phoneNumber: customer.phoneNumber,
+    address: customer.address || '',
+  }))
+  
+  // Clear search state
+  setShowCustomerDropdown(false)
+  setCustomerSearchResults([])
+  setSelectedCustomerIndex(-1)
+  
+  // Show success notification
+  showNotification(`Customer ${customer.name} selected`, 'success')
+}
+
+// ===== REPLACE handleCustomerKeyDown =====
+
+const handleCustomerKeyDown = (e) => {
+  if (!showCustomerDropdown || customerSearchResults.length === 0) return
+
+  switch (e.key) {
+    case 'ArrowDown':
+      e.preventDefault()
+      setSelectedCustomerIndex(prev => 
+        prev < customerSearchResults.length - 1 ? prev + 1 : prev
+      )
+      break
+    
+    case 'ArrowUp':
+      e.preventDefault()
+      setSelectedCustomerIndex(prev => prev > 0 ? prev - 1 : -1)
+      break
+    
+    case 'Enter':
+      e.preventDefault()
+      if (selectedCustomerIndex >= 0 && customerSearchResults[selectedCustomerIndex]) {
+        handleCustomerSelect(customerSearchResults[selectedCustomerIndex])
+      }
+      break
+    
+    case 'Escape':
+      e.preventDefault()
+      setShowCustomerDropdown(false)
+      setSelectedCustomerIndex(-1)
+      break
+  }
+}
+
+
+// Click outside to close dropdown
+useEffect(() => {
+  const handleClickOutside = (event) => {
+    if (
+      customerDropdownRef.current &&
+      !customerDropdownRef.current.contains(event.target) &&
+      customerSearchRef.current &&
+      !customerSearchRef.current.contains(event.target)
+    ) {
+      setShowCustomerDropdown(false)
+      setSelectedCustomerIndex(-1)
+    }
+  }
+
+  document.addEventListener('mousedown', handleClickOutside)
+  return () => document.removeEventListener('mousedown', handleClickOutside)
+}, [])
+// Reset when modal closes
+useEffect(() => {
+  if (!isOrderModalOpen) {
+    setCustomerSearchResults([])
+    setShowCustomerDropdown(false)
+    setSelectedCustomerIndex(-1)
+  }
+}, [isOrderModalOpen])
+
+// Clear when switching to dine-in
+useEffect(() => {
+  if (orderDetails.orderType === 'dine-in') {
+    setCustomerSearchResults([])
+    setShowCustomerDropdown(false)
+    setSelectedCustomerIndex(-1)
+  }
+}, [orderDetails.orderType])
+
+
+
+  
+  // Order details
+
 
   // Search dropdown
   const [showSearchDropdown, setShowSearchDropdown] = useState(false)
@@ -180,20 +321,19 @@ const loadRestaurantSettings = async () => {
 }
   // Auto-update delivery charge based on order type
  // Auto-update delivery charge and tax based on order type
-   useEffect(() => {
-    if (orderDetails.orderType === 'delivery' && orderDetails.deliveryCharge === 0) {
-      setOrderDetails(prev => ({ ...prev, deliveryCharge: restaurantSettings?.deliveryCharges || 50 }))
-    } else if (orderDetails.orderType !== 'delivery') {
-      setOrderDetails(prev => ({ ...prev, deliveryCharge: 0 }))
-    }
-    
-    // Set tax percentage based on order type
-    if (orderDetails.orderType === 'dine-in') {
-      setOrderDetails(prev => ({ ...prev, taxPercentage: restaurantSettings?.taxPercentage || 0 }))
-    } else {
-      setOrderDetails(prev => ({ ...prev, taxPercentage: 0 }))
-    }
-  }, [orderDetails.orderType, restaurantSettings?.taxPercentage])
+ useEffect(() => {
+  if (orderDetails.orderType === 'delivery' && orderDetails.deliveryCharge === 0) {
+    setOrderDetails(prev => ({ ...prev, deliveryCharge: restaurantSettings?.deliveryCharges || 50 }))
+  } else if (orderDetails.orderType !== 'delivery') {
+    setOrderDetails(prev => ({ ...prev, deliveryCharge: 0 }))
+  }
+  
+  if (orderDetails.orderType === 'dine-in') {
+    setOrderDetails(prev => ({ ...prev, taxPercentage: restaurantSettings?.taxPercentage || 0 }))
+  } else {
+    setOrderDetails(prev => ({ ...prev, taxPercentage: 0 }))
+  }
+}, [orderDetails.orderType, restaurantSettings?.taxPercentage, restaurantSettings?.deliveryCharges])
   // Calculations
   const subtotal = cart.reduce((sum, item) => sum + item.sellingPrice * item.quantity, 0)
   const tax = subtotal * (orderDetails.taxPercentage / 100)
@@ -319,10 +459,7 @@ const submitOrder = async () => {
   const currentDetails = orderDetailsRef.current
   
   // Validation
-  if (currentDetails.orderType === 'dine-in' && !currentDetails.tableNumber.trim()) {
-    showNotification('Please enter table number', 'error')
-    return
-  }
+
   if (currentDetails.orderType === 'delivery') {
     if (!currentDetails.customerName.trim() || !currentDetails.phoneNumber.trim() || !currentDetails.address.trim()) {
       showNotification('Please fill all delivery details', 'error')
@@ -711,59 +848,101 @@ useEffect(() => {
               </motion.div>
 
               {/* Menu Items Grid */}
+            <motion.div
+  initial={{ opacity: 0, y: 20 }}
+  animate={{ opacity: 1, y: 0 }}
+  className="bg-white rounded-xl sm:rounded-2xl p-3 sm:p-4 shadow-sm border border-slate-100"
+>
+  {isLoadingMenuItems ? (
+    <div className="flex justify-center items-center h-[50vh]">
+      <Loader2 className="w-8 h-8 animate-spin text-emerald-500" />
+    </div>
+  ) : filteredProducts.length === 0 ? (
+    <div className="text-center h-[50vh] flex flex-col items-center justify-center">
+      <Coffee className="w-16 h-16 sm:w-20 sm:h-20 text-slate-300 mb-4" />
+      <p className="text-slate-500 font-semibold text-base sm:text-lg">No items found</p>
+      <p className="text-slate-400 text-xs sm:text-sm mt-2">
+        Try selecting a different category
+      </p>
+    </div>
+  ) : (
+    <div className="h-[50vh] overflow-y-auto pt-3 modern-scrollbar pr-2">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 sm:gap-3 lg:gap-4">
+        {filteredProducts.map((item, index) => (
+          <motion.button
+            key={item._id}
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: index * 0.02 }}
+            whileHover={{ scale: 1.05, y: -5 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={() => addToCart(item)}
+            className="bg-gradient-to-br from-white to-slate-50 rounded-lg sm:rounded-xl p-3 sm:p-4 shadow-sm border-2 border-slate-100 hover:border-emerald-500 hover:shadow-lg transition-all group relative h-fit"
+          >
+            {/* Popular Badge - Show for top 5 items with sales */}
+            {item.salesCount > 0 && index < 5 && (
               <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="bg-white rounded-xl sm:rounded-2xl p-3 sm:p-4 shadow-sm border h-[50vh] overflow-x-scroll border-slate-100"
+                initial={{ scale: 0, rotate: -45 }}
+                animate={{ scale: 1, rotate: 0 }}
+                transition={{ type: "spring", delay: index * 0.05 }}
+                className="absolute -top-2 -right-2 z-10"
               >
-                {isLoadingMenuItems ? (
-                  <div className="flex justify-center items-center py-16">
-                    <Loader2 className="w-8 h-8 animate-spin text-emerald-500" />
+                <div className="relative ">
+                  <div className="bg-gradient-to-r from-orange-500 via-red-500 to-pink-500 text-white text-[9px] sm:text-[10px] font-bold px-2 py-1 rounded-full shadow-lg flex items-center gap-1">
+                    <span className="animate-pulse">🔥</span>
+                    <span>HOT</span>
                   </div>
-                ) : filteredProducts.length === 0 ? (
-                  <div className="text-center py-12 sm:py-16">
-                    <Coffee className="w-16 h-16 sm:w-20 sm:h-20 text-slate-300 mx-auto mb-4" />
-                    <p className="text-slate-500 font-semibold text-base sm:text-lg">No items found</p>
-                    <p className="text-slate-400 text-xs sm:text-sm mt-2">
-                      Try selecting a different category
-                    </p>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 sm:gap-3 lg:gap-4">
-                    {filteredProducts.map((item, index) => (
-                      <motion.button
-                        key={item._id}
-                        initial={{ opacity: 0, scale: 0.9 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        transition={{ delay: index * 0.02 }}
-                        whileHover={{ scale: 1.05, y: -5 }}
-                        whileTap={{ scale: 0.95 }}
-                        onClick={() => addToCart(item)}
-                        className="bg-gradient-to-br from-white to-slate-50 rounded-lg sm:rounded-xl p-3 sm:p-4 shadow-sm border-2 border-slate-100 hover:border-emerald-500 hover:shadow-lg transition-all group"
-                      >
-                        <div className="text-3xl sm:text-4xl lg:text-5xl mb-2 sm:mb-3 group-hover:scale-110 transition-transform">
-                          {item.categoryId?.icon || '🍽️'}
-                        </div>
-                        <h3 className="font-bold text-slate-800 text-xs sm:text-sm mb-1 line-clamp-2 min-h-[2.5rem] sm:min-h-[3rem]">
-                          {item.name}
-                        </h3>
-                        <div className="flex items-center justify-between mt-2">
-                          <span className="text-xs text-slate-500 truncate">{item.categoryId?.name}</span>
-                        </div>
-                        <div className="mt-2 pt-2 border-t border-slate-200">
-                          <p className="text-emerald-600 font-bold text-base sm:text-lg">
-                            ₨{item.sellingPrice}
-                          </p>
-                        </div>
-                        <div className="mt-2 sm:mt-3 flex items-center justify-center gap-1 text-xs text-emerald-600 font-semibold opacity-0 group-hover:opacity-100 transition-opacity">
-                          <Plus className="w-3 h-3" />
-                          Add to Cart
-                        </div>
-                      </motion.button>
-                    ))}
-                  </div>
-                )}
+                  {/* Glow effect */}
+                  <div className="absolute inset-0 bg-gradient-to-r from-orange-500 to-red-500 rounded-full blur-md opacity-40 -z-10"></div>
+                </div>
               </motion.div>
+            )}
+            
+            <div className="text-3xl sm:text-4xl lg:text-5xl mb-2 sm:mb-3 group-hover:scale-110 transition-transform">
+              {item.categoryId?.icon || '🍽️'}
+            </div>
+            
+            <h3 className="font-bold text-slate-800 text-xs sm:text-sm mb-1 line-clamp-2 min-h-[2rem] sm:min-h-[2.5rem]">
+              {item.name}
+            </h3>
+            
+            {/* Description */}
+            {item.description && (
+              <p className="text-[10px] sm:text-xs text-slate-400 line-clamp-2 mb-2 min-h-[2rem] leading-tight">
+                {item.description}
+              </p>
+            )}
+            
+            <div className="flex items-center justify-between mt-2">
+              <span className="text-xs text-slate-500 truncate">{item.categoryId?.name}</span>
+              {/* Show sales count for popular items */}
+              {item.salesCount > 0 && (
+                <motion.span 
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  className="text-[10px] bg-orange-100 text-orange-700 font-bold px-1.5 py-0.5 rounded-full"
+                >
+                  {item.salesCount}
+                </motion.span>
+              )}
+            </div>
+            
+            <div className="mt-2 pt-2 border-t border-slate-200">
+              <p className="text-emerald-600 font-bold text-base sm:text-lg">
+                ₨{item.sellingPrice}
+              </p>
+            </div>
+            
+            <div className="mt-2 sm:mt-3 flex items-center justify-center gap-1 text-xs text-emerald-600 font-semibold opacity-0 group-hover:opacity-100 transition-opacity">
+              <Plus className="w-3 h-3" />
+              Add to Cart
+            </div>
+          </motion.button>
+        ))}
+      </div>
+    </div>
+  )}
+</motion.div>
             </div>
 
             {/* Cart Section */}
@@ -1170,7 +1349,7 @@ useEffect(() => {
                   <div>
                     <label className="block text-slate-700 font-semibold mb-2 text-xs sm:text-sm flex items-center gap-1.5">
                       <Grid3x3 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-600" />
-                      Table Number *
+                      Table Number * (Optional if not assigned)
                     </label>
                     <input
                       type="text"
@@ -1186,64 +1365,215 @@ useEffect(() => {
                   </div>
                 )}
 
-                {(orderDetails.orderType === 'takeaway' || orderDetails.orderType === 'delivery') && (
-                  <>
-                    <div>
-                      <label className="block text-slate-700 font-semibold mb-2 text-xs sm:text-sm flex items-center gap-1.5">
-                        <User className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-600" />
-                        Customer Name *
-                      </label>
-                      <input
-                        type="text"
-                        autoFocus 
-                        value={orderDetails.customerName}
-                        onChange={(e) =>
-                          setOrderDetails({ ...orderDetails, customerName: e.target.value })
-                        }
-                        disabled={isSubmittingOrder}
-                        placeholder={`Enter name ${orderDetails.orderType==="takeaway"?"(Optional)":""}`}
-                        className="w-full px-3 sm:px-4 py-2 sm:py-3 border-2 border-slate-200 rounded-lg sm:rounded-xl focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 transition-all disabled:opacity-50 text-sm sm:text-base"
-                      />
-                    </div>
+             {/* Replace the Customer Name input section in your Order Modal with this */}
 
-                    <div>
-                      <label className="block text-slate-700 font-semibold mb-2 text-xs sm:text-sm flex items-center gap-1.5">
-                        <Phone className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-600" />
-                        Phone Number *
-                      </label>
-                      <input
-                        type="tel"
-                        value={orderDetails.phoneNumber}
-                        onChange={(e) =>
-                          setOrderDetails({ ...orderDetails, phoneNumber: e.target.value })
-                        }
-                        disabled={isSubmittingOrder}
-                        placeholder={`03XX-XXXXXXX ${orderDetails.orderType==="takeaway"?"(Optional)":""}`}
-                        className="w-full px-3 sm:px-4 py-2 sm:py-3 border-2 border-slate-200 rounded-lg sm:rounded-xl focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 transition-all disabled:opacity-50 text-sm sm:text-base"
-                      />
-                    </div>
-                  </>
-                )}
+{/* REPLACE YOUR CUSTOMER INPUT SECTION WITH THIS */}
 
-                {orderDetails.orderType === 'delivery' && (
-                  <div className="sm:col-span-2">
-                    <label className="block text-slate-700 font-semibold mb-2 text-xs sm:text-sm flex items-center gap-1.5">
-                      <MapPin className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-600" />
-                      Delivery Address *
-                    </label>
-                    <textarea
-                      value={orderDetails.address}
-                      autoFocus
-                      onChange={(e) =>
-                        setOrderDetails({ ...orderDetails, address: e.target.value })
-                      }
-                      disabled={isSubmittingOrder}
-                      placeholder="Enter complete address"
-                      rows={2}
-                      className="w-full px-3 sm:px-4 py-2 sm:py-3 border-2 border-slate-200 rounded-lg sm:rounded-xl focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 transition-all resize-none disabled:opacity-50 text-sm sm:text-base"
-                    />
+{(orderDetails.orderType === 'takeaway' || orderDetails.orderType === 'delivery') && (
+  <>
+    {/* Customer Name with Smart Search */}
+    <div className="relative">
+      <label className="block text-slate-700 font-semibold mb-2 text-xs sm:text-sm flex items-center gap-1.5">
+        <User className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-600" />
+        Customer Name {orderDetails.orderType === 'delivery' && '*'}
+      </label>
+      
+      <div className="relative">
+        <input
+          ref={customerSearchRef}
+          type="text"
+          autoFocus={orderDetails.orderType === 'takeaway' || orderDetails.orderType === 'delivery'}
+          value={orderDetails.customerName}
+          onChange={(e) => {
+            const value = e.target.value
+            // ONLY update customer name
+            setOrderDetails(prev => ({ ...prev, customerName: value }))
+          }}
+          onKeyDown={handleCustomerKeyDown}
+          onFocus={() => {
+            // Show dropdown if there are results
+            if (customerSearchResults.length > 0) {
+              setShowCustomerDropdown(true)
+            }
+          }}
+          disabled={isSubmittingOrder}
+          placeholder="Search by name..."
+          className="w-full pl-3 sm:pl-4 pr-10 py-2 sm:py-3 border-2 border-slate-200 rounded-lg sm:rounded-xl focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 transition-all disabled:opacity-50 text-sm sm:text-base"
+        />
+        
+        {/* Loading spinner */}
+        {searchingCustomers && (
+          <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 animate-spin text-emerald-500" />
+        )}
+        
+        {/* Clear button */}
+        {!searchingCustomers && orderDetails.customerName && (
+          <button
+            onClick={() => {
+              setShowCustomerDropdown(false)
+              setOrderDetails(prev => ({ 
+                ...prev, 
+                customerName: '', 
+                phoneNumber: '', 
+                address: '' 
+              }))
+            }}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+            type="button"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        )}
+      </div>
+
+      {/* Customer Search Dropdown */}
+      <AnimatePresence>
+        {showCustomerDropdown && customerSearchResults.length > 0 && (
+          <motion.div
+            ref={customerDropdownRef}
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="absolute top-full left-0 right-0 mt-2 bg-white rounded-xl shadow-2xl border-2 border-emerald-200 overflow-hidden z-[100] max-h-72 overflow-y-auto"
+          >
+            <div className="p-2">
+              {/* Results header */}
+              <div className="flex items-center gap-2 px-3 py-2 bg-emerald-50 rounded-lg mb-2 sticky top-0 z-10">
+                <Users className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+                <span className="text-xs font-semibold text-emerald-700">
+                  {customerSearchResults.length} customer{customerSearchResults.length > 1 ? 's' : ''} found
+                </span>
+              </div>
+              
+              {/* Customer results */}
+              {customerSearchResults.map((customer, index) => (
+                <motion.button
+                  key={customer._id}
+                  onClick={() => handleCustomerSelect(customer)}
+                  onMouseEnter={() => setSelectedCustomerIndex(index)}
+                  type="button"
+                  className={`w-full flex items-start gap-3 p-3 rounded-lg transition-all text-left ${
+                    selectedCustomerIndex === index
+                      ? 'bg-emerald-50 border-2 border-emerald-500 shadow-md'
+                      : 'hover:bg-slate-50 border-2 border-transparent'
+                  }`}
+                  whileHover={{ x: 4 }}
+                >
+                  {/* Customer Avatar */}
+                  <div className="flex-shrink-0 w-10 h-10 bg-gradient-to-br from-emerald-500 to-teal-500 rounded-full flex items-center justify-center text-white font-bold shadow-lg">
+                    {customer.name.charAt(0).toUpperCase()}
                   </div>
-                )}
+                  
+                  {/* Customer Details */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <p className="font-bold text-slate-800 text-sm truncate">
+                        {customer.name}
+                      </p>
+                      {customer.orderCount > 1 && (
+                        <span className="px-2 py-0.5 bg-orange-100 text-orange-700 rounded-full text-[10px] font-bold flex items-center gap-1">
+                          <Receipt className="w-3 h-3" />
+                          {customer.orderCount}
+                        </span>
+                      )}
+                    </div>
+                    
+                    <div className="flex items-center gap-1.5 mb-0.5">
+                      <Phone className="w-3 h-3 text-emerald-600 flex-shrink-0" />
+                      <p className="text-xs text-slate-600 font-medium">
+                        {customer.phoneNumber}
+                      </p>
+                    </div>
+                    
+                    {customer.address && (
+                      <div className="flex items-start gap-1.5">
+                        <MapPin className="w-3 h-3 text-orange-600 flex-shrink-0 mt-0.5" />
+                        <p className="text-xs text-slate-500 line-clamp-2">
+                          {customer.address}
+                        </p>
+                      </div>
+                    )}
+                    
+                    {customer.lastOrderDate && (
+                      <p className="text-[10px] text-slate-400 mt-1">
+                        Last order: {new Date(customer.lastOrderDate).toLocaleDateString('en-US', {
+                          month: 'short',
+                          day: 'numeric',
+                          year: 'numeric'
+                        })}
+                      </p>
+                    )}
+                  </div>
+                  
+                  <CheckCircle className={`w-5 h-5 flex-shrink-0 transition-opacity ${
+                    selectedCustomerIndex === index ? 'opacity-100 text-emerald-500' : 'opacity-0'
+                  }`} />
+                </motion.button>
+              ))}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Helper text */}
+      {orderDetails.orderType === 'takeaway' && !orderDetails.customerName && (
+        <p className="text-xs text-slate-500 mt-1 flex items-center gap-1">
+          <Info className="w-3 h-3" />
+          Optional - Search by name or phone
+        </p>
+      )}
+    </div>
+
+    {/* Phone Number - Independent field */}
+    <div className="relative">
+      <label className="block text-slate-700 font-semibold mb-2 text-xs sm:text-sm flex items-center gap-1.5">
+        <Phone className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-600" />
+        Phone Number {orderDetails.orderType === 'delivery' && '*'}
+      </label>
+      <input
+        type="tel"
+        value={orderDetails.phoneNumber}
+        onChange={(e) => {
+          const value = e.target.value
+          // ONLY update phone number
+          setOrderDetails(prev => ({ ...prev, phoneNumber: value }))
+        }}
+        onKeyDown={handleCustomerKeyDown}
+        onFocus={() => {
+          // Show dropdown if there are results
+          if (customerSearchResults.length > 0) {
+            setShowCustomerDropdown(true)
+          }
+        }}
+        disabled={isSubmittingOrder}
+        placeholder={orderDetails.orderType === 'takeaway' ? '03XX-XXXXXXX (Optional)' : '03XX-XXXXXXX'}
+        className="w-full px-3 sm:px-4 py-2 sm:py-3 border-2 border-slate-200 rounded-lg sm:rounded-xl focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 transition-all disabled:opacity-50 text-sm sm:text-base"
+      />
+    </div>
+  </>
+)}
+
+{/* Address field for delivery */}
+{orderDetails.orderType === 'delivery' && (
+  <div className="sm:col-span-2">
+    <label className="block text-slate-700 font-semibold mb-2 text-xs sm:text-sm flex items-center gap-1.5">
+      <MapPin className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-600" />
+      Delivery Address *
+    </label>
+    <textarea
+      value={orderDetails.address}
+      onChange={(e) => setOrderDetails(prev => ({ ...prev, address: e.target.value }))}
+      disabled={isSubmittingOrder}
+      placeholder="Enter complete delivery address"
+      rows={3}
+      className="w-full px-3 sm:px-4 py-2 sm:py-3 border-2 border-slate-200 rounded-lg sm:rounded-xl focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 transition-all resize-none disabled:opacity-50 text-sm sm:text-base"
+    />
+  </div>
+)}
+
+
+
+          
               </div>
 
               {/* Payment & Charges - 2 columns on mobile, 4 on desktop */}
@@ -1838,6 +2168,54 @@ useEffect(() => {
       {/* Print Styles */}
       <style jsx global>{`
   @media print {
+
+           .modern-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: #10b981 #f1f5f9;
+  }
+
+  .modern-scrollbar::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  .modern-scrollbar::-webkit-scrollbar-track {
+    background: linear-gradient(to bottom, #f1f5f9, #e2e8f0);
+    border-radius: 100px;
+    margin: 4px 0;
+  }
+
+  .modern-scrollbar::-webkit-scrollbar-thumb {
+    background: linear-gradient(to bottom, #10b981, #059669);
+    border-radius: 100px;
+    border: 2px solid #f1f5f9;
+    transition: all 0.3s ease;
+  }
+
+  .modern-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(to bottom, #059669, #047857);
+    border-color: #e2e8f0;
+    width: 10px;
+  }
+
+  .modern-scrollbar::-webkit-scrollbar-thumb:active {
+    background: linear-gradient(to bottom, #047857, #065f46);
+  }
+
+  /* Smooth scroll behavior */
+  .modern-scrollbar {
+    scroll-behavior: smooth;
+  }
+
+  /* Hide scrollbar on mobile for cleaner look (optional) */
+  @media (max-width: 640px) {
+    .modern-scrollbar::-webkit-scrollbar {
+      width: 4px;
+    }
+    
+    .modern-scrollbar::-webkit-scrollbar-thumb {
+      border-width: 1px;
+    }
+  }
           /* Hide everything first */
           body * {
             visibility: hidden;

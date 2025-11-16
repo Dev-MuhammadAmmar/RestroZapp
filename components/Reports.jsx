@@ -19,6 +19,12 @@ import {
   ShoppingBag,
   Truck,
   Loader2,
+  Users,
+  Phone,
+  MapPin,
+  Award,
+  Star,
+  Crown,
 } from 'lucide-react';
 import {
   BarChart,
@@ -34,6 +40,7 @@ import {
   Cell,
 } from 'recharts';
 import { getReportsData } from '@/lib/actions/reports';
+import { getTopCustomers } from '@/lib/actions/customers';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
@@ -46,6 +53,7 @@ export default function ReportsPage() {
   const [customRange, setCustomRange] = useState(false);
   const [loading, setLoading] = useState(true);
   const [reportsData, setReportsData] = useState(null);
+  const [topCustomers, setTopCustomers] = useState([]);
   const [error, setError] = useState(null);
 
   useEffect(() => {
@@ -115,12 +123,20 @@ export default function ReportsPage() {
         return;
       }
 
-      const result = await getReportsData(filters);
+      // Fetch both reports and customers in parallel
+      const [reportsResult, customersResult] = await Promise.all([
+        getReportsData(filters),
+        getTopCustomers(10)
+      ]);
       
-      if (result.success) {
-        setReportsData(result.data);
+      if (reportsResult.success) {
+        setReportsData(reportsResult.data);
       } else {
-        setError(result.message || 'Failed to fetch reports data');
+        setError(reportsResult.message || 'Failed to fetch reports data');
+      }
+
+      if (customersResult.success) {
+        setTopCustomers(customersResult.data);
       }
     } catch (err) {
       console.error('Error fetching reports:', err);
@@ -231,35 +247,36 @@ export default function ReportsPage() {
       headStyles: { fillColor: [59, 130, 246] },
     });
 
-    // Payment Methods
-    finalY = doc.lastAutoTable.finalY || 50;
-    doc.setFontSize(14);
-    doc.text('Payment Methods', 14, finalY + 10);
-
-    const cashOrders = reportsData.transactions.filter(t => t.paymentMethod === 'Cash').length;
-    const cardOrders = reportsData.transactions.filter(t => t.paymentMethod === 'Card').length;
-    const onlineOrders = reportsData.transactions.filter(t => t.paymentMethod === 'Online').length;
-
-    const paymentData = [
-      ['Cash', cashOrders.toString(), `₨${reportsData.summary.cashPayments.toLocaleString()}`],
-      ['Card', cardOrders.toString(), `₨${reportsData.summary.cardPayments.toLocaleString()}`],
-      ['Online', onlineOrders.toString(), `₨${reportsData.summary.onlinePayments.toLocaleString()}`],
-    ];
-
-    autoTable(doc, {
-      startY: finalY + 15,
-      head: [['Payment Method', 'Count', 'Amount']],
-      body: paymentData,
-      theme: 'grid',
-      headStyles: { fillColor: [139, 92, 246] },
-    });
-
-    // Add new page for transactions
+    // Add new page for more details
     doc.addPage();
     
+    // Top Customers
+    if (topCustomers.length > 0) {
+      doc.setFontSize(14);
+      doc.text('Top Customers', 14, 20);
+
+      const customersData = topCustomers.map((customer, index) => [
+        (index + 1).toString(),
+        customer.name,
+        customer.phoneNumber,
+        customer.orderCount.toString(),
+        `₨${(customer.totalSpent || 0).toLocaleString()}`,
+      ]);
+
+      autoTable(doc, {
+        startY: 25,
+        head: [['Rank', 'Name', 'Phone', 'Orders', 'Total Spent']],
+        body: customersData,
+        theme: 'grid',
+        headStyles: { fillColor: [139, 92, 246] },
+      });
+
+      finalY = doc.lastAutoTable.finalY || 25;
+    }
+
     // Top Selling Items
     doc.setFontSize(14);
-    doc.text('Top Selling Items', 14, 20);
+    doc.text('Top Selling Items', 14, topCustomers.length > 0 ? finalY + 10 : 20);
 
     const topItemsData = reportsData.popularItems.slice(0, 10).map((item, index) => [
       (index + 1).toString(),
@@ -268,38 +285,26 @@ export default function ReportsPage() {
     ]);
 
     autoTable(doc, {
-      startY: 25,
+      startY: topCustomers.length > 0 ? finalY + 15 : 25,
       head: [['Rank', 'Item Name', 'Units Sold']],
       body: topItemsData,
       theme: 'grid',
       headStyles: { fillColor: [245, 158, 11] },
     });
 
-    // Detailed Transactions
-    finalY = doc.lastAutoTable.finalY || 25;
-    doc.setFontSize(14);
-    doc.text('Recent Transactions', 14, finalY + 10);
-
-    const transactionData = reportsData.transactions.slice(0, 20).map(t => [
-      t.id,
-      t.date,
-      t.time,
-      `₨${t.revenue.toLocaleString()}`,
-      `₨${t.profit.toLocaleString()}`,
-      t.paymentMethod,
-    ]);
-
-    autoTable(doc, {
-      startY: finalY + 15,
-      head: [['Order ID', 'Date', 'Time', 'Revenue', 'Profit', 'Payment']],
-      body: transactionData,
-      theme: 'striped',
-      headStyles: { fillColor: [30, 41, 59] },
-      styles: { fontSize: 8 },
-    });
-
     // Save PDF
     doc.save(`restaurant-report-${new Date().toISOString().split('T')[0]}.pdf`);
+  };
+
+  const getCustomerTierBadge = (totalSpent) => {
+    if (totalSpent >= 50000) {
+      return { label: 'VIP', color: 'from-yellow-500 to-orange-500', icon: Crown };
+    } else if (totalSpent >= 20000) {
+      return { label: 'Gold', color: 'from-yellow-400 to-yellow-600', icon: Award };
+    } else if (totalSpent >= 10000) {
+      return { label: 'Silver', color: 'from-gray-400 to-gray-600', icon: Star };
+    }
+    return { label: 'Regular', color: 'from-blue-400 to-blue-600', icon: Users };
   };
 
   if (loading) {
@@ -733,11 +738,183 @@ export default function ReportsPage() {
           </motion.div>
         </div>
 
+        {/* TOP CUSTOMERS SECTION - NEW */}
+        {topCustomers.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.9 }}
+            className="mb-6 sm:mb-8"
+          >
+            <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+              <div className="p-4 sm:p-6 border-b border-[#e2e8f0] bg-gradient-to-r from-purple-50 to-pink-50">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-base sm:text-lg font-bold text-[#1e293b] flex items-center gap-2">
+                      <Users className="w-4 h-4 sm:w-5 sm:h-5 text-[#8b5cf6]" />
+                      Top Loyal Customers
+                    </h3>
+                    <p className="text-xs sm:text-sm text-[#64748b] mt-1">
+                      Most valued customers ranked by spending & orders
+                    </p>
+                  </div>
+                  <div className="hidden sm:flex items-center gap-2 px-4 py-2 bg-white/80 rounded-lg backdrop-blur-sm">
+                    <Trophy className="w-5 h-5 text-[#f59e0b]" />
+                    <span className="text-sm font-bold text-[#1e293b]">{topCustomers.length} VIPs</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-4 sm:p-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {topCustomers.map((customer, index) => {
+                    const tierBadge = getCustomerTierBadge(customer.totalSpent || 0);
+                    const TierIcon = tierBadge.icon;
+                    
+                    return (
+                      <motion.div
+                        key={customer._id}
+                        initial={{ opacity: 0, scale: 0.9 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ delay: index * 0.05 }}
+                        className="bg-gradient-to-br from-white to-gray-50 rounded-xl p-4 border-2 border-gray-100 hover:border-purple-300 hover:shadow-lg transition-all group relative overflow-hidden"
+                      >
+                        {/* Rank Badge */}
+                        <div className={`absolute top-3 right-3 w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm shadow-lg ${
+                          index === 0
+                            ? 'bg-gradient-to-br from-yellow-400 to-orange-500 text-white'
+                            : index === 1
+                            ? 'bg-gradient-to-br from-gray-300 to-gray-500 text-white'
+                            : index === 2
+                            ? 'bg-gradient-to-br from-orange-400 to-orange-600 text-white'
+                            : 'bg-gradient-to-br from-blue-400 to-blue-600 text-white'
+                        }`}>
+                          {index + 1}
+                        </div>
+
+                        {/* Customer Avatar & Info */}
+                        <div className="flex items-start gap-3 mb-3">
+                          <div className={`w-14 h-14 bg-gradient-to-br ${tierBadge.color} rounded-full flex items-center justify-center text-white font-bold text-xl shadow-lg group-hover:scale-110 transition-transform flex-shrink-0`}>
+                            {customer.name.charAt(0).toUpperCase()}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <h4 className="font-bold text-[#1e293b] text-sm mb-1 truncate group-hover:text-purple-600 transition-colors">
+                              {customer.name}
+                            </h4>
+                            <div className="flex items-center gap-1.5 text-xs text-[#64748b] mb-1">
+                              <Phone className="w-3 h-3 flex-shrink-0" />
+                              <span className="truncate">{customer.phoneNumber}</span>
+                            </div>
+                            {customer.address && (
+                              <div className="flex items-start gap-1.5 text-xs text-[#94a3b8]">
+                                <MapPin className="w-3 h-3 flex-shrink-0 mt-0.5" />
+                                <span className="line-clamp-1">{customer.address}</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Tier Badge */}
+                        <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-gradient-to-r ${tierBadge.color} text-white text-xs font-bold mb-3 shadow-md`}>
+                          <TierIcon className="w-3 h-3" />
+                          {tierBadge.label}
+                        </div>
+
+                        {/* Stats Grid */}
+                        <div className="grid grid-cols-2 gap-2">
+                          <div className="bg-blue-50 rounded-lg p-2.5">
+                            <p className="text-xs text-blue-600 mb-0.5 flex items-center gap-1">
+                              <ShoppingCart className="w-3 h-3" />
+                              Orders
+                            </p>
+                            <p className="text-lg font-bold text-blue-700">{customer.orderCount}</p>
+                          </div>
+                          <div className="bg-emerald-50 rounded-lg p-2.5">
+                            <p className="text-xs text-emerald-600 mb-0.5 flex items-center gap-1">
+                              <DollarSign className="w-3 h-3" />
+                              Spent
+                            </p>
+                            <p className="text-lg font-bold text-emerald-700">
+                              ₨{(customer.totalSpent || 0).toLocaleString()}
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Last Order Date */}
+                        {customer.lastOrderDate && (
+                          <div className="mt-3 pt-3 border-t border-gray-200">
+                            <div className="flex items-center justify-between text-xs">
+                              <span className="text-[#94a3b8]">Last order:</span>
+                              <span className="text-[#64748b] font-medium">
+                                {new Date(customer.lastOrderDate).toLocaleDateString('en-US', {
+                                  month: 'short',
+                                  day: 'numeric',
+                                  year: 'numeric'
+                                })}
+                              </span>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Hover Effect Gradient */}
+                        <div className="absolute inset-0 bg-gradient-to-br from-purple-500/0 to-pink-500/0 group-hover:from-purple-500/5 group-hover:to-pink-500/5 transition-all pointer-events-none rounded-xl" />
+                      </motion.div>
+                    );
+                  })}
+                </div>
+
+                {/* Customer Stats Summary */}
+                <div className="mt-6 grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg p-4">
+                    <div className="flex items-center gap-3">
+                      <div className="bg-purple-500 p-2 rounded-lg">
+                        <Users className="w-5 h-5 text-white" />
+                      </div>
+                      <div>
+                        <p className="text-xs text-purple-600 font-medium">Total Customers</p>
+                        <p className="text-xl font-bold text-purple-700">{topCustomers.length}</p>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-4">
+                    <div className="flex items-center gap-3">
+                      <div className="bg-blue-500 p-2 rounded-lg">
+                        <ShoppingCart className="w-5 h-5 text-white" />
+                      </div>
+                      <div>
+                        <p className="text-xs text-blue-600 font-medium">Total Orders</p>
+                        <p className="text-xl font-bold text-blue-700">
+                          {topCustomers.reduce((sum, c) => sum + c.orderCount, 0)}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="bg-gradient-to-br from-emerald-50 to-emerald-100 rounded-lg p-4 sm:col-span-1">
+                    <div className="flex items-center gap-3">
+                      <div className="bg-emerald-500 p-2 rounded-lg">
+                        <DollarSign className="w-5 h-5 text-white" />
+                      </div>
+                      <div>
+                        <p className="text-xs text-emerald-600 font-medium">Total Revenue</p>
+                        <p className="text-xl font-bold text-emerald-700">
+                          ₨{topCustomers.reduce((sum, c) => sum + (c.totalSpent || 0), 0).toLocaleString()}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        )}
+
         {/* Detailed Report Table */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.9 }}
+          transition={{ delay: 1.0 }}
           className="bg-white rounded-xl shadow-sm overflow-hidden mb-6 sm:mb-8"
         >
           <div className="p-4 sm:p-6 border-b border-[#e2e8f0]">
@@ -834,7 +1011,7 @@ export default function ReportsPage() {
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 1.0 }}
+          transition={{ delay: 1.1 }}
         >
           <h3 className="text-lg sm:text-xl font-bold text-[#1e293b] mb-4 flex items-center gap-2">
             <Trophy className="w-5 h-5 sm:w-6 sm:h-6 text-[#10b981]" />
@@ -846,7 +1023,7 @@ export default function ReportsPage() {
             <motion.div
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: 1.1 }}
+              transition={{ delay: 1.2 }}
               className="bg-gradient-to-br from-[#10b981] to-[#059669] rounded-xl p-4 sm:p-6 shadow-lg text-white hover:scale-105 transition-transform cursor-pointer"
             >
               <div className="flex items-center gap-3 sm:gap-4 mb-3 sm:mb-4">
@@ -868,7 +1045,7 @@ export default function ReportsPage() {
             <motion.div
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: 1.2 }}
+              transition={{ delay: 1.3 }}
               className="bg-gradient-to-br from-[#3b82f6] to-[#2563eb] rounded-xl p-4 sm:p-6 shadow-lg text-white hover:scale-105 transition-transform cursor-pointer"
             >
               <div className="flex items-center gap-3 sm:gap-4 mb-3 sm:mb-4">
@@ -890,7 +1067,7 @@ export default function ReportsPage() {
             <motion.div
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: 1.3 }}
+              transition={{ delay: 1.4 }}
               className="bg-gradient-to-br from-[#8b5cf6] to-[#7c3aed] rounded-xl p-4 sm:p-6 shadow-lg text-white hover:scale-105 transition-transform cursor-pointer md:col-span-3 lg:col-span-1"
             >
               <div className="flex items-center gap-3 sm:gap-4 mb-3 sm:mb-4">
@@ -916,7 +1093,7 @@ export default function ReportsPage() {
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 1.4 }}
+          transition={{ delay: 1.5 }}
           className="mt-6 sm:mt-8 grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6"
         >
           {/* Profit Margin Card */}
@@ -1024,7 +1201,7 @@ export default function ReportsPage() {
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 1.5 }}
+          transition={{ delay: 1.6 }}
           className="mt-6 sm:mt-8 bg-white rounded-xl shadow-sm overflow-hidden"
         >
           <div className="p-4 sm:p-6 border-b border-[#e2e8f0]">
@@ -1105,7 +1282,7 @@ export default function ReportsPage() {
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          transition={{ delay: 1.6 }}
+          transition={{ delay: 1.7 }}
           className="mt-6 sm:mt-8 text-center text-[#64748b] text-xs sm:text-sm"
         >
           <p>
