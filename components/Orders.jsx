@@ -1410,15 +1410,15 @@ const loadRestaurantSettings = async () => {
             position: absolute;
             left: 0;
             top: 0;
-            width: 70mm;
+            width: 72mm;
           }
           
           .receipt-container {
-            width: 70mm;
-            max-width: 70mm;
+            width: 72mm;
+            max-width: 72mm;
             margin: 0;
            padding: 2mm 2mm;
-           padding-right: 3mm;: 
+           padding-right: 1mm;: 
             font-family: 'Courier New', monospace;
             color: #000;
             background: #fff;
@@ -1427,7 +1427,7 @@ const loadRestaurantSettings = async () => {
           }
           
           @page {
-            size: 70mm auto;
+            size: 72mm auto;
             margin: 0;
           }
           

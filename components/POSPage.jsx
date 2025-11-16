@@ -1854,15 +1854,16 @@ useEffect(() => {
             position: absolute;
             left: 0;
             top: 0;
-            width: 72mm;
+            width: 66mm;
           }
           
           /* Receipt container styling */
           .receipt-container {
-            width: 72mm;
-            max-width: 72mm;
+            width: 66mm;
+            max-width: 70mm;
             margin: 0;
             padding: 2mm 2mm;
+            padding-right:2mm
             font-family: 'Courier New', monospace;
             color: #000;
             background: #fff;
@@ -1877,7 +1878,7 @@ useEffect(() => {
           
           /* Page setup */
           @page {
-            size: 72mm auto;
+            size: 66mm auto;
             margin: 0;
           }
           
