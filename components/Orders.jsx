@@ -1179,12 +1179,12 @@ const loadRestaurantSettings = async () => {
                         <span className="font-semibold">-₨{selectedOrder.discount.toLocaleString()}</span>
                       </div>
                     )}
-                    <div className="flex justify-between items-center text-sm md:text-base">
+                  { selectedOrder.tax > 0 &&  <div className="flex justify-between items-center text-sm md:text-base">
                       <span className="text-[#64748b]">Tax ({selectedOrder.taxPercentage}%):</span>
                       <span className="font-semibold text-[#1e293b]">
                         ₨{selectedOrder.tax.toLocaleString()}
                       </span>
-                    </div>
+                    </div>}
                     {selectedOrder.deliveryCharge > 0 && (
                       <div className="flex justify-between items-center text-sm md:text-base">
                         <span className="text-[#64748b]">Delivery Charge:</span>
@@ -1273,7 +1273,7 @@ const loadRestaurantSettings = async () => {
           <div className="receipt-container">
             {/* Header */}
             <div className="text-center mb-1 border-b-2 border-dashed border-black pb-1">
-                  <h1 className="text-[22px] font-bold uppercase">{restaurantSettings?.restaurantName || 'RESTAURANT'}</h1>
+                  <h1 className="text-[22px ] font-bold uppercase">{restaurantSettings?.restaurantName || 'RESTAURANT'}</h1>
                   <p className="text-xs">{restaurantSettings?.address || ''}</p>
                   <p className="text-xs"> {restaurantSettings?.phone1 || ''}{restaurantSettings?.phone2 ? ` | ${restaurantSettings.phone2}` : ''}</p>
                   <p className="text-xs text-center font-bold">BILL RECEIPT</p>

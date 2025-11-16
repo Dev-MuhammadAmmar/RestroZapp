@@ -1,7 +1,6 @@
-// app/reports/page.jsx
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import {
   DollarSign,
@@ -13,8 +12,6 @@ import {
   Clock,
   Trophy,
   Package,
-  ArrowUpRight,
-  ArrowDownRight,
   BarChart3,
   LineChart as LineChartIcon,
   FileText,
@@ -26,8 +23,6 @@ import {
 import {
   BarChart,
   Bar,
-  LineChart,
-  Line,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -51,72 +46,105 @@ export default function ReportsPage() {
   const [customRange, setCustomRange] = useState(false);
   const [loading, setLoading] = useState(true);
   const [reportsData, setReportsData] = useState(null);
- useEffect(() => {
- 
-    
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
     // Prevent zoom on mobile inputs
-    const metaViewport = document.querySelector('meta[name=viewport]')
+    const metaViewport = document.querySelector('meta[name=viewport]');
     if (metaViewport) {
-      metaViewport.setAttribute('content', 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no')
+      metaViewport.setAttribute('content', 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no');
     }
     
     return () => {
       if (metaViewport) {
-        metaViewport.setAttribute('content', 'width=device-width, initial-scale=1.0')
+        metaViewport.setAttribute('content', 'width=device-width, initial-scale=1.0');
       }
-    }
-  }, [])
-  // Fetch data on mount and when filters change
-
-  useEffect(() => {
-    fetchReportsData();
+    };
   }, []);
-  
+
+  // Fetch data on mount and when reportType changes (except for Custom Range)
+  useEffect(() => {
+    if (reportType !== 'Custom Range') {
+      fetchReportsData();
+    }
+  }, [reportType]);
+
+  const getDateFilters = () => {
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    let startDate, endDate;
+
+    if (reportType === 'Today') {
+      startDate = today;
+      endDate = new Date(today);
+      endDate.setHours(23, 59, 59, 999);
+    } else if (reportType === 'This Week') {
+      startDate = new Date(today);
+      startDate.setDate(startDate.getDate() - 7);
+      endDate = new Date(today);
+      endDate.setHours(23, 59, 59, 999);
+    } else if (reportType === 'This Month') {
+      startDate = new Date(today);
+      startDate.setDate(startDate.getDate() - 30);
+      endDate = new Date(today);
+      endDate.setHours(23, 59, 59, 999);
+    } else if (reportType === 'Custom Range' && dateFrom && dateTo) {
+      startDate = new Date(dateFrom);
+      endDate = new Date(dateTo);
+      endDate.setHours(23, 59, 59, 999);
+    } else {
+      return null;
+    }
+
+    return {
+      startDate: startDate.toISOString(),
+      endDate: endDate.toISOString()
+    };
+  };
 
   const fetchReportsData = async () => {
     setLoading(true);
+    setError(null);
+    
     try {
-      const filters = {};
-      const now = new Date();
-      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-
-      if (reportType === 'Today') {
-        filters.startDate = today.toISOString();
-        filters.endDate = today.toISOString();
-      } else if (reportType === 'This Week') {
-        const weekAgo = new Date(today);
-        weekAgo.setDate(weekAgo.getDate() - 7);
-        filters.startDate = weekAgo.toISOString();
-        filters.endDate = today.toISOString();
-      } else if (reportType === 'This Month') {
-        const monthAgo = new Date(today);
-        monthAgo.setDate(monthAgo.getDate() - 30);
-        filters.startDate = monthAgo.toISOString();
-        filters.endDate = today.toISOString();
-      } else if (reportType === 'Custom Range' && dateFrom && dateTo) {
-        filters.startDate = dateFrom;
-        filters.endDate = dateTo;
+      const filters = getDateFilters();
+      
+      if (!filters) {
+        setError('Please select a valid date range');
+        setLoading(false);
+        return;
       }
 
       const result = await getReportsData(filters);
+      
       if (result.success) {
         setReportsData(result.data);
+      } else {
+        setError(result.message || 'Failed to fetch reports data');
       }
-    } catch (error) {
-      console.error('Error fetching reports:', error);
+    } catch (err) {
+      console.error('Error fetching reports:', err);
+      setError('An error occurred while fetching reports. Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
   const handleGenerateCustomReport = () => {
-    if (dateFrom && dateTo) {
-      setReportType('Custom Range');
-      fetchReportsData();
+    if (!dateFrom || !dateTo) {
+      setError('Please select both start and end dates');
+      return;
     }
+    
+    if (new Date(dateFrom) > new Date(dateTo)) {
+      setError('Start date must be before end date');
+      return;
+    }
+    
+    setError(null);
+    fetchReportsData();
   };
 
-  // Export to CSV
   const handleExportCSV = () => {
     if (!reportsData) return;
 
@@ -142,9 +170,9 @@ export default function ReportsPage() {
     a.href = url;
     a.download = `report-${new Date().toISOString().split('T')[0]}.csv`;
     a.click();
+    window.URL.revokeObjectURL(url);
   };
 
-  // Export to PDF with charts
   const handleExportPDF = () => {
     if (!reportsData) return;
 
@@ -285,11 +313,54 @@ export default function ReportsPage() {
     );
   }
 
+  if (error) {
+    return (
+      <div className="min-h-screen bg-[#f5f7fa] flex items-center justify-center p-4">
+        <div className="text-center bg-white rounded-xl p-8 shadow-lg max-w-md">
+          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <span className="text-3xl">⚠️</span>
+          </div>
+          <p className="text-[#ef4444] text-lg font-semibold mb-2">Error</p>
+          <p className="text-[#64748b] text-base mb-4">{error}</p>
+          <button
+            onClick={() => {
+              setError(null);
+              if (reportType === 'Custom Range') {
+                handleGenerateCustomReport();
+              } else {
+                fetchReportsData();
+              }
+            }}
+            className="px-6 py-2 bg-[#10b981] text-white rounded-lg hover:bg-[#059669] transition-all font-medium"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   if (!reportsData) {
     return (
       <div className="min-h-screen bg-[#f5f7fa] flex items-center justify-center p-4">
-        <div className="text-center">
-          <p className="text-[#64748b] text-base sm:text-lg">No data available</p>
+        <div className="text-center bg-white rounded-xl p-8 shadow-lg max-w-md">
+          <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <FileText className="w-8 h-8 text-gray-400" />
+          </div>
+          <p className="text-[#64748b] text-lg font-semibold mb-2">No Data Available</p>
+          <p className="text-[#94a3b8] text-sm mb-4">
+            {reportType === 'Custom Range' 
+              ? 'Please select a date range and click Generate'
+              : 'No orders found for the selected period'}
+          </p>
+          {reportType === 'Custom Range' && (
+            <button
+              onClick={() => setCustomRange(true)}
+              className="px-6 py-2 bg-[#10b981] text-white rounded-lg hover:bg-[#059669] transition-all font-medium"
+            >
+              Select Date Range
+            </button>
+          )}
         </div>
       </div>
     );
@@ -362,9 +433,7 @@ export default function ReportsPage() {
                     onClick={() => {
                       setReportType(type);
                       setCustomRange(type === 'Custom Range');
-                      if (type !== 'Custom Range') {
-                        fetchReportsData();
-                      }
+                      setError(null);
                     }}
                     className={`px-3 sm:px-4 py-2 rounded-lg font-medium transition-all text-xs sm:text-sm ${
                       reportType === type
@@ -395,7 +464,8 @@ export default function ReportsPage() {
                 />
                 <button
                   onClick={handleGenerateCustomReport}
-                  className="px-6 py-2 bg-[#10b981] text-white rounded-lg hover:bg-[#059669] transition-all font-medium shadow-md text-sm"
+                  disabled={!dateFrom || !dateTo}
+                  className="px-6 py-2 bg-[#10b981] text-white rounded-lg hover:bg-[#059669] transition-all font-medium shadow-md text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Generate
                 </button>
@@ -582,7 +652,7 @@ export default function ReportsPage() {
                 <p className="text-xs sm:text-sm text-[#64748b] mt-1">Daily revenue breakdown</p>
               </div>
             </div>
-            <ResponsiveContainer width="100%" height={250} className="sm:h-[300px]">
+            <ResponsiveContainer width="100%" height={250}>
               <BarChart data={chartData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                 <XAxis 
@@ -629,7 +699,7 @@ export default function ReportsPage() {
                 <p className="text-xs sm:text-sm text-[#64748b] mt-1">Breakdown by order type</p>
               </div>
             </div>
-            <ResponsiveContainer width="100%" height={250} className="sm:h-[300px]">
+            <ResponsiveContainer width="100%" height={250}>
               <PieChart>
                 <Pie
                   data={orderTypeChartData}
