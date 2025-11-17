@@ -12,18 +12,18 @@ import {
   Check,
   UtensilsCrossed,
   Clock,
-  CheckCircle,
+
   AlertCircle,
   Tag,
   Receipt,
   Coffee,
   Phone,
-  MapPin,
+
   Hash,
   User,
   DollarSign,
   Percent,
-  Package,
+
   Truck,
   ChefHat,
   Timer,
@@ -37,6 +37,18 @@ import {
   Bike,
   BadgePercent,
   MessageSquare,
+
+
+  
+  CheckCircle,
+
+  MapPin,
+
+  Package,
+  
+
+
+  Filter
 } from 'lucide-react'
 
 // Import server actions
@@ -45,6 +57,8 @@ import { getActiveMenuItems } from '@/lib/actions/menuItems'
 import { createOrder, getPendingOrders, completeOrder } from '@/lib/actions/orders'
 import { getSettings } from '@/lib/actions/settings'
 import { searchCustomers as searchCustomersAPI } from '@/lib/actions/customers'
+import { updateOrderItems, reprintKOT } from '@/lib/actions/orders'
+import { Edit, Printer } from 'lucide-react'
 import { Users } from 'lucide-react'
 
 const ORDER_TYPES = [
@@ -78,6 +92,16 @@ export default function POSPage() {
   const [isSubmittingOrder, setIsSubmittingOrder] = useState(false)
   const [isLoadingPendingOrders, setIsLoadingPendingOrders] = useState(false)
   const [restaurantSettings, setRestaurantSettings] = useState(null)
+  // Edit order states
+const [editingOrder, setEditingOrder] = useState(null)
+const [editCart, setEditCart] = useState([])
+const [cancelConfirmation, setCancelConfirmation] = useState(null) // { orderId, orderNumber }
+const [isEditModalOpen, setIsEditModalOpen] = useState(false)
+const [isSavingEdit, setIsSavingEdit] = useState(false)
+
+// Pending orders filters
+const [pendingOrdersSearch, setPendingOrdersSearch] = useState('')
+const [pendingOrderTypeFilter, setPendingOrderTypeFilter] = useState('all')
 //costumer search states
 // Customer search states - SEPARATE for name and phone
 const [customerSearchResults, setCustomerSearchResults] = useState([])
@@ -651,6 +675,136 @@ useEffect(() => {
   window.addEventListener('keydown', handleKeyboard)
   return () => window.removeEventListener('keydown', handleKeyboard)
 }, [cart, isOrderModalOpen, isPendingOrdersOpen, isSubmittingOrder, isShortcutsModalOpen, showSearchDropdown])
+// Start editing an order
+const startEditingOrder = (order) => {
+  setEditingOrder(order)
+  setEditCart(order.items.map(item => ({
+    _id: item.menuItemId,
+    name: item.name,
+    sellingPrice: item.price,
+    costPrice: item.costPrice,
+    quantity: item.quantity,
+    categoryId: { 
+      name: item.category,
+      icon: item.icon 
+    }
+  })))
+  setIsEditModalOpen(true)
+  setIsPendingOrdersOpen(false)
+}
+
+// Save edited order
+const saveEditedOrder = async () => {
+  if (editCart.length === 0) {
+    showNotification('Cart cannot be empty', 'error')
+    return
+  }
+
+  setIsSavingEdit(true)
+  try {
+    const updatedItems = editCart.map(item => ({
+      menuItemId: item._id,
+      name: item.name,
+      price: item.sellingPrice,
+      quantity: item.quantity
+    }))
+
+    const response = await updateOrderItems(editingOrder._id, updatedItems)
+    
+    if (response.success) {
+      showNotification('Order updated successfully!', 'success')
+      setIsEditModalOpen(false)
+      setEditingOrder(null)
+      setEditCart([])
+      await loadPendingOrders()
+    } else {
+      showNotification(response.error || 'Failed to update order', 'error')
+    }
+  } catch (error) {
+    console.error('Error saving edited order:', error)
+    showNotification('Error updating order', 'error')
+  } finally {
+    setIsSavingEdit(false)
+  }
+}
+
+// Reprint KOT
+const handleReprintKOT = async (order) => {
+  try {
+    const response = await reprintKOT(order._id)
+    if (response.success) {
+      setCurrentPrintOrder(response.data)
+      setPrintType('kot')
+      setTimeout(() => {
+        window.print()
+        setPrintType(null)
+        setCurrentPrintOrder(null)
+        showNotification('KOT reprinted!', 'success')
+      }, 100)
+    }
+  } catch (error) {
+    showNotification('Failed to reprint KOT', 'error')
+  }
+}
+
+// Reprint Customer Token (for takeaway)
+const handleReprintToken = async (order) => {
+  try {
+    const response = await reprintKOT(order._id)
+    if (response.success) {
+      setCurrentPrintOrder(response.data)
+      setPrintType('customer-ticket')
+      setTimeout(() => {
+        window.print()
+        setPrintType(null)
+        setCurrentPrintOrder(null)
+        showNotification('Token reprinted!', 'success')
+      }, 100)
+    }
+  } catch (error) {
+    showNotification('Failed to reprint token', 'error')
+  }
+}
+
+// Filter pending orders
+const filteredPendingOrders = pendingOrders.filter(order => {
+  const matchesSearch = 
+    order.orderNumber.toLowerCase().includes(pendingOrdersSearch.toLowerCase()) ||
+    order.customerName.toLowerCase().includes(pendingOrdersSearch.toLowerCase()) ||
+    (order.phoneNumber && order.phoneNumber.includes(pendingOrdersSearch)) ||
+    (order.tableNumber && order.tableNumber.toLowerCase().includes(pendingOrdersSearch.toLowerCase()))
+  
+  const matchesType = pendingOrderTypeFilter === 'all' || order.orderType === pendingOrderTypeFilter
+  
+  return matchesSearch && matchesType
+})
+
+// Cancel order with confirmation
+const handleCancelOrder = (orderId, orderNumber) => {
+  setCancelConfirmation({ orderId, orderNumber })
+}
+
+const confirmCancelOrder = async () => {
+  if (!cancelConfirmation) return
+  
+  try {
+    const response = await cancelOrder(cancelConfirmation.orderId)
+    
+    if (response.success) {
+      showNotification(`Order ${cancelConfirmation.orderNumber} cancelled`, 'success')
+      await loadPendingOrders() // Refresh the list
+      setCancelConfirmation(null)
+    } else {
+      showNotification(response.error || 'Failed to cancel order', 'error')
+    }
+  } catch (error) {
+    console.error('Error cancelling order:', error)
+    showNotification('Error cancelling order', 'error')
+  }
+}
+
+
+
     return (
     <>
       {/* Main UI */}
@@ -1750,159 +1904,299 @@ useEffect(() => {
     }
   }
 `}</style>
-      {/* Pending Orders Modal */}
-      <AnimatePresence>
-        {isPendingOrdersOpen && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="print:hidden fixed inset-0 bg-black/70 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 z-50"
+ {/* Pending Orders Modal - ENHANCED VERSION */}
+<AnimatePresence>
+  {isPendingOrdersOpen && (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 bg-black/70 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 z-50"
+      onClick={() => setIsPendingOrdersOpen(false)}
+    >
+      <motion.div
+        initial={{ scale: 0.9, opacity: 0, y: 30 }}
+        animate={{ scale: 1, opacity: 1, y: 0 }}
+        exit={{ scale: 0.9, opacity: 0, y: 30 }}
+        transition={{ type: 'spring', duration: 0.5 }}
+        onClick={(e) => e.stopPropagation()}
+        className="bg-white rounded-2xl shadow-2xl max-w-7xl w-full overflow-hidden max-h-[90vh] flex flex-col"
+      >
+        {/* Header */}
+        <div className="bg-gradient-to-r from-orange-500 via-red-500 to-pink-500 text-white p-5 sm:p-6 flex items-center justify-between flex-shrink-0">
+          <div>
+            <h2 className="text-xl sm:text-2xl font-bold flex items-center gap-2 sm:gap-3">
+              <Timer className="w-5 h-5 sm:w-7 sm:h-7" />
+              Pending Orders
+            </h2>
+            <p className="text-orange-100 text-xs sm:text-sm mt-1">
+              {filteredPendingOrders.length} of {pendingOrders.length} orders
+            </p>
+          </div>
+          <button
             onClick={() => setIsPendingOrdersOpen(false)}
+            className="p-2 hover:bg-white/20 rounded-lg transition-all"
           >
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0, y: 30 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.9, opacity: 0, y: 30 }}
-              transition={{ type: 'spring', duration: 0.5 }}
-              onClick={(e) => e.stopPropagation()}
-              className="bg-white rounded-2xl shadow-2xl max-w-5xl w-full overflow-hidden max-h-[90vh] flex flex-col"
-            >
-              <div className="bg-gradient-to-r from-orange-500 via-red-500 to-pink-500 text-white p-5 sm:p-6 flex items-center justify-between">
-                <div>
-                  <h2 className="text-xl sm:text-2xl font-bold flex items-center gap-2 sm:gap-3">
-                    <Timer className="w-5 h-5 sm:w-7 sm:h-7" />
-                    Pending Orders
-                  </h2>
-                  <p className="text-orange-100 text-xs sm:text-sm mt-1">
-                    {pendingOrders.length} orders in queue
-                  </p>
-                </div>
-                <button
-                  onClick={() => setIsPendingOrdersOpen(false)}
-                  className="p-2 hover:bg-white/20 rounded-lg transition-all"
-                >
-                  <X className="w-5 h-5 sm:w-6 sm:h-6" />
-                </button>
+            <X className="w-5 h-5 sm:w-6 sm:h-6" />
+          </button>
+        </div>
+
+        {/* Search & Filters */}
+        <div className="p-4 bg-slate-50 border-b border-slate-200 flex-shrink-0">
+          <div className="flex flex-col sm:flex-row gap-3">
+            {/* Search */}
+            <div className="flex-1 relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Search by order#, customer, phone, table..."
+                value={pendingOrdersSearch}
+                onChange={(e) => setPendingOrdersSearch(e.target.value)}
+                className="w-full pl-10 pr-4 py-2.5 border-2 border-slate-200 rounded-xl focus:border-orange-500 focus:ring-2 focus:ring-orange-200 transition-all text-sm"
+              />
+            </div>
+
+            {/* Type Filter Buttons */}
+            <div className="flex gap-2 ">
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => setPendingOrderTypeFilter('all')}
+                className={`px-4 py-2 rounded-lg font-semibold text-sm whitespace-nowrap transition-all flex items-center gap-2 ${
+                  pendingOrderTypeFilter === 'all'
+                    ? 'bg-gradient-to-r from-orange-500 to-red-500 text-white shadow-lg'
+                    : 'bg-white text-slate-600 border-2 border-slate-200 hover:border-orange-300'
+                }`}
+              >
+                <Filter className="w-4 h-4" />
+                All
+              </motion.button>
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => setPendingOrderTypeFilter('dine-in')}
+                className={`px-4 py-2 rounded-lg font-semibold text-sm whitespace-nowrap transition-all flex items-center gap-2 ${
+                  pendingOrderTypeFilter === 'dine-in'
+                    ? 'bg-gradient-to-r from-blue-500 to-cyan-500 text-white shadow-lg'
+                    : 'bg-white text-slate-600 border-2 border-slate-200 hover:border-blue-300'
+                }`}
+              >
+                <UtensilsCrossed className="w-4 h-4" />
+                Dine-In
+              </motion.button>
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => setPendingOrderTypeFilter('takeaway')}
+                className={`px-4 py-2 rounded-lg font-semibold text-sm whitespace-nowrap transition-all flex items-center gap-2 ${
+                  pendingOrderTypeFilter === 'takeaway'
+                    ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-lg'
+                    : 'bg-white text-slate-600 border-2 border-slate-200 hover:border-purple-300'
+                }`}
+              >
+                <Package className="w-4 h-4" />
+                Takeaway
+              </motion.button>
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => setPendingOrderTypeFilter('delivery')}
+                className={`px-4 py-2 rounded-lg font-semibold text-sm whitespace-nowrap transition-all flex items-center gap-2 ${
+                  pendingOrderTypeFilter === 'delivery'
+                    ? 'bg-gradient-to-r from-orange-500 to-red-500 text-white shadow-lg'
+                    : 'bg-white text-slate-600 border-2 border-slate-200 hover:border-orange-300'
+                }`}
+              >
+                <Truck className="w-4 h-4" />
+                Delivery
+              </motion.button>
+            </div>
+          </div>
+        </div>
+
+        {/* Orders List */}
+        <div className="p-4 sm:p-6 overflow-y-auto flex-1">
+          {isLoadingPendingOrders ? (
+            <div className="flex justify-center items-center py-16">
+              <Loader2 className="w-8 h-8 animate-spin text-orange-500" />
+            </div>
+          ) : filteredPendingOrders.length === 0 ? (
+            <div className="text-center py-12 sm:py-16">
+              <div className="w-20 h-20 sm:w-24 sm:h-24 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <ClipboardList className="w-10 h-10 sm:w-12 sm:h-12 text-slate-400" />
               </div>
-
-              <div className="p-4 sm:p-6 overflow-y-auto flex-1">
-                {isLoadingPendingOrders ? (
-                  <div className="flex justify-center items-center py-16">
-                    <Loader2 className="w-8 h-8 animate-spin text-orange-500" />
-                  </div>
-                ) : pendingOrders.length === 0 ? (
-                  <div className="text-center py-12 sm:py-16">
-                    <div className="w-20 h-20 sm:w-24 sm:h-24 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                      <ClipboardList className="w-10 h-10 sm:w-12 sm:h-12 text-slate-400" />
+              <p className="text-slate-500 font-semibold text-base sm:text-lg">
+                {pendingOrdersSearch || pendingOrderTypeFilter !== 'all' 
+                  ? 'No orders match your filters' 
+                  : 'No pending orders'}
+              </p>
+              <p className="text-slate-400 text-xs sm:text-sm mt-2">
+                {pendingOrdersSearch || pendingOrderTypeFilter !== 'all'
+                  ? 'Try adjusting your search or filters'
+                  : 'Orders will appear here once confirmed'}
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {filteredPendingOrders.map((order, index) => (
+                <motion.div
+                  key={order._id}
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: index * 0.05 }}
+                  className="bg-gradient-to-br from-orange-50 to-red-50 rounded-xl p-4 border-2 border-orange-200 hover:shadow-lg transition-all flex flex-col"
+                >
+                  {/* Order Header */}
+                  <div className="flex items-center justify-between mb-3 pb-3 border-b-2 border-orange-200">
+                    <div>
+                      <h3 className="font-bold text-slate-800 text-sm">{order.orderNumber}</h3>
+                      <p className="text-xs text-slate-500">
+                        {new Date(order.orderDate).toLocaleTimeString('en-US', {
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
+                      </p>
                     </div>
-                    <p className="text-slate-500 font-semibold text-base sm:text-lg">No pending orders</p>
-                    <p className="text-slate-400 text-xs sm:text-sm mt-2">
-                      Orders will appear here once confirmed
-                    </p>
+                    <div className={`px-3 py-1 rounded-full text-xs font-bold ${
+                      order.orderType === 'dine-in' 
+                        ? 'bg-blue-500 text-white'
+                        : order.orderType === 'takeaway'
+                        ? 'bg-purple-500 text-white'
+                        : 'bg-orange-500 text-white'
+                    }`}>
+                      {order.orderType === 'dine-in' && '🍽️ Dine-In'}
+                      {order.orderType === 'takeaway' && '📦 Takeaway'}
+                      {order.orderType === 'delivery' && '🚚 Delivery'}
+                    </div>
                   </div>
-                ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {pendingOrders.map((order, index) => (
-                      <motion.div
-                        key={order._id}
-                        initial={{ opacity: 0, scale: 0.9 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        transition={{ delay: index * 0.05 }}
-                        className="bg-gradient-to-br from-orange-50 to-red-50 rounded-xl p-4 border-2 border-orange-200 hover:shadow-lg transition-all"
-                      >
-                        {/* Order Header */}
-                        <div className="flex items-center justify-between mb-3 pb-3 border-b-2 border-orange-200">
-                          <div>
-                            <h3 className="font-bold text-slate-800 text-sm">{order.orderNumber}</h3>
-                            <p className="text-xs text-slate-500">
-                              {new Date(order.orderDate).toLocaleTimeString('en-US', {
-                                hour: '2-digit',
-                                minute: '2-digit',
-                              })}
-                            </p>
-                          </div>
-                          <div className={`px-3 py-1 rounded-full text-xs font-bold ${
-                            order.orderType === 'dine-in' 
-                              ? 'bg-blue-500 text-white'
-                              : order.orderType === 'takeaway'
-                              ? 'bg-purple-500 text-white'
-                              : 'bg-orange-500 text-white'
-                          }`}>
-                            {order.orderType === 'dine-in' && '🍽️ Dine-In'}
-                            {order.orderType === 'takeaway' && '📦 Takeaway'}
-                            {order.orderType === 'delivery' && '🚚 Delivery'}
-                          </div>
-                        </div>
 
-                        {/* Order Details */}
-                        <div className="space-y-2 mb-3">
-                          {order.orderType === 'dine-in' && order.tableNumber && (
-                            <div className="flex items-center gap-2 text-sm">
-                              <Hash className="w-4 h-4 text-slate-600" />
-                              <span className="font-semibold text-slate-700">
-                                Table: {order.tableNumber}
-                              </span>
-                            </div>
-                          )}
-                          <div className="flex items-center gap-2 text-sm">
-                            <User className="w-4 h-4 text-slate-600" />
-                            <span className="font-medium text-slate-700">{order.customerName}</span>
-                          </div>
-                          {order.phoneNumber && (
-                            <div className="flex items-center gap-2 text-sm">
-                              <Phone className="w-4 h-4 text-slate-600" />
-                              <span className="text-slate-600">{order.phoneNumber}</span>
-                            </div>
-                          )}
-                          {order.address && (
-                            <div className="flex items-start gap-2 text-sm">
-                              <MapPin className="w-4 h-4 text-slate-600 mt-0.5" />
-                              <span className="text-slate-600 text-xs">{order.address}</span>
-                            </div>
-                          )}
-                        </div>
+                  {/* Order Details */}
+                  <div className="space-y-2 mb-3 flex-1">
+                    {order.orderType === 'dine-in' && order.tableNumber && (
+                      <div className="flex items-center gap-2 text-sm">
+                        <Hash className="w-4 h-4 text-slate-600" />
+                        <span className="font-semibold text-slate-700">
+                          Table: {order.tableNumber}
+                        </span>
+                      </div>
+                    )}
+                    {order.customerName !== 'Guest' && (
+                      <div className="flex items-center gap-2 text-sm">
+                        <User className="w-4 h-4 text-slate-600" />
+                        <span className="font-medium text-slate-700">{order.customerName}</span>
+                      </div>
+                    )}
+                    {order.phoneNumber && (
+                      <div className="flex items-center gap-2 text-sm">
+                        <Phone className="w-4 h-4 text-slate-600" />
+                        <span className="text-slate-600">{order.phoneNumber}</span>
+                      </div>
+                    )}
+                    {order.address && (
+                      <div className="flex items-start gap-2 text-sm">
+                        <MapPin className="w-4 h-4 text-slate-600 mt-0.5" />
+                        <span className="text-slate-600 text-xs line-clamp-2">{order.address}</span>
+                      </div>
+                    )}
 
-                        {/* Items List */}
-                        <div className="mb-3 bg-white/60 rounded-lg p-2 max-h-32 overflow-y-auto">
-                          {order.items.map((item, idx) => (
-                            <div key={idx} className="flex justify-between text-xs py-1">
-                              <span className="font-medium text-slate-700">
-                                {item.icon} {item.name} x{item.quantity}
-                              </span>
-                            </div>
-                          ))}
-                        </div>
-
-                        {/* Total */}
-                        <div className="flex justify-between items-center mb-3 pb-3 border-t-2 border-orange-200 pt-3">
-                          <span className="font-bold text-slate-700">Total:</span>
-                          <span className="font-bold text-orange-600 text-lg">
-                            ₨{order.total.toFixed(2)}
+                    {/* Items Preview */}
+                    <div className="mt-2 bg-white/60 rounded-lg p-2 max-h-24 overflow-y-auto">
+                      {order.items.map((item, idx) => (
+                        <div key={idx} className="flex justify-between text-xs py-1">
+                          <span className="font-medium text-slate-700">
+                            {item.icon} {item.name} x{item.quantity}
                           </span>
                         </div>
-
-                        {/* Action Button */}
-                        <motion.button
-                          onClick={() => completeOrderHandler(order._id)}
-                          whileHover={{ scale: 1.02 }}
-                          whileTap={{ scale: 0.98 }}
-                          className="w-full py-2.5 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-lg font-bold hover:shadow-lg transition-all flex items-center justify-center gap-2"
-                        >
-                          <CheckCircle className="w-4 h-4" />
-                          Complete & Print Bill
-                        </motion.button>
-                      </motion.div>
-                    ))}
+                      ))}
+                    </div>
                   </div>
-                )}
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
 
-      {/* Print Templates - Hidden from UI */}
+                  {/* Total */}
+                  <div className="flex justify-between items-center mb-3 pb-3 border-t-2 border-orange-200 pt-3">
+                    <span className="font-bold text-slate-700">Total:</span>
+                    <span className="font-bold text-orange-600 text-lg">
+                      ₨{order.total.toFixed(2)}
+                    </span>
+                  </div>
+
+              {/* Action Buttons Row */}
+<div className="space-y-2">
+  {/* Top Row: Edit, Print KOT, Print Token */}
+  <div className="flex gap-2">
+    {/* Edit Button */}
+    <motion.button
+      onClick={() => startEditingOrder(order)}
+      whileHover={{ scale: 1.05 }}
+      whileTap={{ scale: 0.95 }}
+      className="flex-1 py-2 bg-blue-500 text-white rounded-lg font-semibold hover:bg-blue-600 transition-all flex items-center justify-center gap-1.5 text-sm"
+    >
+      <Edit className="w-3.5 h-3.5" />
+      Edit
+    </motion.button>
+
+    {/* Print KOT */}
+    <motion.button
+      onClick={() => handleReprintKOT(order)}
+      whileHover={{ scale: 1.05 }}
+      whileTap={{ scale: 0.95 }}
+      className="py-2 px-3 bg-slate-500 text-white rounded-lg font-semibold hover:bg-slate-600 transition-all"
+      title="Reprint KOT"
+    >
+      <Printer className="w-4 h-4" />
+    </motion.button>
+
+    {/* Print Token (Takeaway only) */}
+    {order.orderType === 'takeaway' && (
+      <motion.button
+        onClick={() => handleReprintToken(order)}
+        whileHover={{ scale: 1.05 }}
+        whileTap={{ scale: 0.95 }}
+        className="py-2 px-3 bg-purple-500 text-white rounded-lg font-semibold hover:bg-purple-600 transition-all"
+        title="Reprint Token"
+      >
+        <Printer className="w-4 h-4" />
+      </motion.button>
+    )}
+  </div>
+
+  {/* Bottom Row: Complete and Cancel */}
+  <div className="flex gap-2">
+    {/* Complete Button */}
+    <motion.button
+      onClick={() => completeOrderHandler(order._id)}
+      whileHover={{ scale: 1.02 }}
+      whileTap={{ scale: 0.98 }}
+      className="flex-1 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-lg font-bold hover:shadow-lg transition-all flex items-center justify-center gap-2"
+    >
+      <CheckCircle className="w-4 h-4" />
+      Complete & Print Bill
+    </motion.button>
+
+    {/* Cancel Button */}
+    <motion.button
+      onClick={() => handleCancelOrder(order._id, order.orderNumber)}
+      whileHover={{ scale: 1.02 }}
+      whileTap={{ scale: 0.98 }}
+      className="py-2.5 px-4 bg-gradient-to-r from-red-500 to-pink-500 text-white rounded-lg font-bold hover:shadow-lg transition-all flex items-center justify-center gap-2"
+      title="Cancel Order"
+    >
+      <X className="w-4 h-4" />
+      Cancel
+    </motion.button>
+  </div>
+</div>
+
+                </motion.div>
+              ))}
+            </div>
+          )}
+        </div>
+      </motion.div>
+    </motion.div>
+  )}
+</AnimatePresence>
+
+
       {/* Print Templates - Hidden from UI */}
     {currentPrintOrder && (
         <>
@@ -2164,7 +2458,270 @@ useEffect(() => {
           )}
         </>
       )}
+{/* Edit Order Modal */}
+<AnimatePresence>
+  {isEditModalOpen && editingOrder && (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 bg-black/70 backdrop-blur-md flex items-center justify-center p-4 z-50"
+      onClick={() => !isSavingEdit && setIsEditModalOpen(false)}
+    >
+      <motion.div
+        initial={{ scale: 0.9, y: 30 }}
+        animate={{ scale: 1, y: 0 }}
+        exit={{ scale: 0.9, y: 30 }}
+        onClick={(e) => e.stopPropagation()}
+        className="bg-white rounded-2xl shadow-2xl max-w-6xl w-full max-h-[90vh] flex flex-col overflow-hidden"
+      >
+        {/* Header */}
+        <div className="bg-gradient-to-r from-blue-500 to-cyan-500 text-white p-5 flex items-center justify-between">
+          <div>
+            <h2 className="text-2xl font-bold flex items-center gap-3">
+              <Edit className="w-7 h-7" />
+              Edit Order
+            </h2>
+            <p className="text-blue-100 text-sm mt-1">
+              {editingOrder.orderNumber} - {editingOrder.customerName}
+            </p>
+          </div>
+          <button
+            onClick={() => !isSavingEdit && setIsEditModalOpen(false)}
+            disabled={isSavingEdit}
+            className="p-2 hover:bg-white/20 rounded-lg transition-all disabled:opacity-50"
+          >
+            <X className="w-6 h-6" />
+          </button>
+        </div>
 
+        {/* Main Grid */}
+        <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
+          {/* Left: Menu Items */}
+          <div className="flex-1 p-4 overflow-y-auto border-r border-slate-200">
+            <h3 className="font-bold text-slate-800 mb-3 flex items-center gap-2">
+              <Package className="w-5 h-5 text-blue-600" />
+              Add Items
+            </h3>
+            
+            {/* Search */}
+            <div className="relative mb-4">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Search menu..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-10 pr-4 py-2.5 border-2 border-slate-200 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all text-sm"
+              />
+            </div>
+
+            {/* Menu Grid */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              {(searchQuery ? searchResults : filteredProducts).map((item) => (
+                <motion.button
+                  key={item._id}
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => {
+                    const existing = editCart.find((i) => i._id === item._id)
+                    if (existing) {
+                      setEditCart(editCart.map((i) =>
+                        i._id === item._id ? { ...i, quantity: i.quantity + 1 } : i
+                      ))
+                    } else {
+                      setEditCart([...editCart, { ...item, quantity: 1 }])
+                    }
+                    showNotification(`${item.name} added`, 'success')
+                  }}
+                  className="bg-gradient-to-br from-white to-slate-50 rounded-xl p-3 border-2 border-slate-100 hover:border-blue-500 hover:shadow-lg transition-all"
+                >
+                  <div className="text-3xl mb-2">{item.categoryId?.icon || '🍽️'}</div>
+                  <h4 className="font-bold text-slate-800 text-xs mb-1 line-clamp-2">
+                    {item.name}
+                  </h4>
+                  <p className="text-blue-600 font-bold text-sm">₨{item.sellingPrice}</p>
+                </motion.button>
+              ))}
+            </div>
+          </div>
+
+          {/* Right: Edit Cart */}
+          <div className="w-full lg:w-96 bg-slate-50 p-4 flex flex-col">
+            <h3 className="font-bold text-slate-800 mb-3 flex items-center gap-2">
+              <ShoppingCart className="w-5 h-5 text-blue-600" />
+              Order Items ({editCart.length})
+            </h3>
+
+            {/* Cart Items */}
+            <div className="flex-1 space-y-2 overflow-y-auto mb-4">
+              {editCart.map((item) => (
+                <div
+                  key={item._id}
+                  className="bg-white rounded-lg p-3 border border-slate-200 flex items-center gap-3"
+                >
+                  <div className="text-2xl">{item.categoryId?.icon || '🍽️'}</div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-bold text-slate-800 text-sm truncate">{item.name}</p>
+                    <p className="text-xs text-slate-500">₨{item.sellingPrice} × {item.quantity}</p>
+                  </div>
+                  <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-1">
+                    <button
+                      onClick={() => {
+                        const newCart = editCart.map((i) =>
+                          i._id === item._id ? { ...i, quantity: Math.max(1, i.quantity - 1) } : i
+                        )
+                        setEditCart(newCart)
+                      }}
+                      className="p-1 bg-red-500 text-white rounded hover:bg-red-600"
+                    >
+                      <Minus className="w-3 h-3" />
+                    </button>
+                    <span className="w-8 text-center font-bold text-sm">{item.quantity}</span>
+                    <button
+                      onClick={() => {
+                        const newCart = editCart.map((i) =>
+                          i._id === item._id ? { ...i, quantity: i.quantity + 1 } : i
+                        )
+                        setEditCart(newCart)
+                      }}
+                      className="p-1 bg-blue-500 text-white rounded hover:bg-blue-600"
+                    >
+                      <Plus className="w-3 h-3" />
+                    </button>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setEditCart(editCart.filter((i) => i._id !== item._id))
+                      showNotification(`${item.name} removed`, 'success')
+                    }}
+                    className="p-1 bg-red-100 text-red-600 rounded hover:bg-red-200"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            {/* Actions */}
+            <div className="space-y-2 border-t border-slate-200 pt-4">
+              <div className="flex justify-between text-lg font-bold text-slate-800">
+                <span>Items Total:</span>
+                <span className="text-blue-600">
+                  ₨{editCart.reduce((sum, item) => sum + item.sellingPrice * item.quantity, 0).toFixed(2)}
+                </span>
+              </div>
+              
+              <motion.button
+                onClick={saveEditedOrder}
+                disabled={isSavingEdit || editCart.length === 0}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                className="w-full py-3 bg-gradient-to-r from-blue-500 to-cyan-500 text-white rounded-xl font-bold hover:shadow-lg transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {isSavingEdit ? (
+                  <>
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <Check className="w-5 h-5" />
+                    Save Changes
+                  </>
+                )}
+              </motion.button>
+              
+              <button
+                onClick={() => !isSavingEdit && setIsEditModalOpen(false)}
+                disabled={isSavingEdit}
+                className="w-full py-2.5 border-2 border-slate-200 text-slate-600 rounded-xl font-semibold hover:bg-slate-50 transition-all disabled:opacity-50"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      </motion.div>
+    </motion.div>
+  )}
+</AnimatePresence>
+
+{/* Cancel Confirmation Modal */}
+<AnimatePresence>
+  {cancelConfirmation && (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 bg-black/70 backdrop-blur-md flex items-center justify-center p-4 z-[60]"
+      onClick={() => setCancelConfirmation(null)}
+    >
+      <motion.div
+        initial={{ scale: 0.9, y: 20 }}
+        animate={{ scale: 1, y: 0 }}
+        exit={{ scale: 0.9, y: 20 }}
+        onClick={(e) => e.stopPropagation()}
+        className="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden"
+      >
+        {/* Header */}
+        <div className="bg-gradient-to-r from-red-500 to-pink-500 text-white p-5 flex items-center gap-3">
+          <div className="p-2 bg-white/20 rounded-lg">
+            <AlertCircle className="w-6 h-6" />
+          </div>
+          <div>
+            <h2 className="text-xl font-bold">Cancel Order</h2>
+            <p className="text-red-100 text-sm">This action cannot be undone</p>
+          </div>
+        </div>
+
+        {/* Content */}
+        <div className="p-6">
+          <p className="text-slate-700 text-center mb-2">
+            Are you sure you want to cancel order
+          </p>
+          <p className="text-2xl font-bold text-center text-slate-800 mb-4">
+            {cancelConfirmation.orderNumber}?
+          </p>
+          <div className="bg-red-50 border-2 border-red-200 rounded-lg p-4 mb-4">
+            <div className="flex items-start gap-2">
+              <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+              <div className="text-sm text-red-800">
+                <p className="font-semibold mb-1">Warning:</p>
+                <ul className="list-disc list-inside space-y-1 text-xs">
+                  <li>Order will be marked as cancelled</li>
+                  <li>Items will not be prepared</li>
+                  <li>This cannot be reversed</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          {/* Buttons */}
+          <div className="flex gap-3">
+            <motion.button
+              onClick={() => setCancelConfirmation(null)}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              className="flex-1 py-3 border-2 border-slate-200 text-slate-600 rounded-xl font-semibold hover:bg-slate-50 transition-all"
+            >
+              Keep Order
+            </motion.button>
+            <motion.button
+              onClick={confirmCancelOrder}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              className="flex-1 py-3 bg-gradient-to-r from-red-500 to-pink-500 text-white rounded-xl font-bold hover:shadow-lg transition-all flex items-center justify-center gap-2"
+            >
+              <X className="w-5 h-5" />
+              Yes, Cancel Order
+            </motion.button>
+          </div>
+        </div>
+      </motion.div>
+    </motion.div>
+  )}
+</AnimatePresence>
       {/* Print Styles */}
       <style jsx global>{`
   @media print {
@@ -2290,6 +2847,7 @@ useEffect(() => {
           overflow: hidden;
         }
       `}</style>
+
     </>
   )
 }
