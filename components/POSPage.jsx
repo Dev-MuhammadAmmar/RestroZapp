@@ -2227,12 +2227,12 @@ useEffect(() => {
             </div>
 
             {/* Type Filter Buttons */}
-            <div className="flex gap-2 ">
+            <div className="flex gap-2 overflow-x-auto md:overflow-hidden custom-scrollbar ">
               <motion.button
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
                 onClick={() => setPendingOrderTypeFilter('all')}
-                className={`px-4 py-2 rounded-lg font-semibold text-sm whitespace-nowrap transition-all flex items-center gap-2 ${
+                className={`px-4 py-2 rounded-lg font-semibold text-sm whitespace-nowrap transition-all flex items-center gap-2  ${
                   pendingOrderTypeFilter === 'all'
                     ? 'bg-gradient-to-r from-orange-500 to-red-500 text-white shadow-lg'
                     : 'bg-white text-slate-600 border-2 border-slate-200 hover:border-orange-300'
@@ -2436,7 +2436,7 @@ useEffect(() => {
       onClick={() => completeOrderHandler(order._id)}
       whileHover={{ scale: 1.02 }}
       whileTap={{ scale: 0.98 }}
-      className="flex-1 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-lg font-bold hover:shadow-lg transition-all flex items-center justify-center gap-2"
+      className="flex-1 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-lg font-bold hover:shadow-lg transition-all flex md:text-[15.5px] text-xs items-center justify-center gap-2"
     >
       <CheckCircle className="w-4 h-4" />
       Complete & Print Bill
