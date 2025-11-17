@@ -14,6 +14,7 @@
     ChefHat,
     ClipboardList,
     SettingsIcon,
+    Users,
   } from 'lucide-react'
 import { getSettings } from '@/lib/actions/settings'
 
@@ -49,6 +50,7 @@ useEffect(() => {
       { icon: Package, label: 'Inventory', href: '/inventory' },
       { icon: ClipboardList, label: 'Orders', href: '/orders' },
       { icon: BarChart3, label: 'Reports', href: '/reports' },
+      { icon: Users, label: 'Customers', href: '/customers' },
       { icon: SettingsIcon, label: 'Settings', href: '/settings' },
     ]
 
