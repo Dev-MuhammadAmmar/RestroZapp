@@ -118,7 +118,7 @@ const [selectedCustomerIndex, setSelectedCustomerIndex] = useState(-1)
 const [searchingCustomers, setSearchingCustomers] = useState(false)
 const customerSearchRef = useRef(null)
 const customerDropdownRef = useRef(null)
-  const [orderDetails, setOrderDetails] = useState({
+const [orderDetails, setOrderDetails] = useState({
     orderType: 'dine-in',
     tableNumber: '',
     paymentMethod: 'Cash',
@@ -126,8 +126,9 @@ const customerDropdownRef = useRef(null)
     phoneNumber: '',
     address: '',
     discountPercentage: 0,
+    discountAmount: 0,  // ADD THIS NEW FIELD
     deliveryCharge: 0,
-    taxPercentage: 0 ,
+    taxPercentage: 0,
     notes: '',
   })
 // Optimized customer search with proper debounce
@@ -369,8 +370,41 @@ const loadRestaurantSettings = async () => {
   // Calculations
   const subtotal = cart.reduce((sum, item) => sum + item.sellingPrice * item.quantity, 0)
   const tax = subtotal * (orderDetails.taxPercentage / 100)
-  const discountAmount = (subtotal * orderDetails.discountPercentage) / 100
+// Smart discount calculation - works with both percentage and amount
+let discountAmount = 0
+if (orderDetails.discountPercentage > 0) {
+  // If percentage is set, calculate amount
+  discountAmount = (subtotal * orderDetails.discountPercentage) / 100
+} else if (orderDetails.discountAmount > 0) {
+  // If amount is set, use it directly
+  discountAmount = orderDetails.discountAmount
+}
   const total = subtotal + tax - discountAmount + orderDetails.deliveryCharge
+
+
+  // Helper function to update discount percentage and sync amount
+const updateDiscountPercentage = (percentage) => {
+  const percent = parseFloat(percentage) || 0
+  const amount = (subtotal * percent) / 100
+  
+  setOrderDetails(prev => ({
+    ...prev,
+    discountPercentage: percent,
+    discountAmount: amount
+  }))
+}
+
+// Helper function to update discount amount and sync percentage
+const updateDiscountAmount = (amount) => {
+  const amt = parseFloat(amount) || 0
+  const percent = subtotal > 0 ? (amt / subtotal) * 100 : 0
+  
+  setOrderDetails(prev => ({
+    ...prev,
+    discountAmount: amt,
+    discountPercentage: Math.min(percent, 100) // Cap at 100%
+  }))
+}
 
   // Search functionality
   useEffect(() => {
@@ -502,29 +536,30 @@ const submitOrder = async () => {
   setIsSubmittingOrder(true)
 
   try {
-    const orderData = {
-      items: cart.map(item => ({
-        menuItemId: item._id,
-        name: item.name,
-        price: item.sellingPrice,
-        quantity: item.quantity,
-        categoryId: item.categoryId
-      })),
-      orderType: currentDetails.orderType,
-      subtotal,
-      tax,
-      taxPercentage: currentDetails.taxPercentage,
-      discount: discountAmount,
-      discountPercentage: currentDetails.discountPercentage,
-      deliveryCharge: currentDetails.deliveryCharge,
-      total,
-      paymentMethod: currentDetails.paymentMethod,
-      customerName: currentDetails.customerName || 'Guest',
-      phoneNumber: currentDetails.phoneNumber || null,
-      tableNumber: currentDetails.tableNumber || null,
-      address: currentDetails.address || null,
-      notes: currentDetails.notes || null
-    }
+const orderData = {
+  items: cart.map(item => ({
+    menuItemId: item._id,
+    name: item.name,
+    price: item.sellingPrice,
+    quantity: item.quantity,
+    categoryId: item.categoryId
+  })),
+  orderType: currentDetails.orderType,
+  subtotal,
+  tax,
+  taxPercentage: currentDetails.taxPercentage,
+  discount: discountAmount,  // Use calculated discountAmount
+  discountPercentage: currentDetails.discountPercentage,
+  discountAmount: currentDetails.discountAmount,  // ADD THIS
+  deliveryCharge: currentDetails.deliveryCharge,
+  total,
+  paymentMethod: currentDetails.paymentMethod,
+  customerName: currentDetails.customerName || 'Guest',
+  phoneNumber: currentDetails.phoneNumber || null,
+  tableNumber: currentDetails.tableNumber || null,
+  address: currentDetails.address || null,
+  notes: currentDetails.notes || null
+}
 
     const response = await createOrder(orderData)
 
@@ -568,18 +603,19 @@ useEffect(() => {
 const finalizePendingOrder = async (order) => {
   await loadPendingOrders()
   setCart([])
-  setOrderDetails({
-    orderType: 'dine-in',
-    tableNumber: '',
-    paymentMethod: 'Cash',
-    customerName: '',
-    phoneNumber: '',
-    address: '',
-    discountPercentage: 0,
-    deliveryCharge: 0,
-    taxPercentage: restaurantSettings?.taxPercentage || 0,  // Changed this line
-    notes: '',
-  })
+setOrderDetails({
+  orderType: 'dine-in',
+  tableNumber: '',
+  paymentMethod: 'Cash',
+  customerName: '',
+  phoneNumber: '',
+  address: '',
+  discountPercentage: 0,
+  discountAmount: 0,  // ADD THIS
+  deliveryCharge: 0,
+  taxPercentage: restaurantSettings?.taxPercentage || 0,
+  notes: '',
+})
   setPrintType(null)
   setCurrentPrintOrder(null)
   showNotification('Order sent to kitchen!', 'success')
@@ -1301,12 +1337,15 @@ useEffect(() => {
                           <span className="font-bold">₨{orderDetails.deliveryCharge.toFixed(2)}</span>
                         </div>
                       )}
-                      {orderDetails.discountPercentage > 0 && (
-                        <div className="flex justify-between text-xs sm:text-sm text-emerald-600">
-                          <span className="font-medium">Discount ({orderDetails.discountPercentage}%):</span>
-                          <span className="font-bold">-₨{discountAmount.toFixed(2)}</span>
-                        </div>
-                      )}
+                 {(orderDetails.discountPercentage > 0 || orderDetails.discountAmount > 0) && (
+  <div className="flex justify-between text-xs sm:text-sm text-emerald-600">
+    <span className="font-medium">
+      Discount 
+      {orderDetails.discountPercentage > 0 && ` (${orderDetails.discountPercentage.toFixed(1)}%)`}:
+    </span>
+    <span className="font-bold">-₨{discountAmount.toFixed(2)}</span>
+  </div>
+)}
                       <div className="h-px bg-gradient-to-r from-transparent via-slate-300 to-transparent my-1.5 sm:my-2" />
                       <div className="flex justify-between text-base sm:text-lg font-bold text-slate-800 pt-1.5 sm:pt-2">
                         <span>Total:</span>
@@ -1514,12 +1553,15 @@ useEffect(() => {
                   <span className="font-semibold">₨{orderDetails.deliveryCharge.toFixed(2)}</span>
                 </div>
               )}
-              {orderDetails.discountPercentage > 0 && (
-                <div className="flex justify-between text-emerald-600">
-                  <span>Discount:</span>
-                  <span className="font-semibold">-₨{discountAmount.toFixed(2)}</span>
-                </div>
-              )}
+            {(orderDetails.discountPercentage > 0 || orderDetails.discountAmount > 0) && (
+  <div className="flex justify-between text-emerald-600">
+    <span>
+      Discount 
+      {orderDetails.discountPercentage > 0 && ` (${orderDetails.discountPercentage.toFixed(1)}%)`}:
+    </span>
+    <span className="font-semibold">-₨{discountAmount.toFixed(2)}</span>
+  </div>
+)}
               <div className="flex justify-between text-sm sm:text-xl font-bold text-slate-800 pt-1.5 sm:pt-2 border-t border-emerald-200">
                 <span>Total:</span>
                 <span className="text-emerald-600">₨{total.toFixed(2)}</span>
@@ -1816,7 +1858,7 @@ useEffect(() => {
               </div>
 
               {/* Payment & Charges - 2 columns on mobile, 4 on desktop */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4">
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 sm:gap-4">
                 <div>
                   <label className="block text-slate-700 font-semibold mb-2 text-xs sm:text-sm flex items-center gap-1.5">
                     <CreditCard className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-600" />
@@ -1886,25 +1928,44 @@ useEffect(() => {
 </>
                 )}
 
-                <div>
-                  <label className="block text-slate-700 font-semibold mb-2 text-xs sm:text-sm flex items-center gap-1.5">
-                    <BadgePercent className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-600" />
-                    Discount %
-                  </label>
-                  <input
-                    type="number"
-                    value={orderDetails.discountPercentage}
-                    onChange={(e) =>
-                      setOrderDetails({ ...orderDetails, discountPercentage: parseFloat(e.target.value) || 0 })
-                    }
-                    disabled={isSubmittingOrder}
-                    min="0"
-                    max="100"
-                    className="w-full px-2 sm:px-4 py-2 sm:py-3 border-2 border-slate-200 rounded-lg sm:rounded-xl focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 transition-all disabled:opacity-50 text-xs sm:text-base"
-                  />
-                </div>
-              </div>
+            {/* Discount Percentage */}
+<div>
+  <label className="block text-slate-700 font-semibold mb-2 text-xs sm:text-sm flex items-center gap-1.5">
+    <BadgePercent className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-600" />
+    Discount %
+  </label>
+  <input
+    type="number"
+    value={orderDetails.discountPercentage}
+    onChange={(e) => updateDiscountPercentage(e.target.value)}
+    disabled={isSubmittingOrder}
+    min="0"
+    max="100"
+    step="0.5"
+    placeholder="0"
+    className="w-full px-2 sm:px-4 py-2 sm:py-3 border-2 border-slate-200 rounded-lg sm:rounded-xl focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 transition-all disabled:opacity-50 text-xs sm:text-base"
+  />
+</div>
 
+{/* Discount Amount */}
+<div>
+  <label className="block text-slate-700 font-semibold mb-2 text-xs sm:text-sm flex items-center gap-1.5">
+    <DollarSign className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-600" />
+    Discount ₨
+  </label>
+  <input
+    type="number"
+    value={orderDetails.discountAmount}
+    onChange={(e) => updateDiscountAmount(e.target.value)}
+    disabled={isSubmittingOrder}
+    min="0"
+    max={subtotal}
+    step="10"
+    placeholder="0"
+    className="w-full px-2 sm:px-4 py-2 sm:py-3 border-2 border-slate-200 rounded-lg sm:rounded-xl focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 transition-all disabled:opacity-50 text-xs sm:text-base"
+  />
+</div>
+</div>
               {/* Notes - Optional */}
               <div>
                 <label className="block text-slate-700 font-semibold mb-2 text-xs sm:text-sm flex items-center gap-1.5">
@@ -2515,7 +2576,7 @@ useEffect(() => {
                   )}
                   {currentPrintOrder.discountPercentage > 0 && (
                     <div className="flex justify-between">
-                      <span>Discount ({currentPrintOrder.discountPercentage}%):</span>
+                      <span>Discount ({currentPrintOrder.discountPercentage.split(".")[0]}%):</span>
                       <span>-₨{currentPrintOrder.discount.toFixed(2)}</span>
                     </div>
                   )}

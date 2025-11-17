@@ -1,5 +1,5 @@
 // models/Order.js
-// ✅ SIMPLIFIED VERSION - No pre-save middleware conflicts
+// ✅ Updated with discountAmount field
 import mongoose from 'mongoose';
 
 const orderItemSchema = new mongoose.Schema({
@@ -86,16 +86,25 @@ const orderSchema = new mongoose.Schema(
       min: 0,
       max: 100,
     },
+    // ✅ UPDATED DISCOUNT FIELDS - Now supports both percentage and amount
     discount: {
       type: Number,
       default: 0,
       min: 0,
+      // This stores the final calculated discount amount
     },
     discountPercentage: {
       type: Number,
       default: 0,
       min: 0,
       max: 100,
+      // Percentage if discount was given as %
+    },
+    discountAmount: {
+      type: Number,
+      default: 0,
+      min: 0,
+      // ✅ NEW: Direct rupees amount if discount was given as ₨
     },
     deliveryCharge: {
       type: Number,

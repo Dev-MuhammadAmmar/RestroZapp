@@ -1367,7 +1367,7 @@ const loadRestaurantSettings = async () => {
               )}
               {selectedOrder.discountPercentage > 0 && (
                 <div className="flex justify-between">
-                  <span>Discount ({selectedOrder.discountPercentage}%):</span>
+                  <span>Discount ({selectedOrder.discountPercentage.split(".")[0]}%):</span>
                   <span>-₨{selectedOrder.discount.toFixed(2)}</span>
                 </div>
               )}
