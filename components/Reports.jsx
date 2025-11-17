@@ -912,11 +912,11 @@ export default function ReportsPage() {
                 </div>
                 <div className="text-center">
                   <p className="text-xs text-[#64748b] mb-1">Total Revenue</p>
-                  <p className="text-2xl font-bold text-[#3b82f6]">₨{summary.totalRevenue.toLocaleString()}</p>
+                  <p className="md:text-2xl text-xs font-bold text-[#3b82f6]">₨{summary.totalRevenue.toLocaleString()}</p>
                 </div>
                 <div className="text-center">
                   <p className="text-xs text-[#64748b] mb-1">Total Profit</p>
-                  <p className="text-2xl font-bold text-[#8b5cf6]">₨{summary.totalProfit.toLocaleString()}</p>
+                  <p className="md:text-2xl text-xs font-bold text-[#8b5cf6]">₨{summary.totalProfit.toLocaleString()}</p>
                 </div>
               </div>
             </div>
