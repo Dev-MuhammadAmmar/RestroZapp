@@ -642,6 +642,7 @@ const confirmCompleteOrder = async () => {
     )
     const tax = subtotal * (completionDetails.taxPercentage / 100)
     
+    // Calculate discount - use whichever was set
     let discountAmount = 0
     if (completionDetails.discountPercentage > 0) {
       discountAmount = (subtotal * completionDetails.discountPercentage) / 100
@@ -651,7 +652,7 @@ const confirmCompleteOrder = async () => {
     
     const total = subtotal + tax - discountAmount + completionDetails.deliveryCharge
 
-    // Create updated order object for printing
+    // ✅ FIXED: Create updated order object with ALL new details
     const updatedOrder = {
       ...completionConfirmation,
       paymentMethod: completionDetails.paymentMethod,
@@ -667,15 +668,33 @@ const confirmCompleteOrder = async () => {
       status: 'completed'
     }
 
+    // Set for printing FIRST
     setCurrentPrintOrder(updatedOrder)
     setPrintType('bill')
     setCompletionConfirmation(null)
     
+    // Print the bill
     setTimeout(async () => {
       window.print()
       
+      // ✅ AFTER printing, update the order in database with new details
       setTimeout(async () => {
-        const response = await completeOrder(completionConfirmation._id)
+        const response = await completeOrder(
+          completionConfirmation._id,
+          {
+            paymentMethod: completionDetails.paymentMethod,
+            taxPercentage: completionDetails.taxPercentage,
+            tax: tax,
+            discountPercentage: completionDetails.discountPercentage,
+            discountAmount: discountAmount,
+            discount: discountAmount,
+            deliveryCharge: completionDetails.deliveryCharge,
+            subtotal: subtotal,
+            total: total,
+            notes: completionDetails.notes
+          }
+        )
+        
         if (response.success) {
           await loadPendingOrders()
           setPrintType(null)
