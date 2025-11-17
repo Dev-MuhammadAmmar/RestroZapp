@@ -1365,18 +1365,18 @@ const loadRestaurantSettings = async () => {
                   <span>₨{selectedOrder.deliveryCharge.toFixed(2)}</span>
                 </div>
               )}
-          {currentPrintOrder.discountPercentage > 0 && (
+          {selectedOrder.discountPercentage > 0 && (
   <div className="flex justify-between">
     <span>
       Discount (
         {
-          currentPrintOrder.discountPercentage.toString().includes(".")
-            ? currentPrintOrder.discountPercentage.toString().split(".")[0]
-            : currentPrintOrder.discountPercentage
+          selectedOrder.discountPercentage.toString().includes(".")
+            ? selectedOrder.discountPercentage.toString().split(".")[0]
+            : selectedOrder.discountPercentage
         }%
       ):
     </span>
-    <span>-₨{currentPrintOrder.discount.toFixed(2)}</span>
+    <span>-₨{selectedOrder.discount.toFixed(2)}</span>
   </div>
 )}
 
