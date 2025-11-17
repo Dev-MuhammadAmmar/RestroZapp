@@ -86,6 +86,16 @@ export default function POSPage() {
   const [notification, setNotification] = useState(null)
   const [printType, setPrintType] = useState(null)
   const [currentPrintOrder, setCurrentPrintOrder] = useState(null)
+  // Completion confirmation state
+const [completionConfirmation, setCompletionConfirmation] = useState(null)
+const [completionDetails, setCompletionDetails] = useState({
+  paymentMethod: 'Cash',
+  discountPercentage: 0,
+  discountAmount: 0,
+  deliveryCharge: 0,
+  taxPercentage: 0,
+  notes: ''
+})
   
   // Loading states
   const [isLoadingCategories, setIsLoadingCategories] = useState(true)
@@ -621,34 +631,129 @@ setOrderDetails({
   showNotification('Order sent to kitchen!', 'success')
 }
 
-  const completeOrderHandler = async (orderId) => {
-    try {
-      const order = pendingOrders.find(o => o._id === orderId)
-      if (!order) return
+const confirmCompleteOrder = async () => {
+  if (!completionConfirmation) return
+  
+  try {
+    // Calculate updated totals
+    const subtotal = completionConfirmation.items.reduce(
+      (sum, item) => sum + item.price * item.quantity, 
+      0
+    )
+    const tax = subtotal * (completionDetails.taxPercentage / 100)
+    
+    let discountAmount = 0
+    if (completionDetails.discountPercentage > 0) {
+      discountAmount = (subtotal * completionDetails.discountPercentage) / 100
+    } else if (completionDetails.discountAmount > 0) {
+      discountAmount = completionDetails.discountAmount
+    }
+    
+    const total = subtotal + tax - discountAmount + completionDetails.deliveryCharge
 
-      setCurrentPrintOrder({ ...order, status: 'completed' })
-      setPrintType('bill')
+    // Create updated order object for printing
+    const updatedOrder = {
+      ...completionConfirmation,
+      paymentMethod: completionDetails.paymentMethod,
+      discountPercentage: completionDetails.discountPercentage,
+      discountAmount: discountAmount,
+      discount: discountAmount,
+      deliveryCharge: completionDetails.deliveryCharge,
+      taxPercentage: completionDetails.taxPercentage,
+      tax: tax,
+      subtotal: subtotal,
+      total: total,
+      notes: completionDetails.notes,
+      status: 'completed'
+    }
+
+    setCurrentPrintOrder(updatedOrder)
+    setPrintType('bill')
+    setCompletionConfirmation(null)
+    
+    setTimeout(async () => {
+      window.print()
       
       setTimeout(async () => {
-        window.print()
-        
-        setTimeout(async () => {
-          const response = await completeOrder(orderId)
-          if (response.success) {
-            await loadPendingOrders() // Refresh pending orders list
-            setPrintType(null)
-            setCurrentPrintOrder(null)
-            showNotification('Order completed!', 'success')
-          } else {
-            showNotification(response.error || 'Error completing order', 'error')
-          }
-        }, 500)
-      }, 100)
-    } catch (error) {
-      showNotification('Error completing order', 'error')
-      console.error('Complete order error:', error)
-    }
+        const response = await completeOrder(completionConfirmation._id)
+        if (response.success) {
+          await loadPendingOrders()
+          setPrintType(null)
+          setCurrentPrintOrder(null)
+          showNotification('Order completed!', 'success')
+        } else {
+          showNotification(response.error || 'Error completing order', 'error')
+        }
+      }, 500)
+    }, 100)
+  } catch (error) {
+    showNotification('Error completing order', 'error')
+    console.error('Complete order error:', error)
   }
+}
+
+// Helper function to update discount percentage in completion
+const updateCompletionDiscountPercentage = (percentage) => {
+  const order = completionConfirmation
+  if (!order) return
+  
+  const subtotal = order.items.reduce(
+    (sum, item) => sum + item.price * item.quantity, 
+    0
+  )
+  
+  const percent = parseFloat(percentage) || 0
+  const amount = (subtotal * percent) / 100
+  
+  setCompletionDetails(prev => ({
+    ...prev,
+    discountPercentage: percent,
+    discountAmount: amount
+  }))
+}
+
+// Helper function to update discount amount in completion
+const updateCompletionDiscountAmount = (amount) => {
+  const order = completionConfirmation
+  if (!order) return
+  
+  const subtotal = order.items.reduce(
+    (sum, item) => sum + item.price * item.quantity, 
+    0
+  )
+  
+  const amt = parseFloat(amount) || 0
+  const percent = subtotal > 0 ? (amt / subtotal) * 100 : 0
+  
+  setCompletionDetails(prev => ({
+    ...prev,
+    discountAmount: amt,
+    discountPercentage: Math.min(percent, 100)
+  }))
+}
+
+
+const completeOrderHandler = async (orderId) => {
+  try {
+    const order = pendingOrders.find(o => o._id === orderId)
+    if (!order) return
+
+    // Show confirmation modal with pre-filled details
+    setCompletionDetails({
+      paymentMethod: order.paymentMethod || 'Cash',
+      discountPercentage: order.discountPercentage || 0,
+      discountAmount: order.discountAmount || 0,
+      deliveryCharge: order.deliveryCharge || 0,
+      taxPercentage: order.taxPercentage || 0,
+      notes: order.notes || ''
+    })
+    setCompletionConfirmation(order)
+    
+  } catch (error) {
+    showNotification('Error loading order details', 'error')
+    console.error('Complete order error:', error)
+  }
+}
 
   const refreshData = async () => {
     await Promise.all([
@@ -2183,7 +2288,7 @@ useEffect(() => {
               </p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4  ">
               {filteredPendingOrders.map((order, index) => (
                 <motion.div
                   key={order._id}
@@ -2574,12 +2679,21 @@ useEffect(() => {
                       <span>₨{currentPrintOrder.deliveryCharge.toFixed(2)}</span>
                     </div>
                   )}
-                  {currentPrintOrder.discountPercentage > 0 && (
-                    <div className="flex justify-between">
-                      <span>Discount ({currentPrintOrder.discountPercentage.split(".")[0]}%):</span>
-                      <span>-₨{currentPrintOrder.discount.toFixed(2)}</span>
-                    </div>
-                  )}
+             {currentPrintOrder.discountPercentage > 0 && (
+  <div className="flex justify-between">
+    <span>
+      Discount (
+        {
+          currentPrintOrder.discountPercentage.toString().includes(".")
+            ? currentPrintOrder.discountPercentage.toString().split(".")[0]
+            : currentPrintOrder.discountPercentage
+        }%
+      ):
+    </span>
+    <span>-₨{currentPrintOrder.discount.toFixed(2)}</span>
+  </div>
+)}
+
                   <div className="flex justify-between text-base font-bold border-t border-black pt-1">
                     <span>TOTAL:</span>
                     <span>₨{currentPrintOrder.total.toFixed(2)}</span>
@@ -3010,6 +3124,401 @@ useEffect(() => {
     </motion.div>
   )}
 </AnimatePresence>
+
+{/* Cancel Confirmation Modal */}
+<AnimatePresence>
+  {cancelConfirmation && (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 bg-black/70 backdrop-blur-md flex items-center justify-center p-4 z-[60]"
+      onClick={() => setCancelConfirmation(null)}
+    >
+      <motion.div
+        initial={{ scale: 0.9, y: 20 }}
+        animate={{ scale: 1, y: 0 }}
+        exit={{ scale: 0.9, y: 20 }}
+        onClick={(e) => e.stopPropagation()}
+        className="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden"
+      >
+        {/* Header */}
+        <div className="bg-gradient-to-r from-red-500 to-pink-500 text-white p-5 flex items-center gap-3">
+          <div className="p-2 bg-white/20 rounded-lg">
+            <AlertCircle className="w-6 h-6" />
+          </div>
+          <div>
+            <h2 className="text-xl font-bold">Cancel Order</h2>
+            <p className="text-red-100 text-sm">This action cannot be undone</p>
+          </div>
+        </div>
+
+        {/* Content */}
+        <div className="p-6">
+          <p className="text-slate-700 text-center mb-2">
+            Are you sure you want to cancel order
+          </p>
+          <p className="text-2xl font-bold text-center text-slate-800 mb-4">
+            {cancelConfirmation.orderNumber}?
+          </p>
+          <div className="bg-red-50 border-2 border-red-200 rounded-lg p-4 mb-4">
+            <div className="flex items-start gap-2">
+              <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+              <div className="text-sm text-red-800">
+                <p className="font-semibold mb-1">Warning:</p>
+                <ul className="list-disc list-inside space-y-1 text-xs">
+                  <li>Order will be marked as cancelled</li>
+                  <li>Items will not be prepared</li>
+                  <li>This cannot be reversed</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          {/* Buttons */}
+          <div className="flex gap-3">
+            <motion.button
+              onClick={() => setCancelConfirmation(null)}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              className="flex-1 py-3 border-2 border-slate-200 text-slate-600 rounded-xl font-semibold hover:bg-slate-50 transition-all"
+            >
+              Keep Order
+            </motion.button>
+            <motion.button
+              onClick={confirmCancelOrder}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              className="flex-1 py-3 bg-gradient-to-r from-red-500 to-pink-500 text-white rounded-xl font-bold hover:shadow-lg transition-all flex items-center justify-center gap-2"
+            >
+              <X className="w-5 h-5" />
+              Yes, Cancel Order
+            </motion.button>
+          </div>
+        </div>
+      </motion.div>
+    </motion.div>
+  )}
+</AnimatePresence>
+
+{/* Completion Confirmation Modal */}
+<AnimatePresence>
+  {completionConfirmation && (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 bg-black/70 backdrop-blur-md flex items-center justify-center p-4 z-[60]"
+      onClick={() => setCompletionConfirmation(null)}
+    >
+      <motion.div
+        initial={{ scale: 0.9, y: 20 }}
+        animate={{ scale: 1, y: 0 }}
+        exit={{ scale: 0.9, y: 20 }}
+        onClick={(e) => e.stopPropagation()}
+        className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col"
+      >
+        {/* Header */}
+        <div className="bg-gradient-to-r from-emerald-500 to-teal-500 text-white p-5 flex items-center gap-3 flex-shrink-0">
+          <div className="p-2 bg-white/20 rounded-lg">
+            <CheckCircle className="w-6 h-6" />
+          </div>
+          <div className="flex-1">
+            <h2 className="text-xl font-bold">Complete Order</h2>
+            <p className="text-emerald-100 text-sm">{completionConfirmation.orderNumber}</p>
+          </div>
+          <button
+            onClick={() => setCompletionConfirmation(null)}
+            className="p-2 hover:bg-white/20 rounded-lg transition-all"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Scrollable Content */}
+        <div className="flex-1 overflow-y-auto p-6 space-y-5">
+          {/* Order Summary */}
+          <div className="bg-gradient-to-br from-emerald-50 to-teal-50 rounded-xl p-4 border-2 border-emerald-200">
+            <h3 className="font-bold text-slate-800 mb-3 flex items-center gap-2">
+              <Receipt className="w-5 h-5 text-emerald-600" />
+              Order Summary
+            </h3>
+            
+            <div className="space-y-2 mb-3">
+              <div className="flex justify-between text-sm">
+                <span className="text-slate-600">Order Type:</span>
+                <span className="font-semibold">{completionConfirmation.orderType}</span>
+              </div>
+              {completionConfirmation.customerName !== 'Guest' && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-slate-600">Customer:</span>
+                  <span className="font-semibold">{completionConfirmation.customerName}</span>
+                </div>
+              )}
+              {completionConfirmation.tableNumber && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-slate-600">Table:</span>
+                  <span className="font-semibold">{completionConfirmation.tableNumber}</span>
+                </div>
+              )}
+            </div>
+
+            {/* Items */}
+            <div className="bg-white/60 rounded-lg p-3 max-h-32 overflow-y-auto">
+              {completionConfirmation.items.map((item, idx) => (
+                <div key={idx} className="flex justify-between text-sm py-1.5 border-b border-emerald-100 last:border-0">
+                  <span className="font-medium text-slate-700">
+                    {item.icon} {item.name} x{item.quantity}
+                  </span>
+                  <span className="font-bold text-emerald-600">
+                    ₨{(item.price * item.quantity).toFixed(2)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Editable Details */}
+          <div className="space-y-4">
+            <h3 className="font-bold text-slate-800 flex items-center gap-2">
+              <Edit className="w-5 h-5 text-blue-600" />
+              Confirm or Edit Details
+            </h3>
+
+            {/* Payment Method */}
+            <div>
+              <label className="block text-slate-700 font-semibold mb-2 text-sm flex items-center gap-1.5">
+                <CreditCard className="w-4 h-4 text-emerald-600" />
+                Payment Method
+              </label>
+              <select
+                value={completionDetails.paymentMethod}
+                onChange={(e) =>
+                  setCompletionDetails({ ...completionDetails, paymentMethod: e.target.value })
+                }
+                className="w-full px-4 py-2.5 border-2 border-slate-200 rounded-xl focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 transition-all text-sm"
+              >
+                {PAYMENT_METHODS.map(method => (
+                  <option key={method} value={method}>{method}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Grid for Charges */}
+            <div className="grid grid-cols-2 gap-3">
+              {/* Tax */}
+              {completionConfirmation.orderType === 'dine-in' && (
+                <div>
+                  <label className="block text-slate-700 font-semibold mb-2 text-sm flex items-center gap-1.5">
+                    <Percent className="w-4 h-4 text-emerald-600" />
+                    Service Charges %
+                  </label>
+                  <input
+                    type="number"
+                    value={completionDetails.taxPercentage}
+                    onChange={(e) =>
+                      setCompletionDetails({ ...completionDetails, taxPercentage: parseFloat(e.target.value) || 0 })
+                    }
+                    min="0"
+                    step="0.5"
+                    className="w-full px-3 py-2.5 border-2 border-slate-200 rounded-xl focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 transition-all text-sm"
+                  />
+                </div>
+              )}
+
+              {/* Delivery Charge */}
+              {completionConfirmation.orderType === 'delivery' && (
+                <div>
+                  <label className="block text-slate-700 font-semibold mb-2 text-sm flex items-center gap-1.5">
+                    <Bike className="w-4 h-4 text-emerald-600" />
+                    Delivery Charge
+                  </label>
+                  <input
+                    type="number"
+                    value={completionDetails.deliveryCharge}
+                    onChange={(e) =>
+                      setCompletionDetails({ ...completionDetails, deliveryCharge: parseFloat(e.target.value) || 0 })
+                    }
+                    min="0"
+                    className="w-full px-3 py-2.5 border-2 border-slate-200 rounded-xl focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 transition-all text-sm"
+                  />
+                </div>
+              )}
+
+              {/* Discount Percentage */}
+              <div>
+                <label className="block text-slate-700 font-semibold mb-2 text-sm flex items-center gap-1.5">
+                  <BadgePercent className="w-4 h-4 text-emerald-600" />
+                  Discount %
+                </label>
+                <input
+                  type="number"
+                  value={completionDetails.discountPercentage}
+                  onChange={(e) => {
+                    const subtotal = completionConfirmation.items.reduce(
+                      (sum, item) => sum + item.price * item.quantity,
+                      0
+                    )
+                    const percent = parseFloat(e.target.value) || 0
+                    const amount = (subtotal * percent) / 100
+                    setCompletionDetails(prev => ({
+                      ...prev,
+                      discountPercentage: percent,
+                      discountAmount: amount
+                    }))
+                  }}
+                  min="0"
+                  max="100"
+                  step="0.5"
+                  placeholder="0"
+                  className="w-full px-3 py-2.5 border-2 border-slate-200 rounded-xl focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 transition-all text-sm"
+                />
+              </div>
+
+              {/* Discount Amount */}
+              <div>
+                <label className="block text-slate-700 font-semibold mb-2 text-sm flex items-center gap-1.5">
+                  <DollarSign className="w-4 h-4 text-emerald-600" />
+                  Discount ₨
+                </label>
+                <input
+                  type="number"
+                  value={completionDetails.discountAmount}
+                  onChange={(e) => {
+                    const subtotal = completionConfirmation.items.reduce(
+                      (sum, item) => sum + item.price * item.quantity,
+                      0
+                    )
+                    const amt = parseFloat(e.target.value) || 0
+                    const percent = subtotal > 0 ? (amt / subtotal) * 100 : 0
+                    setCompletionDetails(prev => ({
+                      ...prev,
+                      discountAmount: amt,
+                      discountPercentage: Math.min(percent, 100)
+                    }))
+                  }}
+                  min="0"
+                  step="10"
+                  placeholder="0"
+                  className="w-full px-3 py-2.5 border-2 border-slate-200 rounded-xl focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 transition-all text-sm"
+                />
+              </div>
+            </div>
+
+            {/* Notes */}
+            <div>
+              <label className="block text-slate-700 font-semibold mb-2 text-sm flex items-center gap-1.5">
+                <MessageSquare className="w-4 h-4 text-emerald-600" />
+                Additional Notes (Optional)
+              </label>
+              <textarea
+                value={completionDetails.notes}
+                onChange={(e) =>
+                  setCompletionDetails({ ...completionDetails, notes: e.target.value })
+                }
+                placeholder="Any additional notes..."
+                rows={2}
+                className="w-full px-4 py-2.5 border-2 border-slate-200 rounded-xl focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 transition-all resize-none text-sm"
+              />
+            </div>
+          </div>
+
+          {/* Updated Totals */}
+          <div className="bg-gradient-to-br from-slate-50 to-white rounded-xl p-4 border-2 border-slate-200">
+            <h3 className="font-bold text-slate-800 mb-3">Updated Bill Summary</h3>
+            <div className="space-y-2 text-sm">
+              <div className="flex justify-between text-slate-600">
+                <span>Subtotal:</span>
+                <span className="font-bold">
+                  ₨{completionConfirmation.items.reduce(
+                    (sum, item) => sum + item.price * item.quantity,
+                    0
+                  ).toFixed(2)}
+                </span>
+              </div>
+              {completionDetails.taxPercentage > 0 && (
+                <div className="flex justify-between text-slate-600">
+                  <span>Service Charges ({completionDetails.taxPercentage}%):</span>
+                  <span className="font-bold">
+                    ₨{(
+                      completionConfirmation.items.reduce(
+                        (sum, item) => sum + item.price * item.quantity,
+                        0
+                      ) * (completionDetails.taxPercentage / 100)
+                    ).toFixed(2)}
+                  </span>
+                </div>
+              )}
+              {completionDetails.deliveryCharge > 0 && (
+                <div className="flex justify-between text-orange-600">
+                  <span>Delivery Charge:</span>
+                  <span className="font-bold">₨{completionDetails.deliveryCharge.toFixed(2)}</span>
+                </div>
+              )}
+              {(completionDetails.discountPercentage > 0 || completionDetails.discountAmount > 0) && (
+                <div className="flex justify-between text-emerald-600">
+                  <span>
+                    Discount
+                    {completionDetails.discountPercentage > 0 && ` (${completionDetails.discountPercentage.toFixed(1)}%)`}:
+                  </span>
+                  <span className="font-bold">
+                    -₨{(
+                      completionDetails.discountPercentage > 0
+                        ? (completionConfirmation.items.reduce(
+                            (sum, item) => sum + item.price * item.quantity,
+                            0
+                          ) * completionDetails.discountPercentage) / 100
+                        : completionDetails.discountAmount
+                    ).toFixed(2)}
+                  </span>
+                </div>
+              )}
+              <div className="h-px bg-gradient-to-r from-transparent via-slate-300 to-transparent my-2" />
+              <div className="flex justify-between text-lg font-bold text-slate-800 pt-2">
+                <span>Total:</span>
+                <span className="text-2xl text-emerald-600">
+                  ₨{(() => {
+                    const subtotal = completionConfirmation.items.reduce(
+                      (sum, item) => sum + item.price * item.quantity,
+                      0
+                    )
+                    const tax = subtotal * (completionDetails.taxPercentage / 100)
+                    const discount = completionDetails.discountPercentage > 0
+                      ? (subtotal * completionDetails.discountPercentage) / 100
+                      : completionDetails.discountAmount
+                    return (subtotal + tax - discount + completionDetails.deliveryCharge).toFixed(2)
+                  })()}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Action Buttons */}
+        <div className="border-t-2 border-slate-200 p-5 flex gap-3 bg-slate-50 flex-shrink-0">
+          <motion.button
+            onClick={() => setCompletionConfirmation(null)}
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            className="flex-1 py-3 border-2 border-slate-300 text-slate-600 rounded-xl font-semibold hover:bg-white transition-all"
+          >
+            Cancel
+          </motion.button>
+          <motion.button
+            onClick={confirmCompleteOrder}
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            className="flex-[2] py-3 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-xl font-bold hover:shadow-xl transition-all flex items-center justify-center gap-2"
+          >
+            <Printer className="w-5 h-5" />
+            Print Bill & Complete Order
+          </motion.button>
+        </div>
+      </motion.div>
+    </motion.div>
+  )}
+</AnimatePresence>
+
       {/* Print Styles */}
       <style jsx global>{`
   @media print {
