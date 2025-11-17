@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   DollarSign,
   TrendingUp,
@@ -25,6 +25,11 @@ import {
   Award,
   Star,
   Crown,
+  TrendingDown,
+  Search,
+  Filter,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import {
   BarChart,
@@ -38,6 +43,8 @@ import {
   PieChart,
   Pie,
   Cell,
+  LineChart,
+  Line,
 } from 'recharts';
 import { getReportsData } from '@/lib/actions/reports';
 import { getTopCustomers } from '@/lib/actions/customers';
@@ -55,9 +62,12 @@ export default function ReportsPage() {
   const [reportsData, setReportsData] = useState(null);
   const [topCustomers, setTopCustomers] = useState([]);
   const [error, setError] = useState(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [sortBy, setSortBy] = useState('quantity');
+  const [sortOrder, setSortOrder] = useState('desc');
+  const [showAllItems, setShowAllItems] = useState(false);
 
   useEffect(() => {
-    // Prevent zoom on mobile inputs
     const metaViewport = document.querySelector('meta[name=viewport]');
     if (metaViewport) {
       metaViewport.setAttribute('content', 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no');
@@ -70,7 +80,6 @@ export default function ReportsPage() {
     };
   }, []);
 
-  // Fetch data on mount and when reportType changes (except for Custom Range)
   useEffect(() => {
     if (reportType !== 'Custom Range') {
       fetchReportsData();
@@ -123,7 +132,6 @@ export default function ReportsPage() {
         return;
       }
 
-      // Fetch both reports and customers in parallel
       const [reportsResult, customersResult] = await Promise.all([
         getReportsData(filters),
         getTopCustomers(10)
@@ -165,16 +173,17 @@ export default function ReportsPage() {
     if (!reportsData) return;
 
     const csvContent = [
-      ['Order ID', 'Date', 'Time', 'Revenue', 'Cost', 'Profit', 'Payment Method', 'Order Type'],
-      ...reportsData.transactions.map(t => [
-        t.id,
-        t.date,
-        t.time,
-        t.revenue,
-        t.cost,
-        t.profit,
-        t.paymentMethod,
-        t.orderType,
+      ['Item Name', 'Category', 'Quantity Sold', 'Total Revenue', 'Total Cost', 'Total Profit', 'Profit Margin %', 'Order Count', 'Avg Price'],
+      ...reportsData.popularItems.map(item => [
+        item.name,
+        item.category,
+        item.totalQuantity,
+        item.totalRevenue.toFixed(2),
+        item.totalCost.toFixed(2),
+        item.totalProfit.toFixed(2),
+        item.profitMargin,
+        item.orderCount,
+        item.averagePrice.toFixed(2),
       ]),
     ]
       .map(row => row.join(','))
@@ -184,7 +193,7 @@ export default function ReportsPage() {
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `report-${new Date().toISOString().split('T')[0]}.csv`;
+    a.download = `items-report-${new Date().toISOString().split('T')[0]}.csv`;
     a.click();
     window.URL.revokeObjectURL(url);
   };
@@ -195,18 +204,15 @@ export default function ReportsPage() {
     const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.getWidth();
     
-    // Title
     doc.setFontSize(20);
     doc.setTextColor(30, 41, 59);
     doc.text('Restaurant Business Report', pageWidth / 2, 20, { align: 'center' });
     
-    // Report period
     doc.setFontSize(10);
     doc.setTextColor(100, 116, 139);
     doc.text(`Report Period: ${reportType}`, pageWidth / 2, 28, { align: 'center' });
     doc.text(`Generated: ${new Date().toLocaleString()}`, pageWidth / 2, 33, { align: 'center' });
 
-    // Summary Statistics
     doc.setFontSize(14);
     doc.setTextColor(30, 41, 59);
     doc.text('Summary Statistics', 14, 45);
@@ -216,8 +222,8 @@ export default function ReportsPage() {
       ['Total Cost', `₨${reportsData.summary.totalCost.toLocaleString()}`],
       ['Total Profit', `₨${reportsData.summary.totalProfit.toLocaleString()}`],
       ['Total Orders', reportsData.summary.totalOrders.toString()],
-      ['Average Order Value', `₨${Math.round(reportsData.summary.averageOrderValue).toLocaleString()}`],
-      ['Profit Margin', `${((reportsData.summary.totalProfit / reportsData.summary.totalRevenue) * 100).toFixed(1)}%`],
+      ['Total Items Sold', reportsData.summary.totalItems.toString()],
+      ['Unique Items', reportsData.insights.totalUniqueItems.toString()],
     ];
 
     autoTable(doc, {
@@ -228,71 +234,27 @@ export default function ReportsPage() {
       headStyles: { fillColor: [16, 185, 129] },
     });
 
-    // Order Type Breakdown
-    let finalY = doc.lastAutoTable.finalY || 50;
-    doc.setFontSize(14);
-    doc.text('Order Type Breakdown', 14, finalY + 10);
-
-    const orderTypeData = [
-      ['Dine-In', reportsData.summary.dineInOrders.toString(), `₨${reportsData.summary.dineInRevenue.toLocaleString()}`],
-      ['Takeaway', reportsData.summary.takeawayOrders.toString(), `₨${reportsData.summary.takeawayRevenue.toLocaleString()}`],
-      ['Delivery', reportsData.summary.deliveryOrders.toString(), `₨${reportsData.summary.deliveryRevenue.toLocaleString()}`],
-    ];
-
-    autoTable(doc, {
-      startY: finalY + 15,
-      head: [['Order Type', 'Count', 'Revenue']],
-      body: orderTypeData,
-      theme: 'grid',
-      headStyles: { fillColor: [59, 130, 246] },
-    });
-
-    // Add new page for more details
     doc.addPage();
     
-    // Top Customers
-    if (topCustomers.length > 0) {
-      doc.setFontSize(14);
-      doc.text('Top Customers', 14, 20);
-
-      const customersData = topCustomers.map((customer, index) => [
-        (index + 1).toString(),
-        customer.name,
-        customer.phoneNumber,
-        customer.orderCount.toString(),
-        `₨${(customer.totalSpent || 0).toLocaleString()}`,
-      ]);
-
-      autoTable(doc, {
-        startY: 25,
-        head: [['Rank', 'Name', 'Phone', 'Orders', 'Total Spent']],
-        body: customersData,
-        theme: 'grid',
-        headStyles: { fillColor: [139, 92, 246] },
-      });
-
-      finalY = doc.lastAutoTable.finalY || 25;
-    }
-
-    // Top Selling Items
     doc.setFontSize(14);
-    doc.text('Top Selling Items', 14, topCustomers.length > 0 ? finalY + 10 : 20);
+    doc.text('All Items Performance', 14, 20);
 
-    const topItemsData = reportsData.popularItems.slice(0, 10).map((item, index) => [
+    const itemsData = reportsData.popularItems.map((item, index) => [
       (index + 1).toString(),
       item.name,
-      item.sold.toString(),
+      item.totalQuantity.toString(),
+      `₨${item.totalRevenue.toLocaleString()}`,
+      `${item.profitMargin}%`,
     ]);
 
     autoTable(doc, {
-      startY: topCustomers.length > 0 ? finalY + 15 : 25,
-      head: [['Rank', 'Item Name', 'Units Sold']],
-      body: topItemsData,
+      startY: 25,
+      head: [['Rank', 'Item Name', 'Qty Sold', 'Revenue', 'Margin']],
+      body: itemsData,
       theme: 'grid',
-      headStyles: { fillColor: [245, 158, 11] },
+      headStyles: { fillColor: [139, 92, 246] },
     });
 
-    // Save PDF
     doc.save(`restaurant-report-${new Date().toISOString().split('T')[0]}.pdf`);
   };
 
@@ -307,12 +269,56 @@ export default function ReportsPage() {
     return { label: 'Regular', color: 'from-blue-400 to-blue-600', icon: Users };
   };
 
+  // Filter and sort items
+  const getFilteredAndSortedItems = () => {
+    if (!reportsData) return [];
+    
+    let items = [...reportsData.popularItems];
+    
+    // Apply search filter
+    if (searchTerm) {
+      items = items.filter(item => 
+        item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        item.category.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+    
+    // Apply sorting
+    items.sort((a, b) => {
+      let comparison = 0;
+      
+      switch (sortBy) {
+        case 'quantity':
+          comparison = b.totalQuantity - a.totalQuantity;
+          break;
+        case 'revenue':
+          comparison = b.totalRevenue - a.totalRevenue;
+          break;
+        case 'profit':
+          comparison = b.totalProfit - a.totalProfit;
+          break;
+        case 'margin':
+          comparison = parseFloat(b.profitMargin) - parseFloat(a.profitMargin);
+          break;
+        case 'name':
+          comparison = a.name.localeCompare(b.name);
+          break;
+        default:
+          comparison = 0;
+      }
+      
+      return sortOrder === 'desc' ? comparison : -comparison;
+    });
+    
+    return showAllItems ? items : items.slice(0, 10);
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-[#f5f7fa] flex items-center justify-center p-4">
         <div className="text-center">
-          <Loader2 className="w-10 h-10 sm:w-12 sm:h-12 text-[#10b981] animate-spin mx-auto mb-4" />
-          <p className="text-[#64748b] text-base sm:text-lg">Loading reports data...</p>
+          <Loader2 className="w-12 h-12 text-[#10b981] animate-spin mx-auto mb-4" />
+          <p className="text-[#64748b] text-lg">Loading reports data...</p>
         </div>
       </div>
     );
@@ -358,22 +364,14 @@ export default function ReportsPage() {
               ? 'Please select a date range and click Generate'
               : 'No orders found for the selected period'}
           </p>
-          {reportType === 'Custom Range' && (
-            <button
-              onClick={() => setCustomRange(true)}
-              className="px-6 py-2 bg-[#10b981] text-white rounded-lg hover:bg-[#059669] transition-all font-medium"
-            >
-              Select Date Range
-            </button>
-          )}
         </div>
       </div>
     );
   }
 
-  const { summary, chartData, transactions, popularItems, insights } = reportsData;
+  const { summary, chartData, transactions, popularItems, topItems, insights } = reportsData;
+  const filteredItems = getFilteredAndSortedItems();
 
-  // Calculate order type percentages
   const orderTypeChartData = [
     { name: 'Dine-In', value: summary.dineInOrders, revenue: summary.dineInRevenue },
     { name: 'Takeaway', value: summary.takeawayOrders, revenue: summary.takeawayRevenue },
@@ -381,40 +379,39 @@ export default function ReportsPage() {
   ].filter(item => item.value > 0);
 
   return (
-    <div className="w-[94vw] md:w-[100%] mx-auto bg-[#f5f7fa] p-4 sm:p-6 lg:p-8">
-      <div className="md:max-w-[1600px] mx-auto">
+    <div className="w-full min-h-screen bg-[#f5f7fa] p-4 sm:p-6 lg:p-8">
+      <div className="max-w-[1800px] mx-auto">
         {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="mb-6 sm:mb-8"
+          className="mb-8"
         >
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
             <div>
-              <h1 className="text-2xl sm:text-3xl font-bold text-[#1e293b] mb-2 flex items-center gap-2 sm:gap-3">
-                <BarChart3 className="w-6 h-6 sm:w-8 sm:h-8 text-[#10b981] flex-shrink-0" />
-                <span className="leading-tight">Business Reports & Analytics</span>
+              <h1 className="text-3xl lg:text-4xl font-bold text-[#1e293b] mb-2 flex items-center gap-3">
+                <BarChart3 className="w-8 h-8 text-[#10b981]" />
+                Business Analytics Dashboard
               </h1>
-              <p className="text-sm sm:text-base text-[#64748b]">
-                Comprehensive insights into your restaurant's performance
+              <p className="text-base text-[#64748b]">
+                Comprehensive insights • {insights.totalUniqueItems} unique items • {summary.totalItems} units sold
               </p>
             </div>
             
-            {/* Export Buttons */}
-            <div className="flex gap-2 sm:gap-3 w-full sm:w-auto">
+            <div className="flex gap-3 w-full lg:w-auto">
               <button
                 onClick={handleExportCSV}
-                className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 sm:px-5 py-2 sm:py-3 bg-white border-2 border-[#10b981] text-[#10b981] rounded-lg hover:bg-[#10b981] hover:text-white transition-all font-medium shadow-sm text-sm"
+                className="flex-1 lg:flex-none flex items-center justify-center gap-2 px-5 py-3 bg-white border-2 border-[#10b981] text-[#10b981] rounded-lg hover:bg-[#10b981] hover:text-white transition-all font-medium shadow-sm"
               >
-                <FileText className="w-4 h-4 sm:w-5 sm:h-5" />
-                <span className="hidden xs:inline">Export</span> CSV
+                <FileText className="w-5 h-5" />
+                Export CSV
               </button>
               <button
                 onClick={handleExportPDF}
-                className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 sm:px-5 py-2 sm:py-3 bg-[#10b981] text-white rounded-lg hover:bg-[#059669] transition-all font-medium shadow-md text-sm"
+                className="flex-1 lg:flex-none flex items-center justify-center gap-2 px-5 py-3 bg-[#10b981] text-white rounded-lg hover:bg-[#059669] transition-all font-medium shadow-md"
               >
-                <Download className="w-4 h-4 sm:w-5 sm:h-5" />
-                <span className="hidden xs:inline">Export</span> PDF
+                <Download className="w-5 h-5" />
+                Export PDF
               </button>
             </div>
           </div>
@@ -425,13 +422,13 @@ export default function ReportsPage() {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.1 }}
-          className="bg-white rounded-xl p-4 sm:p-6 shadow-sm mb-6 sm:mb-8"
+          className="bg-white rounded-xl p-6 shadow-sm mb-8"
         >
           <div className="flex flex-col gap-4">
             <div className="flex items-center gap-2 flex-wrap">
-              <Calendar className="w-4 h-4 sm:w-5 sm:h-5 text-[#10b981] flex-shrink-0" />
-              <span className="font-semibold text-[#1e293b] text-sm sm:text-base">Report Period:</span>
-              <div className="flex flex-wrap gap-2 w-full sm:w-auto">
+              <Calendar className="w-5 h-5 text-[#10b981]" />
+              <span className="font-semibold text-[#1e293b]">Report Period:</span>
+              <div className="flex flex-wrap gap-2">
                 {['Today', 'This Week', 'This Month', 'Custom Range'].map((type) => (
                   <button
                     key={type}
@@ -440,7 +437,7 @@ export default function ReportsPage() {
                       setCustomRange(type === 'Custom Range');
                       setError(null);
                     }}
-                    className={`px-3 sm:px-4 py-2 rounded-lg font-medium transition-all text-xs sm:text-sm ${
+                    className={`px-4 py-2 rounded-lg font-medium transition-all ${
                       reportType === type
                         ? 'bg-[#10b981] text-white shadow-md'
                         : 'bg-[#f1f5f9] text-[#475569] hover:bg-[#e2e8f0]'
@@ -458,21 +455,21 @@ export default function ReportsPage() {
                   type="date"
                   value={dateFrom}
                   onChange={(e) => setDateFrom(e.target.value)}
-                  className="px-4 py-2 bg-[#f8fafc] border border-[#e2e8f0] rounded-lg focus:outline-none focus:border-[#10b981] focus:ring-2 focus:ring-[#10b981]/20 transition-all text-[#1e293b] text-sm"
+                  className="px-4 py-2 bg-[#f8fafc] border border-[#e2e8f0] rounded-lg focus:outline-none focus:border-[#10b981] focus:ring-2 focus:ring-[#10b981]/20 transition-all text-[#1e293b]"
                 />
-                <span className="text-[#64748b] text-center sm:text-left text-sm">to</span>
+                <span className="text-[#64748b] text-center sm:text-left">to</span>
                 <input
                   type="date"
                   value={dateTo}
                   onChange={(e) => setDateTo(e.target.value)}
-                  className="px-4 py-2 bg-[#f8fafc] border border-[#e2e8f0] rounded-lg focus:outline-none focus:border-[#10b981] focus:ring-2 focus:ring-[#10b981]/20 transition-all text-[#1e293b] text-sm"
+                  className="px-4 py-2 bg-[#f8fafc] border border-[#e2e8f0] rounded-lg focus:outline-none focus:border-[#10b981] focus:ring-2 focus:ring-[#10b981]/20 transition-all text-[#1e293b]"
                 />
                 <button
                   onClick={handleGenerateCustomReport}
                   disabled={!dateFrom || !dateTo}
-                  className="px-6 py-2 bg-[#10b981] text-white rounded-lg hover:bg-[#059669] transition-all font-medium shadow-md text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-6 py-2 bg-[#10b981] text-white rounded-lg hover:bg-[#059669] transition-all font-medium shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Generate
+                  Generate Report
                 </button>
               </div>
             )}
@@ -480,91 +477,87 @@ export default function ReportsPage() {
         </motion.div>
 
         {/* Summary Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-6 sm:mb-8">
-          {/* Total Revenue Card */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
-            className="bg-white rounded-xl p-4 sm:p-6 shadow-sm hover:shadow-lg transition-all cursor-pointer border-l-4 border-[#10b981] group"
+            className="bg-white rounded-xl p-6 shadow-sm hover:shadow-lg transition-all border-l-4 border-[#10b981]"
           >
-            <div className="flex items-center justify-between mb-3 sm:mb-4">
-              <div className="bg-gradient-to-br from-[#10b981] to-[#059669] p-2 sm:p-3 rounded-xl group-hover:scale-110 transition-transform">
-                <DollarSign className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+            <div className="flex items-center justify-between mb-4">
+              <div className="bg-gradient-to-br from-[#10b981] to-[#059669] p-3 rounded-xl">
+                <DollarSign className="w-6 h-6 text-white" />
               </div>
             </div>
             <div>
-              <p className="text-[#64748b] text-xs sm:text-sm mb-1">Total Revenue</p>
-              <p className="text-2xl sm:text-3xl font-bold text-[#1e293b]">
+              <p className="text-[#64748b] text-sm mb-1">Total Revenue</p>
+              <p className="text-3xl font-bold text-[#1e293b]">
                 ₨{summary.totalRevenue.toLocaleString()}
               </p>
               <p className="text-xs text-[#94a3b8] mt-2">
-                From {summary.totalOrders} orders
+                {summary.totalOrders} orders • Avg ₨{Math.round(summary.averageOrderValue)}
               </p>
             </div>
           </motion.div>
 
-          {/* Total Profit Card */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.3 }}
-            className="bg-white rounded-xl p-4 sm:p-6 shadow-sm hover:shadow-lg transition-all cursor-pointer border-l-4 border-[#8b5cf6] group"
+            className="bg-white rounded-xl p-6 shadow-sm hover:shadow-lg transition-all border-l-4 border-[#8b5cf6]"
           >
-            <div className="flex items-center justify-between mb-3 sm:mb-4">
-              <div className="bg-gradient-to-br from-[#8b5cf6] to-[#7c3aed] p-2 sm:p-3 rounded-xl group-hover:scale-110 transition-transform">
-                <TrendingUp className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+            <div className="flex items-center justify-between mb-4">
+              <div className="bg-gradient-to-br from-[#8b5cf6] to-[#7c3aed] p-3 rounded-xl">
+                <TrendingUp className="w-6 h-6 text-white" />
               </div>
             </div>
             <div>
-              <p className="text-[#64748b] text-xs sm:text-sm mb-1">Total Profit</p>
-              <p className="text-2xl sm:text-3xl font-bold text-[#1e293b]">
+              <p className="text-[#64748b] text-sm mb-1">Total Profit</p>
+              <p className="text-3xl font-bold text-[#1e293b]">
                 ₨{summary.totalProfit.toLocaleString()}
               </p>
               <p className="text-xs text-[#94a3b8] mt-2">
-                {((summary.totalProfit / summary.totalRevenue) * 100).toFixed(1)}% margin
+                {((summary.totalProfit / summary.totalRevenue) * 100).toFixed(1)}% profit margin
               </p>
             </div>
           </motion.div>
 
-          {/* Total Orders Card */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.4 }}
-            className="bg-white rounded-xl p-4 sm:p-6 shadow-sm hover:shadow-lg transition-all cursor-pointer border-l-4 border-[#3b82f6] group"
+            className="bg-white rounded-xl p-6 shadow-sm hover:shadow-lg transition-all border-l-4 border-[#3b82f6]"
           >
-            <div className="flex items-center justify-between mb-3 sm:mb-4">
-              <div className="bg-gradient-to-br from-[#3b82f6] to-[#2563eb] p-2 sm:p-3 rounded-xl group-hover:scale-110 transition-transform">
-                <ShoppingCart className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+            <div className="flex items-center justify-between mb-4">
+              <div className="bg-gradient-to-br from-[#3b82f6] to-[#2563eb] p-3 rounded-xl">
+                <Package className="w-6 h-6 text-white" />
               </div>
             </div>
             <div>
-              <p className="text-[#64748b] text-xs sm:text-sm mb-1">Total Orders</p>
-              <p className="text-2xl sm:text-3xl font-bold text-[#1e293b]">
-                {summary.totalOrders}
+              <p className="text-[#64748b] text-sm mb-1">Items Sold</p>
+              <p className="text-3xl font-bold text-[#1e293b]">
+                {summary.totalItems}
               </p>
               <p className="text-xs text-[#94a3b8] mt-2">
-                Completed successfully
+                {insights.totalUniqueItems} unique items
               </p>
             </div>
           </motion.div>
 
-          {/* Total Expenses Card */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.5 }}
-            className="bg-white rounded-xl p-4 sm:p-6 shadow-sm hover:shadow-lg transition-all cursor-pointer border-l-4 border-[#f59e0b] group"
+            className="bg-white rounded-xl p-6 shadow-sm hover:shadow-lg transition-all border-l-4 border-[#f59e0b]"
           >
-            <div className="flex items-center justify-between mb-3 sm:mb-4">
-              <div className="bg-gradient-to-br from-[#f59e0b] to-[#d97706] p-2 sm:p-3 rounded-xl group-hover:scale-110 transition-transform">
-                <Wallet className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+            <div className="flex items-center justify-between mb-4">
+              <div className="bg-gradient-to-br from-[#f59e0b] to-[#d97706] p-3 rounded-xl">
+                <Wallet className="w-6 h-6 text-white" />
               </div>
             </div>
             <div>
-              <p className="text-[#64748b] text-xs sm:text-sm mb-1">Total Expenses</p>
-              <p className="text-2xl sm:text-3xl font-bold text-[#1e293b]">
+              <p className="text-[#64748b] text-sm mb-1">Total Expenses</p>
+              <p className="text-3xl font-bold text-[#1e293b]">
                 ₨{summary.totalCost.toLocaleString()}
               </p>
               <p className="text-xs text-[#94a3b8] mt-2">
@@ -574,137 +567,53 @@ export default function ReportsPage() {
           </motion.div>
         </div>
 
-        {/* Order Type Breakdown Cards */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.6 }}
-          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mb-6 sm:mb-8"
-        >
-          {/* Dine-In */}
-          <div className="bg-white rounded-xl p-4 sm:p-6 shadow-sm border-l-4 border-[#10b981]">
-            <div className="flex items-center gap-3 sm:gap-4 mb-3 sm:mb-4">
-              <div className="bg-[#10b981]/10 p-2 sm:p-3 rounded-xl">
-                <Utensils className="w-5 h-5 sm:w-6 sm:h-6 text-[#10b981]" />
-              </div>
-              <div>
-                <p className="text-[#64748b] text-xs sm:text-sm">Dine-In Orders</p>
-                <p className="text-xl sm:text-2xl font-bold text-[#1e293b]">{summary.dineInOrders}</p>
-              </div>
-            </div>
-            <div className="bg-[#f8fafc] p-3 rounded-lg">
-              <p className="text-xs text-[#64748b] mb-1">Revenue</p>
-              <p className="text-base sm:text-lg font-bold text-[#10b981]">
-                ₨{summary.dineInRevenue.toLocaleString()}
-              </p>
-            </div>
-          </div>
-
-          {/* Takeaway */}
-          <div className="bg-white rounded-xl p-4 sm:p-6 shadow-sm border-l-4 border-[#3b82f6]">
-            <div className="flex items-center gap-3 sm:gap-4 mb-3 sm:mb-4">
-              <div className="bg-[#3b82f6]/10 p-2 sm:p-3 rounded-xl">
-                <ShoppingBag className="w-5 h-5 sm:w-6 sm:h-6 text-[#3b82f6]" />
-              </div>
-              <div>
-                <p className="text-[#64748b] text-xs sm:text-sm">Takeaway Orders</p>
-                <p className="text-xl sm:text-2xl font-bold text-[#1e293b]">{summary.takeawayOrders}</p>
-              </div>
-            </div>
-            <div className="bg-[#f8fafc] p-3 rounded-lg">
-              <p className="text-xs text-[#64748b] mb-1">Revenue</p>
-              <p className="text-base sm:text-lg font-bold text-[#3b82f6]">
-                ₨{summary.takeawayRevenue.toLocaleString()}
-              </p>
-            </div>
-          </div>
-
-          {/* Delivery */}
-          <div className="bg-white rounded-xl p-4 sm:p-6 shadow-sm border-l-4 border-[#f59e0b] sm:col-span-2 lg:col-span-1">
-            <div className="flex items-center gap-3 sm:gap-4 mb-3 sm:mb-4">
-              <div className="bg-[#f59e0b]/10 p-2 sm:p-3 rounded-xl">
-                <Truck className="w-5 h-5 sm:w-6 sm:h-6 text-[#f59e0b]" />
-              </div>
-              <div>
-                <p className="text-[#64748b] text-xs sm:text-sm">Delivery Orders</p>
-                <p className="text-xl sm:text-2xl font-bold text-[#1e293b]">{summary.deliveryOrders}</p>
-              </div>
-            </div>
-            <div className="bg-[#f8fafc] p-3 rounded-lg">
-              <p className="text-xs text-[#64748b] mb-1">Revenue</p>
-              <p className="text-base sm:text-lg font-bold text-[#f59e0b]">
-                ₨{summary.deliveryRevenue.toLocaleString()}
-              </p>
-            </div>
-          </div>
-        </motion.div>
-
         {/* Charts Section */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mb-6 sm:mb-8">
-          {/* Sales Overview Chart */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
           <motion.div
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.7 }}
-            className="bg-white rounded-xl p-4 sm:p-6 shadow-sm"
+            transition={{ delay: 0.6 }}
+            className="bg-white rounded-xl p-6 shadow-sm"
           >
-            <div className="flex items-center justify-between mb-4 sm:mb-6">
-              <div>
-                <h3 className="text-base sm:text-lg font-bold text-[#1e293b] flex items-center gap-2">
-                  <BarChart3 className="w-4 h-4 sm:w-5 sm:h-5 text-[#10b981]" />
-                  Sales Overview
-                </h3>
-                <p className="text-xs sm:text-sm text-[#64748b] mt-1">Daily revenue breakdown</p>
-              </div>
-            </div>
-            <ResponsiveContainer width="100%" height={250}>
+            <h3 className="text-lg font-bold text-[#1e293b] flex items-center gap-2 mb-6">
+              <BarChart3 className="w-5 h-5 text-[#10b981]" />
+              Daily Sales Overview
+            </h3>
+            <ResponsiveContainer width="100%" height={300}>
               <BarChart data={chartData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                 <XAxis 
                   dataKey="date" 
                   stroke="#64748b"
-                  tick={{ fontSize: 10 }}
+                  tick={{ fontSize: 11 }}
                   tickFormatter={(value) => new Date(value).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                 />
-                <YAxis stroke="#64748b" tick={{ fontSize: 10 }} />
+                <YAxis stroke="#64748b" tick={{ fontSize: 11 }} />
                 <Tooltip 
                   contentStyle={{ 
                     backgroundColor: '#fff', 
                     border: '1px solid #e2e8f0',
                     borderRadius: '8px',
                     boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
-                    fontSize: '12px'
                   }}
                   formatter={(value) => [`₨${value.toLocaleString()}`, '']}
-                  labelFormatter={(label) => new Date(label).toLocaleDateString('en-US', { 
-                    weekday: 'short', 
-                    month: 'short', 
-                    day: 'numeric' 
-                  })}
                 />
-                <Legend wrapperStyle={{ fontSize: '12px' }} />
-                <Bar dataKey="revenue" fill="#10b981" name="Revenue" radius={[8, 8, 0, 0]} />
+                <Bar dataKey="revenue" fill="#10b981" radius={[8, 8, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </motion.div>
 
-          {/* Order Type Distribution */}
           <motion.div
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.8 }}
-            className="bg-white rounded-xl p-4 sm:p-6 shadow-sm"
+            transition={{ delay: 0.7 }}
+            className="bg-white rounded-xl p-6 shadow-sm"
           >
-            <div className="flex items-center justify-between mb-4 sm:mb-6">
-              <div>
-                <h3 className="text-base sm:text-lg font-bold text-[#1e293b] flex items-center gap-2">
-                  <LineChartIcon className="w-4 h-4 sm:w-5 sm:h-5 text-[#8b5cf6]" />
-                  Order Type Distribution
-                </h3>
-                <p className="text-xs sm:text-sm text-[#64748b] mt-1">Breakdown by order type</p>
-              </div>
-            </div>
-            <ResponsiveContainer width="100%" height={250}>
+            <h3 className="text-lg font-bold text-[#1e293b] flex items-center gap-2 mb-6">
+              <LineChartIcon className="w-5 h-5 text-[#8b5cf6]" />
+              Order Type Distribution
+            </h3>
+            <ResponsiveContainer width="100%" height={300}>
               <PieChart>
                 <Pie
                   data={orderTypeChartData}
@@ -712,22 +621,15 @@ export default function ReportsPage() {
                   cy="50%"
                   labelLine={false}
                   label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                  outerRadius={70}
+                  outerRadius={80}
                   fill="#8884d8"
                   dataKey="value"
-                  style={{ fontSize: '11px' }}
                 >
                   {orderTypeChartData.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                   ))}
                 </Pie>
                 <Tooltip 
-                  contentStyle={{ 
-                    backgroundColor: '#fff', 
-                    border: '1px solid #e2e8f0',
-                    borderRadius: '8px',
-                    fontSize: '12px'
-                  }}
                   formatter={(value, name, props) => [
                     `${value} orders (₨${props.payload.revenue.toLocaleString()})`,
                     name
@@ -738,23 +640,306 @@ export default function ReportsPage() {
           </motion.div>
         </div>
 
-        {/* TOP CUSTOMERS SECTION - NEW */}
+        {/* Order Type Breakdown Cards */}
+<motion.div
+  initial={{ opacity: 0, y: 20 }}
+  animate={{ opacity: 1, y: 0 }}
+  transition={{ delay: 0.75 }}
+  className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-8"
+>
+  {/* Dine-In Card */}
+  <div className="bg-white rounded-xl p-6 shadow-sm border-l-4 border-[#10b981]">
+    <div className="flex items-center gap-4 mb-4">
+      <div className="bg-[#10b981]/10 p-3 rounded-xl">
+        <Utensils className="w-6 h-6 text-[#10b981]" />
+      </div>
+      <div>
+        <p className="text-[#64748b] text-sm">Dine-In Orders</p>
+        <p className="text-2xl font-bold text-[#1e293b]">{summary.dineInOrders}</p>
+      </div>
+    </div>
+    <div className="bg-[#f8fafc] p-3 rounded-lg">
+      <p className="text-xs text-[#64748b] mb-1">Revenue</p>
+      <p className="text-lg font-bold text-[#10b981]">
+        ₨{summary.dineInRevenue.toLocaleString()}
+      </p>
+    </div>
+  </div>
+
+  {/* Takeaway Card */}
+  <div className="bg-white rounded-xl p-6 shadow-sm border-l-4 border-[#3b82f6]">
+    <div className="flex items-center gap-4 mb-4">
+      <div className="bg-[#3b82f6]/10 p-3 rounded-xl">
+        <ShoppingBag className="w-6 h-6 text-[#3b82f6]" />
+      </div>
+      <div>
+        <p className="text-[#64748b] text-sm">Takeaway Orders</p>
+        <p className="text-2xl font-bold text-[#1e293b]">{summary.takeawayOrders}</p>
+      </div>
+    </div>
+    <div className="bg-[#f8fafc] p-3 rounded-lg">
+      <p className="text-xs text-[#64748b] mb-1">Revenue</p>
+      <p className="text-lg font-bold text-[#3b82f6]">
+        ₨{summary.takeawayRevenue.toLocaleString()}
+      </p>
+    </div>
+  </div>
+
+  {/* Delivery Card */}
+  <div className="bg-white rounded-xl p-6 shadow-sm border-l-4 border-[#f59e0b] sm:col-span-2 lg:col-span-1">
+    <div className="flex items-center gap-4 mb-4">
+      <div className="bg-[#f59e0b]/10 p-3 rounded-xl">
+        <Truck className="w-6 h-6 text-[#f59e0b]" />
+      </div>
+      <div>
+        <p className="text-[#64748b] text-sm">Delivery Orders</p>
+        <p className="text-2xl font-bold text-[#1e293b]">{summary.deliveryOrders}</p>
+      </div>
+    </div>
+    <div className="bg-[#f8fafc] p-3 rounded-lg">
+      <p className="text-xs text-[#64748b] mb-1">Revenue</p>
+      <p className="text-lg font-bold text-[#f59e0b]">
+        ₨{summary.deliveryRevenue.toLocaleString()}
+      </p>
+    </div>
+  </div>
+</motion.div>
+
+        {/* ALL ITEMS SECTION - ENHANCED */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.85 }}
+          className="mb-8"
+        >
+          <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+            <div className="p-6 border-b border-[#e2e8f0] bg-gradient-to-r from-purple-50 to-blue-50">
+              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                <div>
+                  <h3 className="text-xl font-bold text-[#1e293b] flex items-center gap-2 mb-2">
+                    <Trophy className="w-6 h-6 text-[#8b5cf6]" />
+                    Complete Items Performance Analysis
+                  </h3>
+                  <p className="text-sm text-[#64748b]">
+                    All items with more than 1 unit sold • Total: {popularItems.length} items
+                  </p>
+                </div>
+                
+                <div className="flex gap-2">
+                  <div className="px-4 py-2 bg-white rounded-lg border border-[#e2e8f0]">
+                    <span className="text-xs text-[#64748b]">Total Items</span>
+                    <p className="text-lg font-bold text-[#1e293b]">{popularItems.length}</p>
+                  </div>
+                  <div className="px-4 py-2 bg-white rounded-lg border border-[#e2e8f0]">
+                    <span className="text-xs text-[#64748b]">Units Sold</span>
+                    <p className="text-lg font-bold text-[#10b981]">{summary.totalItems}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Search and Filter Controls */}
+            <div className="p-6 bg-[#f8fafc] border-b border-[#e2e8f0]">
+              <div className="flex flex-col lg:flex-row gap-4">
+                <div className="flex-1 relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-[#94a3b8]" />
+                  <input
+                    type="text"
+                    placeholder="Search items by name or category..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full pl-10 pr-4 py-3 bg-white border border-[#e2e8f0] rounded-lg focus:outline-none focus:border-[#10b981] focus:ring-2 focus:ring-[#10b981]/20 transition-all"
+                  />
+                </div>
+                
+                <div className="flex gap-2">
+                  <select
+                    value={sortBy}
+                    onChange={(e) => setSortBy(e.target.value)}
+                    className="px-4 py-3 bg-white border border-[#e2e8f0] rounded-lg focus:outline-none focus:border-[#10b981] focus:ring-2 focus:ring-[#10b981]/20 transition-all"
+                  >
+                    <option value="quantity">Sort by Quantity</option>
+                    <option value="revenue">Sort by Revenue</option>
+                    <option value="profit">Sort by Profit</option>
+                    <option value="margin">Sort by Margin</option>
+                    <option value="name">Sort by Name</option>
+                  </select>
+                  
+                  <button
+                    onClick={() => setSortOrder(sortOrder === 'desc' ? 'asc' : 'desc')}
+                    className="px-4 py-3 bg-white border border-[#e2e8f0] rounded-lg hover:bg-[#f8fafc] transition-all"
+                  >
+                    {sortOrder === 'desc' ? <ChevronDown className="w-5 h-5" /> : <ChevronUp className="w-5 h-5" />}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Items Grid */}
+            <div className="p-6">
+              <AnimatePresence mode="wait">
+                <motion.div 
+                  key={searchTerm + sortBy + sortOrder}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 mb-6"
+                >
+                  {filteredItems.map((item, index) => (
+                    <motion.div
+                      key={item.name}
+                      initial={{ opacity: 0, scale: 0.9 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      transition={{ delay: index * 0.03 }}
+                      className="bg-gradient-to-br from-white to-gray-50 rounded-xl p-5 border-2 border-gray-100 hover:border-purple-300 hover:shadow-xl transition-all group relative overflow-hidden"
+                    >
+                      {/* Rank Badge */}
+                      <div className={`absolute top-3 right-3 w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs shadow-lg ${
+                        index === 0
+                          ? 'bg-gradient-to-br from-yellow-400 to-orange-500 text-white'
+                          : index === 1
+                          ? 'bg-gradient-to-br from-gray-300 to-gray-500 text-white'
+                          : index === 2
+                          ? 'bg-gradient-to-br from-orange-400 to-orange-600 text-white'
+                          : 'bg-gradient-to-br from-blue-400 to-blue-600 text-white'
+                      }`}>
+                        #{index + 1}
+                      </div>
+
+                      {/* Item Info */}
+                      <div className="mb-4">
+                        <h4 className="font-bold text-[#1e293b] text-base mb-1 pr-8 group-hover:text-purple-600 transition-colors line-clamp-2">
+                          {item.name}
+                        </h4>
+                        <span className="inline-block px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded-full font-medium">
+                          {item.category}
+                        </span>
+                      </div>
+
+                      {/* Stats Grid */}
+                      <div className="space-y-2 mb-4">
+                        <div className="flex items-center justify-between p-2 bg-emerald-50 rounded-lg">
+                          <span className="text-xs text-emerald-600 font-medium">Quantity Sold</span>
+                          <span className="text-lg font-bold text-emerald-700">{item.totalQuantity}</span>
+                        </div>
+                        
+                        <div className="flex items-center justify-between p-2 bg-blue-50 rounded-lg">
+                          <span className="text-xs text-blue-600 font-medium">Revenue</span>
+                          <span className="text-sm font-bold text-blue-700">₨{item.totalRevenue.toLocaleString()}</span>
+                        </div>
+                        
+                        <div className="flex items-center justify-between p-2 bg-purple-50 rounded-lg">
+                          <span className="text-xs text-purple-600 font-medium">Profit</span>
+                          <span className="text-sm font-bold text-purple-700">₨{item.totalProfit.toLocaleString()}</span>
+                        </div>
+                      </div>
+
+                      {/* Performance Bar */}
+                      <div className="mb-3">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-xs text-[#64748b]">Profit Margin</span>
+                          <span className="text-xs font-bold text-[#10b981]">{item.profitMargin}%</span>
+                        </div>
+                        <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+                          <div 
+                            className="bg-gradient-to-r from-[#10b981] to-[#059669] h-full rounded-full transition-all duration-500"
+                            style={{ width: `${Math.min(parseFloat(item.profitMargin), 100)}%` }}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Additional Info */}
+                      <div className="flex items-center justify-between pt-3 border-t border-gray-200">
+                        <div className="text-xs text-[#64748b]">
+                          <span className="font-medium">Orders:</span> {item.orderCount}
+                        </div>
+                        <div className="text-xs text-[#64748b]">
+                          <span className="font-medium">Avg Price:</span> ₨{item.averagePrice.toFixed(0)}
+                        </div>
+                      </div>
+
+                      {/* Hover Effect */}
+                      <div className="absolute inset-0 bg-gradient-to-br from-purple-500/0 to-blue-500/0 group-hover:from-purple-500/5 group-hover:to-blue-500/5 transition-all pointer-events-none rounded-xl" />
+                    </motion.div>
+                  ))}
+                </motion.div>
+              </AnimatePresence>
+
+              {/* Show More/Less Button */}
+              {popularItems.length > 10 && (
+                <div className="text-center">
+                  <button
+                    onClick={() => setShowAllItems(!showAllItems)}
+                    className="px-6 py-3 bg-gradient-to-r from-purple-500 to-blue-500 text-white rounded-lg hover:from-purple-600 hover:to-blue-600 transition-all font-medium shadow-lg hover:shadow-xl flex items-center gap-2 mx-auto"
+                  >
+                    {showAllItems ? (
+                      <>
+                        <ChevronUp className="w-5 h-5" />
+                        Show Less
+                      </>
+                    ) : (
+                      <>
+                        <ChevronDown className="w-5 h-5" />
+                        Show All {popularItems.length} Items
+                      </>
+                    )}
+                  </button>
+                </div>
+              )}
+
+              {/* No Results Message */}
+              {filteredItems.length === 0 && (
+                <div className="text-center py-12">
+                  <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <Search className="w-8 h-8 text-gray-400" />
+                  </div>
+                  <p className="text-[#64748b] text-lg font-semibold">No items found</p>
+                  <p className="text-[#94a3b8] text-sm">Try adjusting your search criteria</p>
+                </div>
+              )}
+            </div>
+
+            {/* Summary Stats */}
+            <div className="p-6 bg-gradient-to-r from-purple-50 to-blue-50 border-t border-[#e2e8f0]">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="text-center">
+                  <p className="text-xs text-[#64748b] mb-1">Total Items</p>
+                  <p className="text-2xl font-bold text-[#1e293b]">{popularItems.length}</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-xs text-[#64748b] mb-1">Units Sold</p>
+                  <p className="text-2xl font-bold text-[#10b981]">{summary.totalItems}</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-xs text-[#64748b] mb-1">Total Revenue</p>
+                  <p className="text-2xl font-bold text-[#3b82f6]">₨{summary.totalRevenue.toLocaleString()}</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-xs text-[#64748b] mb-1">Total Profit</p>
+                  <p className="text-2xl font-bold text-[#8b5cf6]">₨{summary.totalProfit.toLocaleString()}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </motion.div>
+
+        {/* TOP CUSTOMERS SECTION */}
         {topCustomers.length > 0 && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.9 }}
-            className="mb-6 sm:mb-8"
+            className="mb-8"
           >
             <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-              <div className="p-4 sm:p-6 border-b border-[#e2e8f0] bg-gradient-to-r from-purple-50 to-pink-50">
+              <div className="p-6 border-b border-[#e2e8f0] bg-gradient-to-r from-purple-50 to-pink-50">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h3 className="text-base sm:text-lg font-bold text-[#1e293b] flex items-center gap-2">
-                      <Users className="w-4 h-4 sm:w-5 sm:h-5 text-[#8b5cf6]" />
+                    <h3 className="text-xl font-bold text-[#1e293b] flex items-center gap-2">
+                      <Users className="w-6 h-6 text-[#8b5cf6]" />
                       Top Loyal Customers
                     </h3>
-                    <p className="text-xs sm:text-sm text-[#64748b] mt-1">
+                    <p className="text-sm text-[#64748b] mt-1">
                       Most valued customers ranked by spending & orders
                     </p>
                   </div>
@@ -765,7 +950,7 @@ export default function ReportsPage() {
                 </div>
               </div>
 
-              <div className="p-4 sm:p-6">
+              <div className="p-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {topCustomers.map((customer, index) => {
                     const tierBadge = getCustomerTierBadge(customer.totalSpent || 0);
@@ -779,7 +964,6 @@ export default function ReportsPage() {
                         transition={{ delay: index * 0.05 }}
                         className="bg-gradient-to-br from-white to-gray-50 rounded-xl p-4 border-2 border-gray-100 hover:border-purple-300 hover:shadow-lg transition-all group relative overflow-hidden"
                       >
-                        {/* Rank Badge */}
                         <div className={`absolute top-3 right-3 w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm shadow-lg ${
                           index === 0
                             ? 'bg-gradient-to-br from-yellow-400 to-orange-500 text-white'
@@ -792,7 +976,6 @@ export default function ReportsPage() {
                           {index + 1}
                         </div>
 
-                        {/* Customer Avatar & Info */}
                         <div className="flex items-start gap-3 mb-3">
                           <div className={`w-14 h-14 bg-gradient-to-br ${tierBadge.color} rounded-full flex items-center justify-center text-white font-bold text-xl shadow-lg group-hover:scale-110 transition-transform flex-shrink-0`}>
                             {customer.name.charAt(0).toUpperCase()}
@@ -814,13 +997,11 @@ export default function ReportsPage() {
                           </div>
                         </div>
 
-                        {/* Tier Badge */}
                         <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-gradient-to-r ${tierBadge.color} text-white text-xs font-bold mb-3 shadow-md`}>
                           <TierIcon className="w-3 h-3" />
                           {tierBadge.label}
                         </div>
 
-                        {/* Stats Grid */}
                         <div className="grid grid-cols-2 gap-2">
                           <div className="bg-blue-50 rounded-lg p-2.5">
                             <p className="text-xs text-blue-600 mb-0.5 flex items-center gap-1">
@@ -840,7 +1021,6 @@ export default function ReportsPage() {
                           </div>
                         </div>
 
-                        {/* Last Order Date */}
                         {customer.lastOrderDate && (
                           <div className="mt-3 pt-3 border-t border-gray-200">
                             <div className="flex items-center justify-between text-xs">
@@ -856,434 +1036,80 @@ export default function ReportsPage() {
                           </div>
                         )}
 
-                        {/* Hover Effect Gradient */}
                         <div className="absolute inset-0 bg-gradient-to-br from-purple-500/0 to-pink-500/0 group-hover:from-purple-500/5 group-hover:to-pink-500/5 transition-all pointer-events-none rounded-xl" />
                       </motion.div>
                     );
                   })}
-                </div>
-
-                {/* Customer Stats Summary */}
-                <div className="mt-6 grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg p-4">
-                    <div className="flex items-center gap-3">
-                      <div className="bg-purple-500 p-2 rounded-lg">
-                        <Users className="w-5 h-5 text-white" />
-                      </div>
-                      <div>
-                        <p className="text-xs text-purple-600 font-medium">Total Customers</p>
-                        <p className="text-xl font-bold text-purple-700">{topCustomers.length}</p>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-4">
-                    <div className="flex items-center gap-3">
-                      <div className="bg-blue-500 p-2 rounded-lg">
-                        <ShoppingCart className="w-5 h-5 text-white" />
-                      </div>
-                      <div>
-                        <p className="text-xs text-blue-600 font-medium">Total Orders</p>
-                        <p className="text-xl font-bold text-blue-700">
-                          {topCustomers.reduce((sum, c) => sum + c.orderCount, 0)}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div className="bg-gradient-to-br from-emerald-50 to-emerald-100 rounded-lg p-4 sm:col-span-1">
-                    <div className="flex items-center gap-3">
-                      <div className="bg-emerald-500 p-2 rounded-lg">
-                        <DollarSign className="w-5 h-5 text-white" />
-                      </div>
-                      <div>
-                        <p className="text-xs text-emerald-600 font-medium">Total Revenue</p>
-                        <p className="text-xl font-bold text-emerald-700">
-                          ₨{topCustomers.reduce((sum, c) => sum + (c.totalSpent || 0), 0).toLocaleString()}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
                 </div>
               </div>
             </div>
           </motion.div>
         )}
 
-        {/* Detailed Report Table */}
+        {/* Key Insights Cards */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 1.0 }}
-          className="bg-white rounded-xl shadow-sm overflow-hidden mb-6 sm:mb-8"
+          className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8"
         >
-          <div className="p-4 sm:p-6 border-b border-[#e2e8f0]">
-            <h3 className="text-base sm:text-lg font-bold text-[#1e293b]">Detailed Transactions</h3>
-            <p className="text-xs sm:text-sm text-[#64748b] mt-1">
-              Complete breakdown of all orders
-            </p>
-          </div>
-
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[640px]">
-              <thead className="bg-[#f8fafc] border-b border-[#e2e8f0]">
-                <tr>
-                  <th className="px-3 sm:px-6 py-3 sm:py-4 text-left text-xs sm:text-sm font-semibold text-[#475569]">
-                    Order ID
-                  </th>
-                  <th className="px-3 sm:px-6 py-3 sm:py-4 text-left text-xs sm:text-sm font-semibold text-[#475569]">
-                    Date & Time
-                  </th>
-                  <th className="px-3 sm:px-6 py-3 sm:py-4 text-left text-xs sm:text-sm font-semibold text-[#475569]">
-                    Type
-                  </th>
-                  <th className="px-3 sm:px-6 py-3 sm:py-4 text-left text-xs sm:text-sm font-semibold text-[#475569]">
-                    Revenue
-                  </th>
-                  <th className="px-3 sm:px-6 py-3 sm:py-4 text-left text-xs sm:text-sm font-semibold text-[#475569] hidden sm:table-cell">
-                    Cost
-                  </th>
-                  <th className="px-3 sm:px-6 py-3 sm:py-4 text-left text-xs sm:text-sm font-semibold text-[#475569]">
-                    Profit
-                  </th>
-                  <th className="px-3 sm:px-6 py-3 sm:py-4 text-left text-xs sm:text-sm font-semibold text-[#475569] hidden md:table-cell">
-                    Payment
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {transactions.map((transaction, index) => (
-                  <motion.tr
-                    key={transaction.id}
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: index * 0.02 }}
-                    className="border-b border-[#f1f5f9] hover:bg-[#f8fafc] transition-all"
-                  >
-                    <td className="px-3 sm:px-6 py-3 sm:py-4 font-bold text-[#1e293b] text-xs sm:text-sm">
-                      {transaction.id}
-                    </td>
-                    <td className="px-3 sm:px-6 py-3 sm:py-4 text-[#64748b] text-xs sm:text-sm">
-                      <div className="flex flex-col">
-                        <span className="font-medium">{transaction.date}</span>
-                        <span className="text-xs text-[#94a3b8]">{transaction.time}</span>
-                      </div>
-                    </td>
-                    <td className="px-3 sm:px-6 py-3 sm:py-4">
-                      <span className={`px-2 py-1 rounded-lg text-xs font-medium ${
-                        transaction.orderType === 'dine-in'
-                          ? 'bg-[#10b981]/10 text-[#10b981]'
-                          : transaction.orderType === 'takeaway'
-                          ? 'bg-[#3b82f6]/10 text-[#3b82f6]'
-                          : 'bg-[#f59e0b]/10 text-[#f59e0b]'
-                      }`}>
-                        {transaction.orderType === 'dine-in' ? '🍽️' : 
-                         transaction.orderType === 'takeaway' ? '🛍️' : 
-                         '🚚'}
-                      </span>
-                    </td>
-                    <td className="px-3 sm:px-6 py-3 sm:py-4 font-semibold text-[#1e293b] text-xs sm:text-sm">
-                      ₨{transaction.revenue.toLocaleString()}
-                    </td>
-                    <td className="px-3 sm:px-6 py-3 sm:py-4 font-semibold text-[#ef4444] text-xs sm:text-sm hidden sm:table-cell">
-                      ₨{transaction.cost.toLocaleString()}
-                    </td>
-                    <td className="px-3 sm:px-6 py-3 sm:py-4">
-                      <span className={`font-bold text-xs sm:text-sm ${
-                        transaction.profit >= 0 ? 'text-[#10b981]' : 'text-[#ef4444]'
-                      }`}>
-                        ₨{transaction.profit.toLocaleString()}
-                      </span>
-                    </td>
-                    <td className="px-3 sm:px-6 py-3 sm:py-4 hidden md:table-cell">
-                      <span className="px-2 sm:px-3 py-1 bg-[#f1f5f9] text-[#475569] rounded-lg text-xs font-medium">
-                        {transaction.paymentMethod}
-                      </span>
-                    </td>
-                  </motion.tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </motion.div>
-
-        {/* Additional Insights Section */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 1.1 }}
-        >
-          <h3 className="text-lg sm:text-xl font-bold text-[#1e293b] mb-4 flex items-center gap-2">
-            <Trophy className="w-5 h-5 sm:w-6 sm:h-6 text-[#10b981]" />
-            Additional Insights
-          </h3>
-          
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
-            {/* Best Selling Item */}
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: 1.2 }}
-              className="bg-gradient-to-br from-[#10b981] to-[#059669] rounded-xl p-4 sm:p-6 shadow-lg text-white hover:scale-105 transition-transform cursor-pointer"
-            >
-              <div className="flex items-center gap-3 sm:gap-4 mb-3 sm:mb-4">
-                <div className="bg-white/20 p-2 sm:p-3 rounded-xl backdrop-blur-sm">
-                  <Trophy className="w-6 h-6 sm:w-8 sm:h-8" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-[#d1fae5] text-xs sm:text-sm">Best Selling Item</p>
-                  <p className="text-lg sm:text-2xl font-bold truncate">{insights.bestItem.name}</p>
-                </div>
+          <div className="bg-gradient-to-br from-[#10b981] to-[#059669] rounded-xl p-6 shadow-lg text-white">
+            <div className="flex items-center gap-4 mb-4">
+              <div className="bg-white/20 p-3 rounded-xl backdrop-blur-sm">
+                <Trophy className="w-8 h-8" />
               </div>
-              <div className="bg-white/10 rounded-lg p-3 backdrop-blur-sm">
-                <p className="text-xs sm:text-sm text-[#d1fae5]">Total Sold</p>
-                <p className="text-2xl sm:text-3xl font-bold">{insights.bestItem.sold} units</p>
+              <div className="min-w-0 flex-1">
+                <p className="text-emerald-100 text-sm">Best Selling Item</p>
+                <p className="text-2xl font-bold truncate">{insights.bestItem.name}</p>
               </div>
-            </motion.div>
-
-            {/* Peak Hours */}
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: 1.3 }}
-              className="bg-gradient-to-br from-[#3b82f6] to-[#2563eb] rounded-xl p-4 sm:p-6 shadow-lg text-white hover:scale-105 transition-transform cursor-pointer"
-            >
-              <div className="flex items-center gap-3 sm:gap-4 mb-3 sm:mb-4">
-                <div className="bg-white/20 p-2 sm:p-3 rounded-xl backdrop-blur-sm">
-                  <Clock className="w-6 h-6 sm:w-8 sm:h-8" />
-                </div>
-                <div>
-                  <p className="text-[#dbeafe] text-xs sm:text-sm">Peak Hours</p>
-                  <p className="text-lg sm:text-2xl font-bold">{insights.peakHour}</p>
-                </div>
-              </div>
-              <div className="bg-white/10 rounded-lg p-3 backdrop-blur-sm">
-                <p className="text-xs sm:text-sm text-[#dbeafe]">Most Active Time</p>
-                <p className="text-2xl sm:text-3xl font-bold">Busiest Period</p>
-              </div>
-            </motion.div>
-
-            {/* Average Order Value */}
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: 1.4 }}
-              className="bg-gradient-to-br from-[#8b5cf6] to-[#7c3aed] rounded-xl p-4 sm:p-6 shadow-lg text-white hover:scale-105 transition-transform cursor-pointer md:col-span-3 lg:col-span-1"
-            >
-              <div className="flex items-center gap-3 sm:gap-4 mb-3 sm:mb-4">
-                <div className="bg-white/20 p-2 sm:p-3 rounded-xl backdrop-blur-sm">
-                  <Package className="w-6 h-6 sm:w-8 sm:h-8" />
-                </div>
-                <div>
-                  <p className="text-[#ede9fe] text-xs sm:text-sm">Avg Order Value</p>
-                  <p className="text-lg sm:text-2xl font-bold">₨{insights.avgOrderValue}</p>
-                </div>
-              </div>
-              <div className="bg-white/10 rounded-lg p-3 backdrop-blur-sm">
-                <p className="text-xs sm:text-sm text-[#ede9fe]">Per Transaction</p>
-                <p className="text-2xl sm:text-3xl font-bold">
-                  ₨{summary.totalOrders > 0 ? Math.round(summary.totalProfit / summary.totalOrders) : 0} Profit
-                </p>
-              </div>
-            </motion.div>
-          </div>
-        </motion.div>
-
-        {/* Performance Summary Cards */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 1.5 }}
-          className="mt-6 sm:mt-8 grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6"
-        >
-          {/* Profit Margin Card */}
-          <div className="bg-white rounded-xl p-4 sm:p-6 shadow-sm border-l-4 border-[#10b981]">
-            <h4 className="text-base sm:text-lg font-bold text-[#1e293b] mb-4">Profit Margin Analysis</h4>
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <span className="text-[#64748b] text-xs sm:text-sm">Gross Profit Margin:</span>
-                <span className="font-bold text-[#10b981] text-base sm:text-lg">
-                  {((summary.totalProfit / summary.totalRevenue) * 100).toFixed(1)}%
-                </span>
-              </div>
-              <div className="w-full bg-[#f1f5f9] rounded-full h-3 overflow-hidden">
-                <div 
-                  className="bg-gradient-to-r from-[#10b981] to-[#059669] h-full rounded-full transition-all duration-1000"
-                  style={{ width: `${((summary.totalProfit / summary.totalRevenue) * 100)}%` }}
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-3 sm:gap-4 mt-4">
-                <div className="bg-[#f8fafc] p-3 rounded-lg">
-                  <p className="text-xs text-[#64748b] mb-1">Revenue</p>
-                  <p className="font-bold text-[#1e293b] text-sm">₨{summary.totalRevenue.toLocaleString()}</p>
-                </div>
-                <div className="bg-[#f8fafc] p-3 rounded-lg">
-                  <p className="text-xs text-[#64748b] mb-1">Profit</p>
-                  <p className="font-bold text-[#10b981] text-sm">₨{summary.totalProfit.toLocaleString()}</p>
-                </div>
-              </div>
+            </div>
+            <div className="bg-white/10 rounded-lg p-3 backdrop-blur-sm">
+              <p className="text-sm text-emerald-100">Total Sold</p>
+              <p className="text-3xl font-bold">{insights.bestItem.totalQuantity} units</p>
             </div>
           </div>
 
-          {/* Payment Methods Breakdown */}
-          <div className="bg-white rounded-xl p-4 sm:p-6 shadow-sm border-l-4 border-[#3b82f6]">
-            <h4 className="text-base sm:text-lg font-bold text-[#1e293b] mb-4">Payment Methods</h4>
-            <div className="space-y-4">
-              {(() => {
-                const cashOrders = transactions.filter(t => t.paymentMethod === 'Cash').length;
-                const cardOrders = transactions.filter(t => t.paymentMethod === 'Card').length;
-                const onlineOrders = transactions.filter(t => t.paymentMethod === 'Online').length;
-                const total = transactions.length;
-                const cashPercentage = total > 0 ? (cashOrders / total) * 100 : 0;
-                const cardPercentage = total > 0 ? (cardOrders / total) * 100 : 0;
-                const onlinePercentage = total > 0 ? (onlineOrders / total) * 100 : 0;
+          <div className="bg-gradient-to-br from-[#3b82f6] to-[#2563eb] rounded-xl p-6 shadow-lg text-white">
+            <div className="flex items-center gap-4 mb-4">
+              <div className="bg-white/20 p-3 rounded-xl backdrop-blur-sm">
+                <Clock className="w-8 h-8" />
+              </div>
+              <div>
+                <p className="text-blue-100 text-sm">Peak Hours</p>
+                <p className="text-2xl font-bold">{insights.peakHour}</p>
+              </div>
+            </div>
+            <div className="bg-white/10 rounded-lg p-3 backdrop-blur-sm">
+              <p className="text-sm text-blue-100">Most Active Time</p>
+              <p className="text-3xl font-bold">Busiest Period</p>
+            </div>
+          </div>
 
-                return (
-                  <>
-                    <div>
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-[#64748b] flex items-center gap-2 text-xs sm:text-sm">
-                          💵 Cash
-                        </span>
-                        <span className="font-bold text-[#1e293b] text-xs sm:text-sm">
-                          {cashOrders} orders ({cashPercentage.toFixed(1)}%)
-                        </span>
-                      </div>
-                      <div className="w-full bg-[#f1f5f9] rounded-full h-3 overflow-hidden">
-                        <div 
-                          className="bg-gradient-to-r from-[#10b981] to-[#059669] h-full rounded-full transition-all duration-1000"
-                          style={{ width: `${cashPercentage}%` }}
-                        />
-                      </div>
-                    </div>
-                    <div>
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-[#64748b] flex items-center gap-2 text-xs sm:text-sm">
-                          💳 Card
-                        </span>
-                        <span className="font-bold text-[#1e293b] text-xs sm:text-sm">
-                          {cardOrders} orders ({cardPercentage.toFixed(1)}%)
-                        </span>
-                      </div>
-                      <div className="w-full bg-[#f1f5f9] rounded-full h-3 overflow-hidden">
-                        <div 
-                          className="bg-gradient-to-r from-[#3b82f6] to-[#2563eb] h-full rounded-full transition-all duration-1000"
-                          style={{ width: `${cardPercentage}%` }}
-                        />
-                      </div>
-                    </div>
-                    {onlineOrders > 0 && (
-                      <div>
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="text-[#64748b] flex items-center gap-2 text-xs sm:text-sm">
-                            🌐 Online
-                          </span>
-                          <span className="font-bold text-[#1e293b] text-xs sm:text-sm">
-                            {onlineOrders} orders ({onlinePercentage.toFixed(1)}%)
-                          </span>
-                        </div>
-                        <div className="w-full bg-[#f1f5f9] rounded-full h-3 overflow-hidden">
-                          <div 
-                            className="bg-gradient-to-r from-[#8b5cf6] to-[#7c3aed] h-full rounded-full transition-all duration-1000"
-                            style={{ width: `${onlinePercentage}%` }}
-                          />
-                        </div>
-                      </div>
-                    )}
-                  </>
-                );
-              })()}
+          <div className="bg-gradient-to-br from-[#8b5cf6] to-[#7c3aed] rounded-xl p-6 shadow-lg text-white">
+            <div className="flex items-center gap-4 mb-4">
+              <div className="bg-white/20 p-3 rounded-xl backdrop-blur-sm">
+                <Package className="w-8 h-8" />
+              </div>
+              <div>
+                <p className="text-purple-100 text-sm">Avg Order Value</p>
+                <p className="text-2xl font-bold">₨{insights.avgOrderValue}</p>
+              </div>
+            </div>
+            <div className="bg-white/10 rounded-lg p-3 backdrop-blur-sm">
+              <p className="text-sm text-purple-100">Per Transaction</p>
+              <p className="text-3xl font-bold">
+                ₨{summary.totalOrders > 0 ? Math.round(summary.totalProfit / summary.totalOrders) : 0} Profit
+              </p>
             </div>
           </div>
         </motion.div>
 
-        {/* Top Selling Items Table */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 1.6 }}
-          className="mt-6 sm:mt-8 bg-white rounded-xl shadow-sm overflow-hidden"
-        >
-          <div className="p-4 sm:p-6 border-b border-[#e2e8f0]">
-            <h3 className="text-base sm:text-lg font-bold text-[#1e293b] flex items-center gap-2">
-              <Trophy className="w-4 h-4 sm:w-5 sm:h-5 text-[#10b981]" />
-              Top Selling Menu Items
-            </h3>
-            <p className="text-xs sm:text-sm text-[#64748b] mt-1">
-              Most popular items in the selected period
-            </p>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[500px]">
-              <thead className="bg-[#f8fafc] border-b border-[#e2e8f0]">
-                <tr>
-                  <th className="px-3 sm:px-6 py-3 sm:py-4 text-left text-xs sm:text-sm font-semibold text-[#475569]">
-                    Rank
-                  </th>
-                  <th className="px-3 sm:px-6 py-3 sm:py-4 text-left text-xs sm:text-sm font-semibold text-[#475569]">
-                    Item Name
-                  </th>
-                  <th className="px-3 sm:px-6 py-3 sm:py-4 text-left text-xs sm:text-sm font-semibold text-[#475569]">
-                    Units Sold
-                  </th>
-                  <th className="px-3 sm:px-6 py-3 sm:py-4 text-left text-xs sm:text-sm font-semibold text-[#475569] hidden sm:table-cell">
-                    Performance
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {popularItems.map((item, index) => (
-                  <tr
-                    key={item.name}
-                    className="border-b border-[#f1f5f9] hover:bg-[#f8fafc] transition-all"
-                  >
-                    <td className="px-3 sm:px-6 py-3 sm:py-4">
-                      <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center font-bold text-sm ${
-                        index === 0
-                          ? 'bg-gradient-to-br from-[#f59e0b] to-[#d97706] text-white'
-                          : index === 1
-                          ? 'bg-gradient-to-br from-[#94a3b8] to-[#64748b] text-white'
-                          : index === 2
-                          ? 'bg-gradient-to-br from-[#d97706] to-[#b45309] text-white'
-                          : 'bg-[#f1f5f9] text-[#64748b]'
-                      }`}>
-                        {index + 1}
-                      </div>
-                    </td>
-                    <td className="px-3 sm:px-6 py-3 sm:py-4 font-medium text-[#1e293b] text-xs sm:text-sm">
-                      {item.name}
-                    </td>
-                    <td className="px-3 sm:px-6 py-3 sm:py-4">
-                      <span className="text-base sm:text-lg font-bold text-[#10b981]">
-                        {item.sold}
-                      </span>
-                    </td>
-                    <td className="px-3 sm:px-6 py-3 sm:py-4 hidden sm:table-cell">
-                      <div className="flex items-center gap-2">
-                        <div className="flex-1 bg-[#f1f5f9] rounded-full h-2 overflow-hidden max-w-[150px]">
-                          <div 
-                            className="bg-gradient-to-r from-[#10b981] to-[#059669] h-full rounded-full"
-                            style={{ width: `${popularItems.length > 0 ? (item.sold / popularItems[0].sold) * 100 : 0}%` }}
-                          />
-                        </div>
-                        <span className="text-xs sm:text-sm text-[#64748b]">
-                          {popularItems.length > 0 ? ((item.sold / popularItems[0].sold) * 100).toFixed(0) : 0}%
-                        </span>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </motion.div>
-
-        {/* Footer Summary */}
+        {/* Footer */}
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          transition={{ delay: 1.7 }}
-          className="mt-6 sm:mt-8 text-center text-[#64748b] text-xs sm:text-sm"
+          transition={{ delay: 1.1 }}
+          className="text-center text-[#64748b] text-sm"
         >
           <p>
             Report generated for <span className="font-semibold text-[#1e293b]">{reportType}</span>
@@ -1301,6 +1127,3 @@ export default function ReportsPage() {
     </div>
   );
 }
-
-
-// i have this reposts page i want to make it more professional and optimized so i want to show all items in top sellings items how i know which items is how much quantity of that item sold not top 10 show every item which have more than 1 quantity sold and make this reports page professional and give me full final production ready code no mock data use serveractions as i have used
