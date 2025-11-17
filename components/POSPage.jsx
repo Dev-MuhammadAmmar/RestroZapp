@@ -93,13 +93,20 @@ export default function POSPage() {
   const [isSubmittingOrder, setIsSubmittingOrder] = useState(false)
   const [isLoadingPendingOrders, setIsLoadingPendingOrders] = useState(false)
   const [restaurantSettings, setRestaurantSettings] = useState(null)
-  // Edit order states
+// Edit order states - REPLACE your existing edit states with these
 const [editingOrder, setEditingOrder] = useState(null)
 const [editCart, setEditCart] = useState([])
-const [cancelConfirmation, setCancelConfirmation] = useState(null) // { orderId, orderNumber }
 const [isEditModalOpen, setIsEditModalOpen] = useState(false)
 const [isSavingEdit, setIsSavingEdit] = useState(false)
-
+const [cancelConfirmation, setCancelConfirmation] = useState(null)
+// NEW: Add these for edit modal functionality
+const [editSearchQuery, setEditSearchQuery] = useState('')
+const [editSelectedCategory, setEditSelectedCategory] = useState('All')
+const [editSearchResults, setEditSearchResults] = useState([])
+const [showEditSearchDropdown, setShowEditSearchDropdown] = useState(false)
+const [selectedEditSearchIndex, setSelectedEditSearchIndex] = useState(-1)
+const editSearchInputRef = useRef(null)
+const editSearchDropdownRef = useRef(null)
 // Pending orders filters
 const [pendingOrdersSearch, setPendingOrdersSearch] = useState('')
 const [pendingOrderTypeFilter, setPendingOrderTypeFilter] = useState('all')
@@ -690,8 +697,32 @@ const startEditingOrder = (order) => {
       icon: item.icon 
     }
   })))
+  setEditSearchQuery('') // Reset search
+  setEditSelectedCategory('All') // Reset category
   setIsEditModalOpen(true)
   setIsPendingOrdersOpen(false)
+}
+const addToEditCart = (menuItem) => {
+  const existingItem = editCart.find((item) => item._id === menuItem._id)
+  if (existingItem) {
+    setEditCart(
+      editCart.map((item) =>
+        item._id === menuItem._id ? { ...item, quantity: item.quantity + 1 } : item
+      )
+    )
+    showNotification(`${menuItem.name} quantity increased`, 'success')
+  } else {
+    setEditCart([...editCart, { ...menuItem, quantity: 1 }])
+    showNotification(`${menuItem.name} added to cart`, 'success')
+  }
+}
+// ADD this function for filtering edit products
+const getEditFilteredProducts = () => {
+  return menuItems.filter((item) => {
+    const matchesCategory = editSelectedCategory === 'All' || 
+      (item.categoryId && item.categoryId.name === editSelectedCategory)
+    return matchesCategory
+  })
 }
 
 // Save edited order
@@ -803,7 +834,60 @@ const confirmCancelOrder = async () => {
     showNotification('Error cancelling order', 'error')
   }
 }
+// Edit Modal Search functionality
+useEffect(() => {
+  if (editSearchQuery.trim().length > 0) {
+    const filtered = menuItems.filter((item) =>
+      item.name.toLowerCase().includes(editSearchQuery.toLowerCase())
+    )
+    setEditSearchResults(filtered)
+    setShowEditSearchDropdown(true)
+    setSelectedEditSearchIndex(-1)
+  } else {
+    setEditSearchResults([])
+    setShowEditSearchDropdown(false)
+    setSelectedEditSearchIndex(-1)
+  }
+}, [editSearchQuery, menuItems])
 
+// Edit search keyboard navigation
+const handleEditSearchKeyDown = (e) => {
+  if (!showEditSearchDropdown || editSearchResults.length === 0) return
+
+  if (e.key === 'ArrowDown') {
+    e.preventDefault()
+    setSelectedEditSearchIndex((prev) => prev < editSearchResults.length - 1 ? prev + 1 : prev)
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault()
+    setSelectedEditSearchIndex((prev) => (prev > 0 ? prev - 1 : -1))
+  } else if (e.key === 'Enter') {
+    e.preventDefault()
+    if (selectedEditSearchIndex >= 0) {
+      addToEditCart(editSearchResults[selectedEditSearchIndex])
+      setEditSearchQuery('')
+      setShowEditSearchDropdown(false)
+    }
+  } else if (e.key === 'Escape') {
+    setShowEditSearchDropdown(false)
+  }
+}
+
+// Click outside to close edit search dropdown
+useEffect(() => {
+  const handleClickOutside = (event) => {
+    if (
+      editSearchDropdownRef.current &&
+      !editSearchDropdownRef.current.contains(event.target) &&
+      editSearchInputRef.current &&
+      !editSearchInputRef.current.contains(event.target)
+    ) {
+      setShowEditSearchDropdown(false)
+    }
+  }
+
+  document.addEventListener('mousedown', handleClickOutside)
+  return () => document.removeEventListener('mousedown', handleClickOutside)
+}, [])
 
 
     return (
@@ -2459,188 +2543,327 @@ const confirmCancelOrder = async () => {
           )}
         </>
       )}
-{/* Edit Order Modal */}
+{/* Edit Order Modal - ENHANCED VERSION */}
 <AnimatePresence>
   {isEditModalOpen && editingOrder && (
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 bg-black/70 backdrop-blur-md flex items-center justify-center p-4 z-50"
+      className="fixed inset-0 bg-black/70 backdrop-blur-md flex items-center justify-center p-0 sm:p-4 z-50"
       onClick={() => !isSavingEdit && setIsEditModalOpen(false)}
     >
       <motion.div
-        initial={{ scale: 0.9, y: 30 }}
-        animate={{ scale: 1, y: 0 }}
-        exit={{ scale: 0.9, y: 30 }}
+        initial={{ scale: 0.95, opacity: 0, y: 20 }}
+        animate={{ scale: 1, opacity: 1, y: 0 }}
+        exit={{ scale: 0.95, opacity: 0, y: 20 }}
+        transition={{ type: 'spring', duration: 0.4 }}
         onClick={(e) => e.stopPropagation()}
-        className="bg-white rounded-2xl shadow-2xl max-w-6xl w-full max-h-[90vh] flex flex-col overflow-hidden"
+        className="bg-white rounded-none sm:rounded-2xl shadow-2xl w-full sm:max-w-7xl h-full sm:h-[90vh] flex flex-col overflow-hidden"
       >
         {/* Header */}
-        <div className="bg-gradient-to-r from-blue-500 to-cyan-500 text-white p-5 flex items-center justify-between">
-          <div>
-            <h2 className="text-2xl font-bold flex items-center gap-3">
-              <Edit className="w-7 h-7" />
-              Edit Order
+        <div className="bg-gradient-to-r from-blue-500 via-blue-600 to-cyan-600 text-white p-3 sm:p-6 flex items-center justify-between flex-shrink-0">
+          <div className="flex-1 min-w-0">
+            <h2 className="text-base sm:text-2xl font-bold flex items-center gap-2">
+              <Edit className="w-5 h-5 sm:w-7 sm:h-7 flex-shrink-0" />
+              <span className="truncate">Edit Order</span>
             </h2>
-            <p className="text-blue-100 text-sm mt-1">
-              {editingOrder.orderNumber} - {editingOrder.customerName}
+            <p className="text-blue-100 text-xs sm:text-sm mt-0.5 sm:mt-1">
+              {editingOrder.orderNumber} • {editingOrder.customerName}
             </p>
           </div>
           <button
             onClick={() => !isSavingEdit && setIsEditModalOpen(false)}
             disabled={isSavingEdit}
-            className="p-2 hover:bg-white/20 rounded-lg transition-all disabled:opacity-50"
+            className="p-1.5 sm:p-2 hover:bg-white/20 rounded-lg transition-all disabled:opacity-50 flex-shrink-0 ml-2"
+            aria-label="Close"
           >
-            <X className="w-6 h-6" />
+            <X className="w-5 h-5 sm:w-6 sm:h-6" />
           </button>
         </div>
 
-        {/* Main Grid */}
+        {/* Main Content Grid */}
         <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
-          {/* Left: Menu Items */}
-          <div className="flex-1 p-4 overflow-y-auto border-r border-slate-200">
-            <h3 className="font-bold text-slate-800 mb-3 flex items-center gap-2">
-              <Package className="w-5 h-5 text-blue-600" />
-              Add Items
-            </h3>
-            
-            {/* Search */}
-            <div className="relative mb-4">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-              <input
-                type="text"
-                placeholder="Search menu..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-2.5 border-2 border-slate-200 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all text-sm"
-              />
-            </div>
+          {/* Left Side - Menu Items */}
+          <div className="flex-1 flex flex-col p-3 sm:p-4 lg:p-6 border-b lg:border-b-0 lg:border-r border-slate-200 max-h-[50vh] lg:max-h-none">
+            {/* Search & Categories */}
+            <div className="space-y-3 sm:space-y-4 mb-3 sm:mb-4 flex-shrink-0">
+              {/* Search Bar */}
+              <div className="relative">
+                <Search className="absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5 text-slate-400 z-10" />
+                <input
+                  ref={editSearchInputRef}
+                  type="text"
+                  placeholder="Search menu items..."
+                  value={editSearchQuery}
+                  onChange={(e) => setEditSearchQuery(e.target.value)}
+                  onKeyDown={handleEditSearchKeyDown}
+                  onFocus={() => editSearchQuery && setShowEditSearchDropdown(true)}
+                  className="w-full pl-10 sm:pl-12 pr-3 sm:pr-4 py-2 sm:py-3 bg-slate-50 border-2 border-slate-200 rounded-lg sm:rounded-xl focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all text-slate-800 font-medium text-sm sm:text-base"
+                />
+                
+                {/* Search Dropdown */}
+                <AnimatePresence>
+                  {showEditSearchDropdown && editSearchResults.length > 0 && (
+                    <motion.div
+                      ref={editSearchDropdownRef}
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -10 }}
+                      className="absolute top-full left-0 right-0 mt-2 bg-white rounded-xl shadow-2xl border border-slate-200 overflow-hidden z-50 max-h-60 sm:max-h-80 overflow-y-auto"
+                    >
+                      <div className="p-1.5 sm:p-2">
+                        {editSearchResults.map((product, index) => (
+                          <motion.button
+                            key={product._id}
+                            onClick={() => {
+                              addToEditCart(product)
+                              setEditSearchQuery('')
+                              setShowEditSearchDropdown(false)
+                            }}
+                            onMouseEnter={() => setSelectedEditSearchIndex(index)}
+                            className={`w-full flex items-center gap-2 sm:gap-3 p-2 sm:p-3 rounded-lg transition-all text-left ${
+                              selectedEditSearchIndex === index
+                                ? 'bg-blue-50 border-2 border-blue-500'
+                                : 'hover:bg-slate-50 border-2 border-transparent'
+                            }`}
+                            whileHover={{ x: 4 }}
+                          >
+                            <div className="text-2xl sm:text-3xl">{product.categoryId?.icon || '🍽️'}</div>
+                            <div className="flex-1 min-w-0">
+                              <p className="font-semibold text-slate-800 text-xs sm:text-sm truncate">
+                                {product.name}
+                              </p>
+                              <p className="text-xs text-slate-500">{product.categoryId?.name || 'Uncategorized'}</p>
+                            </div>
+                            <div className="text-right">
+                              <p className="font-bold text-blue-600 text-sm">₨{product.sellingPrice}</p>
+                            </div>
+                          </motion.button>
+                        ))}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
 
-            {/* Menu Grid */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              {(searchQuery ? searchResults : filteredProducts).map((item) => (
+              {/* Category Filters */}
+              <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-blue-300 scrollbar-track-slate-100">
                 <motion.button
-                  key={item._id}
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
-                  onClick={() => {
-                    const existing = editCart.find((i) => i._id === item._id)
-                    if (existing) {
-                      setEditCart(editCart.map((i) =>
-                        i._id === item._id ? { ...i, quantity: i.quantity + 1 } : i
-                      ))
-                    } else {
-                      setEditCart([...editCart, { ...item, quantity: 1 }])
-                    }
-                    showNotification(`${item.name} added`, 'success')
-                  }}
-                  className="bg-gradient-to-br from-white to-slate-50 rounded-xl p-3 border-2 border-slate-100 hover:border-blue-500 hover:shadow-lg transition-all"
+                  onClick={() => setEditSelectedCategory('All')}
+                  className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold text-xs sm:text-sm whitespace-nowrap transition-all ${
+                    editSelectedCategory === 'All'
+                      ? 'bg-gradient-to-r from-blue-500 to-cyan-500 text-white shadow-lg'
+                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  }`}
                 >
-                  <div className="text-3xl mb-2">{item.categoryId?.icon || '🍽️'}</div>
-                  <h4 className="font-bold text-slate-800 text-xs mb-1 line-clamp-2">
-                    {item.name}
-                  </h4>
-                  <p className="text-blue-600 font-bold text-sm">₨{item.sellingPrice}</p>
+                  All Items
                 </motion.button>
-              ))}
+                {categories.map((category) => (
+                  <motion.button
+                    key={category._id}
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => setEditSelectedCategory(category.name)}
+                    className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold text-xs sm:text-sm whitespace-nowrap transition-all flex items-center gap-1.5 sm:gap-2 ${
+                      editSelectedCategory === category.name
+                        ? 'bg-gradient-to-r from-blue-500 to-cyan-500 text-white shadow-lg'
+                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                    }`}
+                  >
+                    <span className="text-base sm:text-lg">{category.icon}</span>
+                    {category.name}
+                  </motion.button>
+                ))}
+              </div>
+            </div>
+
+            {/* Menu Items Grid */}
+            <div className="flex-1 overflow-y-auto modern-scrollbar">
+              {isLoadingMenuItems ? (
+                <div className="flex justify-center items-center h-full">
+                  <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
+                </div>
+              ) : getEditFilteredProducts().length === 0 ? (
+                <div className="text-center h-full flex flex-col items-center justify-center">
+                  <Coffee className="w-12 h-12 sm:w-16 sm:h-16 text-slate-300 mb-3" />
+                  <p className="text-slate-500 font-semibold text-sm sm:text-base">No items found</p>
+                  <p className="text-slate-400 text-xs sm:text-sm mt-1">
+                    Try selecting a different category
+                  </p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-3 pb-3">
+                  {getEditFilteredProducts().map((item, index) => (
+                    <motion.button
+                      key={item._id}
+                      initial={{ opacity: 0, scale: 0.9 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      transition={{ delay: index * 0.02 }}
+                      whileHover={{ scale: 1.05, y: -5 }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={() => addToEditCart(item)}
+                      className="bg-gradient-to-br from-white to-slate-50 rounded-lg sm:rounded-xl p-2 sm:p-3 shadow-sm border-2 border-slate-100 hover:border-blue-500 hover:shadow-lg transition-all group"
+                    >
+                      <div className="text-2xl sm:text-4xl mb-1 sm:mb-2 group-hover:scale-110 transition-transform">
+                        {item.categoryId?.icon || '🍽️'}
+                      </div>
+                      <h3 className="font-bold text-slate-800 text-xs sm:text-sm mb-1 line-clamp-2 min-h-[2rem]">
+                        {item.name}
+                      </h3>
+                      <div className="flex items-center justify-between mt-1 sm:mt-2">
+                        <span className="text-[10px] sm:text-xs text-slate-500 truncate">{item.categoryId?.name}</span>
+                      </div>
+                      <p className="text-blue-600 font-bold text-sm sm:text-base mt-1">
+                        ₨{item.sellingPrice}
+                      </p>
+                      <div className="mt-1 sm:mt-2 flex items-center justify-center gap-1 text-xs text-blue-600 font-semibold opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Plus className="w-3 h-3" />
+                        Add
+                      </div>
+                    </motion.button>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 
-          {/* Right: Edit Cart */}
-          <div className="w-full lg:w-96 bg-slate-50 p-4 flex flex-col">
-            <h3 className="font-bold text-slate-800 mb-3 flex items-center gap-2">
-              <ShoppingCart className="w-5 h-5 text-blue-600" />
-              Order Items ({editCart.length})
-            </h3>
+          {/* Right Side - Edit Cart */}
+          <div className="w-full lg:w-96 bg-gradient-to-br from-blue-50 to-cyan-50 p-3 sm:p-4 lg:p-6 flex flex-col max-h-[50vh] lg:max-h-none">
+            {/* Cart Header */}
+            <div className="mb-3 sm:mb-4 flex-shrink-0">
+              <h3 className="font-bold text-slate-800 text-base sm:text-lg flex items-center gap-2 mb-2">
+                <ShoppingCart className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" />
+                Order Items
+                <span className="ml-auto px-2 sm:px-3 py-1 bg-blue-500 text-white rounded-full text-xs sm:text-sm font-bold">
+                  {editCart.length}
+                </span>
+              </h3>
+              <p className="text-xs sm:text-sm text-slate-600">
+                {editCart.reduce((sum, item) => sum + item.quantity, 0)} total items
+              </p>
+            </div>
 
             {/* Cart Items */}
-            <div className="flex-1 space-y-2 overflow-y-auto mb-4">
-              {editCart.map((item) => (
-                <div
-                  key={item._id}
-                  className="bg-white rounded-lg p-3 border border-slate-200 flex items-center gap-3"
-                >
-                  <div className="text-2xl">{item.categoryId?.icon || '🍽️'}</div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-bold text-slate-800 text-sm truncate">{item.name}</p>
-                    <p className="text-xs text-slate-500">₨{item.sellingPrice} × {item.quantity}</p>
-                  </div>
-                  <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-1">
-                    <button
-                      onClick={() => {
-                        const newCart = editCart.map((i) =>
-                          i._id === item._id ? { ...i, quantity: Math.max(1, i.quantity - 1) } : i
-                        )
-                        setEditCart(newCart)
-                      }}
-                      className="p-1 bg-red-500 text-white rounded hover:bg-red-600"
-                    >
-                      <Minus className="w-3 h-3" />
-                    </button>
-                    <span className="w-8 text-center font-bold text-sm">{item.quantity}</span>
-                    <button
-                      onClick={() => {
-                        const newCart = editCart.map((i) =>
-                          i._id === item._id ? { ...i, quantity: i.quantity + 1 } : i
-                        )
-                        setEditCart(newCart)
-                      }}
-                      className="p-1 bg-blue-500 text-white rounded hover:bg-blue-600"
-                    >
-                      <Plus className="w-3 h-3" />
-                    </button>
-                  </div>
-                  <button
-                    onClick={() => {
-                      setEditCart(editCart.filter((i) => i._id !== item._id))
-                      showNotification(`${item.name} removed`, 'success')
-                    }}
-                    className="p-1 bg-red-100 text-red-600 rounded hover:bg-red-200"
+            <div className="flex-1 space-y-2 overflow-y-auto mb-3 sm:mb-4 modern-scrollbar">
+              <AnimatePresence>
+                {editCart.length === 0 ? (
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    className="text-center py-8 sm:py-12"
                   >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-              ))}
+                    <div className="w-12 h-12 sm:w-16 sm:h-16 bg-slate-200 rounded-full flex items-center justify-center mx-auto mb-3">
+                      <ShoppingCart className="w-6 h-6 sm:w-8 sm:h-8 text-slate-400" />
+                    </div>
+                    <p className="text-slate-500 font-semibold text-sm">Cart is empty</p>
+                    <p className="text-slate-400 text-xs mt-1">Add items from menu</p>
+                  </motion.div>
+                ) : (
+                  editCart.map((item, index) => (
+                    <motion.div
+                      key={item._id}
+                      initial={{ opacity: 0, x: 20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: -20 }}
+                      transition={{ delay: index * 0.03 }}
+                      className="bg-white rounded-lg sm:rounded-xl p-2 sm:p-3 border-2 border-blue-100 hover:border-blue-300 transition-all shadow-sm"
+                    >
+                      <div className="flex items-center gap-2 sm:gap-3">
+                        <div className="text-xl sm:text-2xl flex-shrink-0">{item.categoryId?.icon || '🍽️'}</div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-bold text-slate-800 text-xs sm:text-sm truncate">{item.name}</p>
+                          <p className="text-xs text-slate-500">₨{item.sellingPrice} × {item.quantity}</p>
+                          <p className="text-xs sm:text-sm font-bold text-blue-600 mt-0.5">
+                            ₨{(item.sellingPrice * item.quantity).toFixed(2)}
+                          </p>
+                        </div>
+                        <div className="flex flex-col gap-1.5 flex-shrink-0">
+                          <div className="flex items-center gap-1 bg-slate-100 rounded-md sm:rounded-lg p-0.5">
+                            <button
+                              onClick={() => {
+                                const newCart = editCart.map((i) =>
+                                  i._id === item._id ? { ...i, quantity: Math.max(1, i.quantity - 1) } : i
+                                )
+                                setEditCart(newCart)
+                              }}
+                              className="p-0.5 sm:p-1 bg-red-500 text-white rounded hover:bg-red-600 transition-colors"
+                            >
+                              <Minus className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
+                            </button>
+                            <span className="w-5 sm:w-7 text-center font-bold text-slate-800 text-xs sm:text-sm">
+                              {item.quantity}
+                            </span>
+                            <button
+                              onClick={() => {
+                                const newCart = editCart.map((i) =>
+                                  i._id === item._id ? { ...i, quantity: i.quantity + 1 } : i
+                                )
+                                setEditCart(newCart)
+                              }}
+                              className="p-0.5 sm:p-1 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
+                            >
+                              <Plus className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
+                            </button>
+                          </div>
+                          <button
+                            onClick={() => {
+                              setEditCart(editCart.filter((i) => i._id !== item._id))
+                              showNotification(`${item.name} removed`, 'success')
+                            }}
+                            className="p-1 sm:p-1.5 bg-red-100 text-red-600 rounded hover:bg-red-200 transition-colors"
+                          >
+                            <Trash2 className="w-2.5 h-2.5 sm:w-3 sm:h-3 mx-auto" />
+                          </button>
+                        </div>
+                      </div>
+                    </motion.div>
+                  ))
+                )}
+              </AnimatePresence>
             </div>
 
-            {/* Actions */}
-            <div className="space-y-2 border-t border-slate-200 pt-4">
-              <div className="flex justify-between text-lg font-bold text-slate-800">
-                <span>Items Total:</span>
-                <span className="text-blue-600">
-                  ₨{editCart.reduce((sum, item) => sum + item.sellingPrice * item.quantity, 0).toFixed(2)}
-                </span>
+            {/* Cart Summary & Actions */}
+            {editCart.length > 0 && (
+              <div className="border-t-2 border-blue-200 pt-3 sm:pt-4 space-y-2 sm:space-y-3 bg-white/60 p-3 sm:p-4 rounded-xl flex-shrink-0">
+                <div className="flex justify-between items-center text-sm sm:text-lg font-bold text-slate-800">
+                  <span>Items Total:</span>
+                  <span className="text-xl sm:text-2xl text-blue-600">
+                    ₨{editCart.reduce((sum, item) => sum + item.sellingPrice * item.quantity, 0).toFixed(2)}
+                  </span>
+                </div>
+                
+                <motion.button
+                  onClick={saveEditedOrder}
+                  disabled={isSavingEdit || editCart.length === 0}
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  className="w-full py-2.5 sm:py-3.5 bg-gradient-to-r from-blue-500 to-cyan-500 text-white rounded-lg sm:rounded-xl font-bold text-sm sm:text-base hover:shadow-2xl hover:shadow-blue-500/30 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {isSavingEdit ? (
+                    <>
+                      <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 animate-spin" />
+                      Saving Changes...
+                    </>
+                  ) : (
+                    <>
+                      <Check className="w-4 h-4 sm:w-5 sm:h-5" />
+                      Save Changes & Update KOT
+                    </>
+                  )}
+                </motion.button>
+                
+                <button
+                  onClick={() => !isSavingEdit && setIsEditModalOpen(false)}
+                  disabled={isSavingEdit}
+                  className="w-full py-2 sm:py-2.5 border-2 border-slate-200 text-slate-600 rounded-lg sm:rounded-xl font-semibold text-sm hover:bg-slate-50 transition-all disabled:opacity-50"
+                >
+                  Cancel
+                </button>
               </div>
-              
-              <motion.button
-                onClick={saveEditedOrder}
-                disabled={isSavingEdit || editCart.length === 0}
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                className="w-full py-3 bg-gradient-to-r from-blue-500 to-cyan-500 text-white rounded-xl font-bold hover:shadow-lg transition-all disabled:opacity-50 flex items-center justify-center gap-2"
-              >
-                {isSavingEdit ? (
-                  <>
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                    Saving...
-                  </>
-                ) : (
-                  <>
-                    <Check className="w-5 h-5" />
-                    Save Changes
-                  </>
-                )}
-              </motion.button>
-              
-              <button
-                onClick={() => !isSavingEdit && setIsEditModalOpen(false)}
-                disabled={isSavingEdit}
-                className="w-full py-2.5 border-2 border-slate-200 text-slate-600 rounded-xl font-semibold hover:bg-slate-50 transition-all disabled:opacity-50"
-              >
-                Cancel
-              </button>
-            </div>
+            )}
           </div>
         </div>
       </motion.div>
