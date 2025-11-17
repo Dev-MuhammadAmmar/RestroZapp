@@ -60,6 +60,7 @@ import { searchCustomers as searchCustomersAPI } from '@/lib/actions/customers'
 import { updateOrderItems, reprintKOT } from '@/lib/actions/orders'
 import { Edit, Printer } from 'lucide-react'
 import { Users } from 'lucide-react'
+import { cancelOrder } from '@/lib/actions/orders'
 
 const ORDER_TYPES = [
   { value: 'dine-in', label: 'Dine In', icon: UtensilsCrossed, color: 'from-blue-500 to-cyan-500' },
