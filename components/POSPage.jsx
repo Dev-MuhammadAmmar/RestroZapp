@@ -2605,6 +2605,7 @@ useEffect(() => {
         </>
       )}
 {/* Edit Order Modal - ENHANCED VERSION */}
+{/* Edit Order Modal - FIXED & BALANCED VERSION */}
 <AnimatePresence>
   {isEditModalOpen && editingOrder && (
     <motion.div
@@ -2643,11 +2644,11 @@ useEffect(() => {
           </button>
         </div>
 
-        {/* Main Content Grid */}
+        {/* Main Content Grid - FIXED LAYOUT */}
         <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
-          {/* Left Side - Menu Items */}
-          <div className="flex-1 flex flex-col p-3 sm:p-4 lg:p-6 border-b lg:border-b-0 lg:border-r border-slate-200 max-h-[50vh] lg:max-h-none">
-            {/* Search & Categories */}
+          {/* Left Side - Menu Items - FIXED HEIGHT */}
+          <div className="flex-1 flex flex-col p-3 sm:p-4 lg:p-6 border-b lg:border-b-0 lg:border-r border-slate-200 overflow-hidden">
+            {/* Search & Categories - FIXED AT TOP */}
             <div className="space-y-3 sm:space-y-4 mb-3 sm:mb-4 flex-shrink-0">
               {/* Search Bar */}
               <div className="relative">
@@ -2741,8 +2742,8 @@ useEffect(() => {
               </div>
             </div>
 
-            {/* Menu Items Grid */}
-            <div className="flex-1 overflow-y-auto modern-scrollbar">
+            {/* Menu Items Grid - SCROLLABLE AREA */}
+            <div className="flex-1 overflow-y-auto modern-scrollbar pr-2">
               {isLoadingMenuItems ? (
                 <div className="flex justify-center items-center h-full">
                   <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
@@ -2756,7 +2757,7 @@ useEffect(() => {
                   </p>
                 </div>
               ) : (
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-3 pb-3">
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 sm:gap-3 pb-3">
                   {getEditFilteredProducts().map((item, index) => (
                     <motion.button
                       key={item._id}
@@ -2766,22 +2767,22 @@ useEffect(() => {
                       whileHover={{ scale: 1.05, y: -5 }}
                       whileTap={{ scale: 0.95 }}
                       onClick={() => addToEditCart(item)}
-                      className="bg-gradient-to-br from-white to-slate-50 rounded-lg sm:rounded-xl p-2 sm:p-3 shadow-sm border-2 border-slate-100 hover:border-blue-500 hover:shadow-lg transition-all group"
+                      className="bg-gradient-to-br from-white to-slate-50 rounded-lg sm:rounded-xl p-2 sm:p-3 shadow-sm border-2 border-slate-100 hover:border-blue-500 hover:shadow-lg transition-all group h-fit"
                     >
-                      <div className="text-2xl sm:text-4xl mb-1 sm:mb-2 group-hover:scale-110 transition-transform">
+                      <div className="text-2xl sm:text-3xl lg:text-4xl mb-1 sm:mb-2 group-hover:scale-110 transition-transform">
                         {item.categoryId?.icon || '🍽️'}
                       </div>
-                      <h3 className="font-bold text-slate-800 text-xs sm:text-sm mb-1 line-clamp-2 min-h-[2rem]">
+                      <h3 className="font-bold text-slate-800 text-[10px] sm:text-xs lg:text-sm mb-1 line-clamp-2 min-h-[2rem]">
                         {item.name}
                       </h3>
-                      <div className="flex items-center justify-between mt-1 sm:mt-2">
-                        <span className="text-[10px] sm:text-xs text-slate-500 truncate">{item.categoryId?.name}</span>
+                      <div className="flex items-center justify-between mt-1">
+                        <span className="text-[9px] sm:text-[10px] text-slate-500 truncate">{item.categoryId?.name}</span>
                       </div>
-                      <p className="text-blue-600 font-bold text-sm sm:text-base mt-1">
+                      <p className="text-blue-600 font-bold text-xs sm:text-sm mt-1">
                         ₨{item.sellingPrice}
                       </p>
-                      <div className="mt-1 sm:mt-2 flex items-center justify-center gap-1 text-xs text-blue-600 font-semibold opacity-0 group-hover:opacity-100 transition-opacity">
-                        <Plus className="w-3 h-3" />
+                      <div className="mt-1 sm:mt-2 flex items-center justify-center gap-1 text-[10px] sm:text-xs text-blue-600 font-semibold opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Plus className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
                         Add
                       </div>
                     </motion.button>
@@ -2791,10 +2792,10 @@ useEffect(() => {
             </div>
           </div>
 
-          {/* Right Side - Edit Cart */}
-          <div className="w-full lg:w-96 bg-gradient-to-br from-blue-50 to-cyan-50 p-3 sm:p-4 lg:p-6 flex flex-col max-h-[50vh] lg:max-h-none">
-            {/* Cart Header */}
-            <div className="mb-3 sm:mb-4 flex-shrink-0">
+          {/* Right Side - Edit Cart - FIXED WIDTH & HEIGHT */}
+          <div className="w-full lg:w-96 xl:w-[420px] bg-gradient-to-br from-blue-50 to-cyan-50 flex flex-col overflow-hidden">
+            {/* Cart Header - FIXED */}
+            <div className="p-3 sm:p-4 lg:p-6 border-b-2 border-blue-200 flex-shrink-0">
               <h3 className="font-bold text-slate-800 text-base sm:text-lg flex items-center gap-2 mb-2">
                 <ShoppingCart className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" />
                 Order Items
@@ -2807,88 +2808,90 @@ useEffect(() => {
               </p>
             </div>
 
-            {/* Cart Items */}
-            <div className="flex-1 space-y-2 overflow-y-auto mb-3 sm:mb-4 modern-scrollbar">
-              <AnimatePresence>
-                {editCart.length === 0 ? (
-                  <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    className="text-center py-8 sm:py-12"
-                  >
-                    <div className="w-12 h-12 sm:w-16 sm:h-16 bg-slate-200 rounded-full flex items-center justify-center mx-auto mb-3">
-                      <ShoppingCart className="w-6 h-6 sm:w-8 sm:h-8 text-slate-400" />
-                    </div>
-                    <p className="text-slate-500 font-semibold text-sm">Cart is empty</p>
-                    <p className="text-slate-400 text-xs mt-1">Add items from menu</p>
-                  </motion.div>
-                ) : (
-                  editCart.map((item, index) => (
+            {/* Cart Items - SCROLLABLE */}
+            <div className="flex-1 overflow-y-auto p-3 sm:p-4 lg:p-6 modern-scrollbar">
+              <div className="space-y-2">
+                <AnimatePresence>
+                  {editCart.length === 0 ? (
                     <motion.div
-                      key={item._id}
-                      initial={{ opacity: 0, x: 20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, x: -20 }}
-                      transition={{ delay: index * 0.03 }}
-                      className="bg-white rounded-lg sm:rounded-xl p-2 sm:p-3 border-2 border-blue-100 hover:border-blue-300 transition-all shadow-sm"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      className="text-center py-8 sm:py-12"
                     >
-                      <div className="flex items-center gap-2 sm:gap-3">
-                        <div className="text-xl sm:text-2xl flex-shrink-0">{item.categoryId?.icon || '🍽️'}</div>
-                        <div className="flex-1 min-w-0">
-                          <p className="font-bold text-slate-800 text-xs sm:text-sm truncate">{item.name}</p>
-                          <p className="text-xs text-slate-500">₨{item.sellingPrice} × {item.quantity}</p>
-                          <p className="text-xs sm:text-sm font-bold text-blue-600 mt-0.5">
-                            ₨{(item.sellingPrice * item.quantity).toFixed(2)}
-                          </p>
-                        </div>
-                        <div className="flex flex-col gap-1.5 flex-shrink-0">
-                          <div className="flex items-center gap-1 bg-slate-100 rounded-md sm:rounded-lg p-0.5">
+                      <div className="w-12 h-12 sm:w-16 sm:h-16 bg-slate-200 rounded-full flex items-center justify-center mx-auto mb-3">
+                        <ShoppingCart className="w-6 h-6 sm:w-8 sm:h-8 text-slate-400" />
+                      </div>
+                      <p className="text-slate-500 font-semibold text-sm">Cart is empty</p>
+                      <p className="text-slate-400 text-xs mt-1">Add items from menu</p>
+                    </motion.div>
+                  ) : (
+                    editCart.map((item, index) => (
+                      <motion.div
+                        key={item._id}
+                        initial={{ opacity: 0, x: 20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: -20 }}
+                        transition={{ delay: index * 0.03 }}
+                        className="bg-white rounded-lg sm:rounded-xl p-2 sm:p-3 border-2 border-blue-100 hover:border-blue-300 transition-all shadow-sm"
+                      >
+                        <div className="flex items-center gap-2 sm:gap-3">
+                          <div className="text-xl sm:text-2xl flex-shrink-0">{item.categoryId?.icon || '🍽️'}</div>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-bold text-slate-800 text-xs sm:text-sm truncate">{item.name}</p>
+                            <p className="text-xs text-slate-500">₨{item.sellingPrice} × {item.quantity}</p>
+                            <p className="text-xs sm:text-sm font-bold text-blue-600 mt-0.5">
+                              ₨{(item.sellingPrice * item.quantity).toFixed(2)}
+                            </p>
+                          </div>
+                          <div className="flex flex-col gap-1.5 flex-shrink-0">
+                            <div className="flex items-center gap-1 bg-slate-100 rounded-md sm:rounded-lg p-0.5">
+                              <button
+                                onClick={() => {
+                                  const newCart = editCart.map((i) =>
+                                    i._id === item._id ? { ...i, quantity: Math.max(1, i.quantity - 1) } : i
+                                  )
+                                  setEditCart(newCart)
+                                }}
+                                className="p-0.5 sm:p-1 bg-red-500 text-white rounded hover:bg-red-600 transition-colors"
+                              >
+                                <Minus className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
+                              </button>
+                              <span className="w-5 sm:w-7 text-center font-bold text-slate-800 text-xs sm:text-sm">
+                                {item.quantity}
+                              </span>
+                              <button
+                                onClick={() => {
+                                  const newCart = editCart.map((i) =>
+                                    i._id === item._id ? { ...i, quantity: i.quantity + 1 } : i
+                                  )
+                                  setEditCart(newCart)
+                                }}
+                                className="p-0.5 sm:p-1 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
+                              >
+                                <Plus className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
+                              </button>
+                            </div>
                             <button
                               onClick={() => {
-                                const newCart = editCart.map((i) =>
-                                  i._id === item._id ? { ...i, quantity: Math.max(1, i.quantity - 1) } : i
-                                )
-                                setEditCart(newCart)
+                                setEditCart(editCart.filter((i) => i._id !== item._id))
+                                showNotification(`${item.name} removed`, 'success')
                               }}
-                              className="p-0.5 sm:p-1 bg-red-500 text-white rounded hover:bg-red-600 transition-colors"
+                              className="p-1 sm:p-1.5 bg-red-100 text-red-600 rounded hover:bg-red-200 transition-colors"
                             >
-                              <Minus className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
-                            </button>
-                            <span className="w-5 sm:w-7 text-center font-bold text-slate-800 text-xs sm:text-sm">
-                              {item.quantity}
-                            </span>
-                            <button
-                              onClick={() => {
-                                const newCart = editCart.map((i) =>
-                                  i._id === item._id ? { ...i, quantity: i.quantity + 1 } : i
-                                )
-                                setEditCart(newCart)
-                              }}
-                              className="p-0.5 sm:p-1 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
-                            >
-                              <Plus className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
+                              <Trash2 className="w-2.5 h-2.5 sm:w-3 sm:h-3 mx-auto" />
                             </button>
                           </div>
-                          <button
-                            onClick={() => {
-                              setEditCart(editCart.filter((i) => i._id !== item._id))
-                              showNotification(`${item.name} removed`, 'success')
-                            }}
-                            className="p-1 sm:p-1.5 bg-red-100 text-red-600 rounded hover:bg-red-200 transition-colors"
-                          >
-                            <Trash2 className="w-2.5 h-2.5 sm:w-3 sm:h-3 mx-auto" />
-                          </button>
                         </div>
-                      </div>
-                    </motion.div>
-                  ))
-                )}
-              </AnimatePresence>
+                      </motion.div>
+                    ))
+                  )}
+                </AnimatePresence>
+              </div>
             </div>
 
-            {/* Cart Summary & Actions */}
+            {/* Cart Summary & Actions - FIXED AT BOTTOM */}
             {editCart.length > 0 && (
-              <div className="border-t-2 border-blue-200 pt-3 sm:pt-4 space-y-2 sm:space-y-3 bg-white/60 p-3 sm:p-4 rounded-xl flex-shrink-0">
+              <div className="border-t-2 border-blue-200 p-3 sm:p-4 lg:p-6 space-y-2 sm:space-y-3 bg-white/60 flex-shrink-0">
                 <div className="flex justify-between items-center text-sm sm:text-lg font-bold text-slate-800">
                   <span>Items Total:</span>
                   <span className="text-xl sm:text-2xl text-blue-600">
