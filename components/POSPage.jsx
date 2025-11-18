@@ -61,6 +61,8 @@ import { updateOrderItems, reprintKOT } from '@/lib/actions/orders'
 import { Edit, Printer } from 'lucide-react'
 import { Users } from 'lucide-react'
 import { cancelOrder } from '@/lib/actions/orders'
+import { toggleMenuItemPin } from '@/lib/actions/menuItems'
+import { Pin } from 'lucide-react'
 
 const ORDER_TYPES = [
   { value: 'dine-in', label: 'Dine In', icon: UtensilsCrossed, color: 'from-blue-500 to-cyan-500' },
@@ -141,6 +143,10 @@ const [orderDetails, setOrderDetails] = useState({
     taxPercentage: 0,
     notes: '',
   })
+
+
+  // Add after your existing state declarations (around line 45)
+const [pinnedItems, setPinnedItems] = useState([])
 // Optimized customer search with proper debounce
 useEffect(() => {
   const performSearch = async () => {
@@ -311,23 +317,56 @@ useEffect(() => {
     }
   }
 
-  const loadMenuItems = async () => {
-    try {
-      setIsLoadingMenuItems(true)
-      const response = await getActiveMenuItems()
-      if (response.success) {
-        setMenuItems(response.data)
-      } else {
-        console.error('Error loading menu items:', response.error)
-        showNotification('Failed to load menu items', 'error')
-      }
-    } catch (error) {
-      console.error('Error loading menu items:', error)
+// Replace your existing loadMenuItems function
+const loadMenuItems = async () => {
+  try {
+    setIsLoadingMenuItems(true)
+    const response = await getActiveMenuItems()
+    if (response.success) {
+      const items = response.data
+      
+      // Separate pinned and unpinned items
+      const pinned = items.filter(item => item.isPinned)
+      const unpinned = items.filter(item => !item.isPinned)
+      
+      // Sort pinned items by pinnedAt date (most recent first)
+      pinned.sort((a, b) => new Date(b.pinnedAt) - new Date(a.pinnedAt))
+      
+      setPinnedItems(pinned)
+      setMenuItems(items) // Keep all items for search
+    } else {
+      console.error('Error loading menu items:', response.error)
       showNotification('Failed to load menu items', 'error')
-    } finally {
-      setIsLoadingMenuItems(false)
     }
+  } catch (error) {
+    console.error('Error loading menu items:', error)
+    showNotification('Failed to load menu items', 'error')
+  } finally {
+    setIsLoadingMenuItems(false)
   }
+}
+
+// Add this function after loadMenuItems
+const handleTogglePin = async (menuItemId, currentPinStatus) => {
+  try {
+    const response = await toggleMenuItemPin(menuItemId)
+    
+    if (response.success) {
+      // Reload menu items to update the display
+      await loadMenuItems()
+      
+      showNotification(
+        currentPinStatus ? 'Item unpinned' : 'Item pinned to top', 
+        'success'
+      )
+    } else {
+      showNotification('Failed to update pin status', 'error')
+    }
+  } catch (error) {
+    console.error('Error toggling pin:', error)
+    showNotification('Failed to update pin status', 'error')
+  }
+}
 
   const loadPendingOrders = async () => {
     try {
@@ -469,11 +508,25 @@ const updateDiscountAmount = (amount) => {
   }, [])
 
   // Filter products
-  const filteredProducts = menuItems.filter((item) => {
+// Replace your existing filteredProducts logic (around line 280)
+const filteredProducts = (() => {
+  // Filter by category
+  const categoryFiltered = menuItems.filter((item) => {
     const matchesCategory = selectedCategory === 'All' || 
       (item.categoryId && item.categoryId.name === selectedCategory)
     return matchesCategory
   })
+
+  // Separate pinned and unpinned
+  const pinned = categoryFiltered.filter(item => item.isPinned)
+  const unpinned = categoryFiltered.filter(item => !item.isPinned)
+  
+  // Sort pinned by pinnedAt (most recent first)
+  pinned.sort((a, b) => new Date(b.pinnedAt) - new Date(a.pinnedAt))
+  
+  // Return pinned items first, then unpinned
+  return [...pinned, ...unpinned]
+})()
 
   // Show notification
   const showNotification = (message, type = 'success') => {
@@ -1053,7 +1106,7 @@ useEffect(() => {
     return (
     <>
       {/* Main UI */}
-      <div className="print:hidden  bg-gradient-to-br from-slate-50 via-white to-slate-100 p-2 sm:p-3 md:p-4 lg:p-6">
+      <div className="print:hidden mt-[-30px] max-h-0 bg-gradient-to-br from-slate-50 via-white to-slate-100 p-2 sm:p-3 md:p-4 lg:p-6 ">
         <div className="max-w-[2000px] mx-auto">
           {/* Header */}
           <motion.div
@@ -1245,6 +1298,22 @@ useEffect(() => {
                   ))}
                 </div>
               </motion.div>
+              {/* Add this BEFORE the menu items grid */}
+{filteredProducts.some(item => item.isPinned) && (
+  <motion.div
+    initial={{ opacity: 0, y: -10 }}
+    animate={{ opacity: 1, y: 0 }}
+    className="mb-3 sm:mb-4 flex items-center gap-2 px-2"
+  >
+    <div className="flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-yellow-50 to-orange-50 border-2 border-yellow-300 rounded-lg">
+      <Pin className="w-4 h-4 text-yellow-600 fill-current" />
+      <span className="text-sm font-bold text-yellow-700">
+        Pinned Items ({filteredProducts.filter(i => i.isPinned).length})
+      </span>
+    </div>
+    <div className="flex-1 h-px bg-gradient-to-r from-yellow-300 to-transparent"></div>
+  </motion.div>
+)}
 
               {/* Menu Items Grid */}
             <motion.div
@@ -1267,77 +1336,111 @@ useEffect(() => {
   ) : (
     <div className="h-[50vh] overflow-y-auto pt-3 modern-scrollbar pr-2">
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 sm:gap-3 lg:gap-4">
-        {filteredProducts.map((item, index) => (
-          <motion.button
-            key={item._id}
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: index * 0.02 }}
-            whileHover={{ scale: 1.05, y: -5 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={() => addToCart(item)}
-            className="bg-gradient-to-br from-white to-slate-50 rounded-lg sm:rounded-xl p-3 sm:p-4 shadow-sm border-2 border-slate-100 hover:border-emerald-500 hover:shadow-lg transition-all group relative h-fit"
+   {filteredProducts.map((item, index) => (
+  <motion.div
+    key={item._id}
+    initial={{ opacity: 0, scale: 0.9 }}
+    animate={{ opacity: 1, scale: 1 }}
+    transition={{ delay: index * 0.02 }}
+    className="relative group"
+  >
+    {/* Pin Button - Top Right */}
+    <motion.button
+      onClick={(e) => {
+        e.stopPropagation()
+        handleTogglePin(item._id, item.isPinned)
+      }}
+      whileHover={{ scale: 1.1 }}
+      whileTap={{ scale: 0.9 }}
+      className={`absolute top-1 right-1 z-20 p-1.5 sm:p-2 rounded-lg shadow-lg transition-all ${
+        item.isPinned
+          ? 'bg-gradient-to-r from-yellow-400 to-orange-400 text-white'
+          : 'bg-white/90 text-slate-400 hover:text-yellow-500 opacity-0 group-hover:opacity-100'
+      }`}
+      title={item.isPinned ? 'Unpin item' : 'Pin to top'}
+    >
+      <Pin className={`w-3 h-3 sm:w-4 sm:h-4 ${item.isPinned ? 'fill-current' : ''}`} />
+    </motion.button>
+
+    {/* Pinned Badge - Top Left */}
+    {item.isPinned && (
+      <motion.div
+        initial={{ scale: 0, rotate: -45 }}
+        animate={{ scale: 1, rotate: 0 }}
+        className="absolute -top-1 -left-1 z-10"
+      >
+        <div className="bg-gradient-to-r from-yellow-400 via-orange-400 to-red-400 text-white text-[8px] sm:text-[9px] font-bold px-1.5 py-0.5 rounded-full shadow-lg flex items-center gap-0.5">
+          <Pin className="w-2 h-2 sm:w-2.5 sm:h-2.5 fill-current" />
+          <span>PINNED</span>
+        </div>
+      </motion.div>
+    )}
+
+    {/* Main Item Card */}
+    <motion.button
+      whileHover={{ scale: 1.05, y: -5 }}
+      whileTap={{ scale: 0.95 }}
+      onClick={() => addToCart(item)}
+      className="w-full bg-gradient-to-br from-white to-slate-50 rounded-lg sm:rounded-xl p-3 sm:p-4 shadow-sm border-2 border-slate-100 hover:border-emerald-500 hover:shadow-lg transition-all h-fit"
+    >
+      {/* Popular Badge - Show for top 5 items with sales (if not pinned) */}
+      {!item.isPinned && item.salesCount > 0 && index < 5 && (
+        <motion.div
+          initial={{ scale: 0, rotate: -45 }}
+          animate={{ scale: 1, rotate: 0 }}
+          transition={{ type: "spring", delay: index * 0.05 }}
+          className="absolute -top-2 -right-2 z-10"
+        >
+          <div className="relative">
+            <div className="bg-gradient-to-r from-orange-500 via-red-500 to-pink-500 text-white text-[9px] sm:text-[10px] font-bold px-2 py-1 rounded-full shadow-lg flex items-center gap-1">
+              <span className="animate-pulse">🔥</span>
+              <span>HOT</span>
+            </div>
+            <div className="absolute inset-0 bg-gradient-to-r from-orange-500 to-red-500 rounded-full blur-md opacity-40 -z-10"></div>
+          </div>
+        </motion.div>
+      )}
+      
+      <div className="text-3xl sm:text-4xl lg:text-5xl mb-2 sm:mb-3 group-hover:scale-110 transition-transform">
+        {item.categoryId?.icon || '🍽️'}
+      </div>
+      
+      <h3 className="font-bold text-slate-800 text-xs sm:text-sm mb-1 line-clamp-2 min-h-[2rem] sm:min-h-[2.5rem]">
+        {item.name}
+      </h3>
+      
+      {item.description && (
+        <p className="text-[10px] sm:text-xs text-slate-400 line-clamp-2 mb-2 min-h-[2rem] leading-tight">
+          {item.description}
+        </p>
+      )}
+      
+      <div className="flex items-center justify-between mt-2">
+        <span className="text-xs text-slate-500 truncate">{item.categoryId?.name}</span>
+        {item.salesCount > 0 && !item.isPinned && (
+          <motion.span 
+            initial={{ opacity: 0, x: -10 }}
+            animate={{ opacity: 1, x: 0 }}
+            className="text-[10px] bg-orange-100 text-orange-700 font-bold px-1.5 py-0.5 rounded-full"
           >
-            {/* Popular Badge - Show for top 5 items with sales */}
-            {item.salesCount > 0 && index < 5 && (
-              <motion.div
-                initial={{ scale: 0, rotate: -45 }}
-                animate={{ scale: 1, rotate: 0 }}
-                transition={{ type: "spring", delay: index * 0.05 }}
-                className="absolute -top-2 -right-2 z-10"
-              >
-                <div className="relative ">
-                  <div className="bg-gradient-to-r from-orange-500 via-red-500 to-pink-500 text-white text-[9px] sm:text-[10px] font-bold px-2 py-1 rounded-full shadow-lg flex items-center gap-1">
-                    <span className="animate-pulse">🔥</span>
-                    <span>HOT</span>
-                  </div>
-                  {/* Glow effect */}
-                  <div className="absolute inset-0 bg-gradient-to-r from-orange-500 to-red-500 rounded-full blur-md opacity-40 -z-10"></div>
-                </div>
-              </motion.div>
-            )}
-            
-            <div className="text-3xl sm:text-4xl lg:text-5xl mb-2 sm:mb-3 group-hover:scale-110 transition-transform">
-              {item.categoryId?.icon || '🍽️'}
-            </div>
-            
-            <h3 className="font-bold text-slate-800 text-xs sm:text-sm mb-1 line-clamp-2 min-h-[2rem] sm:min-h-[2.5rem]">
-              {item.name}
-            </h3>
-            
-            {/* Description */}
-            {item.description && (
-              <p className="text-[10px] sm:text-xs text-slate-400 line-clamp-2 mb-2 min-h-[2rem] leading-tight">
-                {item.description}
-              </p>
-            )}
-            
-            <div className="flex items-center justify-between mt-2">
-              <span className="text-xs text-slate-500 truncate">{item.categoryId?.name}</span>
-              {/* Show sales count for popular items */}
-              {item.salesCount > 0 && (
-                <motion.span 
-                  initial={{ opacity: 0, x: -10 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  className="text-[10px] bg-orange-100 text-orange-700 font-bold px-1.5 py-0.5 rounded-full"
-                >
-                  {item.salesCount}
-                </motion.span>
-              )}
-            </div>
-            
-            <div className="mt-2 pt-2 border-t border-slate-200">
-              <p className="text-emerald-600 font-bold text-base sm:text-lg">
-                ₨{item.sellingPrice}
-              </p>
-            </div>
-            
-            <div className="mt-2 sm:mt-3 flex items-center justify-center gap-1 text-xs text-emerald-600 font-semibold opacity-0 group-hover:opacity-100 transition-opacity">
-              <Plus className="w-3 h-3" />
-              Add to Cart
-            </div>
-          </motion.button>
-        ))}
+            {item.salesCount}
+          </motion.span>
+        )}
+      </div>
+      
+      <div className="mt-2 pt-2 border-t border-slate-200">
+        <p className="text-emerald-600 font-bold text-base sm:text-lg">
+          ₨{item.sellingPrice}
+        </p>
+      </div>
+      
+      <div className="mt-2 sm:mt-3 flex items-center justify-center gap-1 text-xs text-emerald-600 font-semibold opacity-0 group-hover:opacity-100 transition-opacity">
+        <Plus className="w-3 h-3" />
+        Add to Cart
+      </div>
+    </motion.button>
+  </motion.div>
+))}
       </div>
     </div>
   )}

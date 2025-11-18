@@ -45,6 +45,14 @@ const menuItemSchema = new mongoose.Schema(
       trim: true,
       maxlength: [50, 'Preparation time cannot exceed 50 characters'],
     },
+      isPinned: {
+    type: Boolean,
+    default: false
+  },
+  pinnedAt: {
+    type: Date,
+    default: null
+  }
   },
   {
     timestamps: true,
