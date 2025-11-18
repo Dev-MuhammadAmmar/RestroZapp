@@ -209,6 +209,7 @@ export default function InventoryPage() {
   }
 
   return (
+    <>
     <div className="min-h-screen w-full overflow-hidden bg-[#f5f7fa] p-2 sm:p-4 md:p-6 lg:p-8">
       <div className="max-w-[100%] mx-auto">
         {/* Header */}
@@ -437,7 +438,7 @@ export default function InventoryPage() {
             </div>
 
             {/* Category Filter - Desktop Horizontal */}
-            <div className="hidden lg:flex gap-2 overflow-x-auto items-center scrollbar-thin scrollbar-thumb-[#94a3b8] scrollbar-track-[#f1f5f9] pb-2">
+            <div className="hidden lg:flex gap-2 overflow-x-auto items-center mordern-scollbar pb-2">
               <button
                 onClick={() => setSelectedCategory('all')}
                 className={`px-4 py-2 rounded-lg font-medium transition-all whitespace-nowrap ${
@@ -781,6 +782,54 @@ export default function InventoryPage() {
         )}
       </AnimatePresence>
     </div>
+    <style jsx global>{`
+  @media print {
+    .modern-scrollbar {
+      scrollbar-width: thin;
+      scrollbar-color: #10b981 #f1f5f9;
+      scroll-behavior: smooth;
+    }
+
+    .modern-scrollbar::-webkit-scrollbar {
+      width: 8px;
+    }
+
+    .modern-scrollbar::-webkit-scrollbar-track {
+      background: linear-gradient(to bottom, #f1f5f9, #e2e8f0);
+      border-radius: 100px;
+      margin: 4px 0;
+    }
+
+    .modern-scrollbar::-webkit-scrollbar-thumb {
+      background: linear-gradient(to bottom, #10b981, #059669);
+      border-radius: 100px;
+      border: 2px solid #f1f5f9;
+      transition: all 0.3s ease;
+    }
+
+    .modern-scrollbar::-webkit-scrollbar-thumb:hover {
+      background: linear-gradient(to bottom, #059669, #047857);
+      border-color: #e2e8f0;
+      width: 10px;
+    }
+
+    .modern-scrollbar::-webkit-scrollbar-thumb:active {
+      background: linear-gradient(to bottom, #047857, #065f46);
+    }
+  }
+
+  /* Mobile scrollbar (outside print query) */
+  @media (max-width: 640px) {
+    .modern-scrollbar::-webkit-scrollbar {
+      width: 4px;
+    }
+
+    .modern-scrollbar::-webkit-scrollbar-thumb {
+      border-width: 1px;
+    }
+  }
+`}</style>
+</>
   );
 }
 
@@ -1456,5 +1505,7 @@ function CategoryModal({ isOpen, onClose, categories, onSave, onDelete }) {
     </div>
   </motion.div>
 </motion.div>
+
   );
+  
 }

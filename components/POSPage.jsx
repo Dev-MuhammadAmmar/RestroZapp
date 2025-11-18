@@ -1267,7 +1267,7 @@ useEffect(() => {
                 </div>
 
                 {/* Categories */}
-                <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-emerald-300 scrollbar-track-slate-100">
+                <div className="flex gap-2 overflow-x-auto pb-2  modern-scrollbar">
                   <motion.button
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
@@ -1334,7 +1334,7 @@ useEffect(() => {
       </p>
     </div>
   ) : (
-    <div className="h-[50vh] overflow-y-auto pt-3 modern-scrollbar pr-2">
+    <div className="h-[48vh] overflow-y-auto pt-3 modern-scrollbar pr-2">
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 sm:gap-3 lg:gap-4">
    {filteredProducts.map((item, index) => (
   <motion.div
@@ -1475,7 +1475,7 @@ useEffect(() => {
                 </div>
 
                 {/* Cart Items */}
-                <div className="p-3 sm:p-4 max-h-[350px] sm:max-h-[350px] overflow-y-auto scrollbar-thin scrollbar-thumb-emerald-300 scrollbar-track-slate-100">
+                <div className="p-3 sm:p-4 max-h-[350px] sm:max-h-[350px] overflow-y-auto mordern-scrollbar">
                   <AnimatePresence>
                     {cart.length === 0 ? (
                       <motion.div
@@ -2946,7 +2946,7 @@ useEffect(() => {
               </div>
 
               {/* Category Filters */}
-              <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-blue-300 scrollbar-track-slate-100">
+              <div className="flex gap-2 overflow-x-auto pb-2 mordern-scrollbar">
                 <motion.button
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
