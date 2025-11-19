@@ -99,7 +99,9 @@ const [isLoadingMore, setIsLoadingMore] = useState(false);
 const [startTime, setStartTime] = useState('00:00');
 const [endTime, setEndTime] = useState('23:59');
   // Pagination
-
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(100);
+  const [totalPages, setTotalPages] = useState(1);
   
   // Date range filters
   const [dateFrom, setDateFrom] = useState('');
@@ -154,7 +156,7 @@ const fetchInitialOrders = async (resetPage = true) => {
       setAllOrders(result.data);
       setHasMore(result.pagination.hasMore);
       setTotalCount(result.pagination.totalCount);
-
+      setTotalPages(result.pagination.totalPages);
     } else {
       setError(result.error || 'Failed to fetch orders');
     }
@@ -221,7 +223,7 @@ const performSearch = useCallback(async () => {
       setAllOrders(result.data);
       setHasMore(result.pagination.hasMore);
       setTotalCount(result.pagination.totalCount);
-   
+      setTotalPages(result.pagination.totalPages);
     }
   } catch (err) {
     console.error('Error searching orders:', err);
@@ -266,13 +268,17 @@ const performSearch = useCallback(async () => {
   };
 
   // Paginated and sorted orders
-const displayedOrders = React.useMemo(() => {
-  return [...orders].sort((a, b) => {
-    const dateA = new Date(a.orderDate).getTime();
-    const dateB = new Date(b.orderDate).getTime();
-    return sortOrder === 'desc' ? dateB - dateA : dateA - dateB;
-  });
-}, [orders, sortOrder]);
+  const displayedOrders = React.useMemo(() => {
+    const sorted = [...orders].sort((a, b) => {
+      const dateA = new Date(a.orderDate).getTime();
+      const dateB = new Date(b.orderDate).getTime();
+      return sortOrder === 'desc' ? dateB - dateA : dateA - dateB;
+    });
+
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    return sorted.slice(startIndex, endIndex);
+  }, [orders, sortOrder, currentPage, itemsPerPage]);
 
   // Handle refresh button
   const handleRefresh = async () => {
@@ -292,7 +298,7 @@ const handleClearFilters = () => {
   setStartTime('00:00');
   setEndTime('23:59');
   setSortOrder('desc');
-
+  setCurrentPage(1);
   setPage(1);
   fetchInitialOrders(true);
 };
@@ -753,7 +759,30 @@ const handleClearFilters = () => {
     </span>
   )}
 </p>
-   
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                  disabled={currentPage === 1}
+                  className="p-2 rounded-lg bg-[#f1f5f9] text-[#475569] hover:bg-[#e2e8f0] disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                  aria-label="Previous page"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                <span className="text-sm text-[#64748b] px-2">
+                  Page {currentPage} of {totalPages}
+                </span>
+                <button
+                  onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                  disabled={currentPage === totalPages}
+                  className="p-2 rounded-lg bg-[#f1f5f9] text-[#475569] hover:bg-[#e2e8f0] disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                  aria-label="Next page"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+            )}
           </div>
         </motion.div>
 
