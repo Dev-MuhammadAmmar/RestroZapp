@@ -1106,7 +1106,7 @@ useEffect(() => {
     return (
     <>
       {/* Main UI */}
-      <div className="print:hidden mt-[-30px] max-h-0 bg-gradient-to-br from-slate-50 via-white to-slate-100 p-2 sm:p-3 md:p-4 lg:p-6 ">
+      <div className="print:hidden lg:mt-[-30px] max-h-0 bg-gradient-to-br from-slate-50 via-white to-slate-100 p-2 sm:p-3 md:p-4 lg:p-6 ">
         <div className="max-w-[2000px] mx-auto">
           {/* Header */}
           <motion.div

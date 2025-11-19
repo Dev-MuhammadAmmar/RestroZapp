@@ -57,8 +57,6 @@ export default function ReportsPage() {
   const [reportType, setReportType] = useState('This Week');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
-  const [timeFrom, setTimeFrom] = useState('00:00');
-  const [timeTo, setTimeTo] = useState('23:59');
   const [customRange, setCustomRange] = useState(false);
   const [loading, setLoading] = useState(true);
   const [reportsData, setReportsData] = useState(null);
@@ -108,14 +106,9 @@ export default function ReportsPage() {
       endDate = new Date(today);
       endDate.setHours(23, 59, 59, 999);
     } else if (reportType === 'Custom Range' && dateFrom && dateTo) {
-      // Parse date and time for custom range
       startDate = new Date(dateFrom);
-      const [startHour, startMinute] = timeFrom.split(':').map(Number);
-      startDate.setHours(startHour, startMinute, 0, 0);
-      
       endDate = new Date(dateTo);
-      const [endHour, endMinute] = timeTo.split(':').map(Number);
-      endDate.setHours(endHour, endMinute, 59, 999);
+      endDate.setHours(23, 59, 59, 999);
     } else {
       return null;
     }
@@ -218,14 +211,7 @@ export default function ReportsPage() {
     doc.setFontSize(10);
     doc.setTextColor(100, 116, 139);
     doc.text(`Report Period: ${reportType}`, pageWidth / 2, 28, { align: 'center' });
-    
-    // Add time range info for custom reports
-    if (reportType === 'Custom Range' && dateFrom && dateTo) {
-      doc.text(`${dateFrom} ${timeFrom} to ${dateTo} ${timeTo}`, pageWidth / 2, 33, { align: 'center' });
-      doc.text(`Generated: ${new Date().toLocaleString()}`, pageWidth / 2, 38, { align: 'center' });
-    } else {
-      doc.text(`Generated: ${new Date().toLocaleString()}`, pageWidth / 2, 33, { align: 'center' });
-    }
+    doc.text(`Generated: ${new Date().toLocaleString()}`, pageWidth / 2, 33, { align: 'center' });
 
     doc.setFontSize(14);
     doc.setTextColor(30, 41, 59);
@@ -449,11 +435,6 @@ export default function ReportsPage() {
                     onClick={() => {
                       setReportType(type);
                       setCustomRange(type === 'Custom Range');
-                      // Reset times to default when switching report types
-                      if (type === 'Custom Range') {
-                        setTimeFrom('00:00');
-                        setTimeTo('23:59');
-                      }
                       setError(null);
                     }}
                     className={`px-4 py-2 rounded-lg font-medium transition-all ${
@@ -469,77 +450,26 @@ export default function ReportsPage() {
             </div>
 
             {customRange && (
-              <div className="flex flex-col gap-4">
-                {/* Date Selection Row */}
-                <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
-                  <div className="flex flex-col gap-1">
-                    <label className="text-xs text-[#64748b] font-medium px-1">Start Date</label>
-                    <input
-                      type="date"
-                      value={dateFrom}
-                      onChange={(e) => setDateFrom(e.target.value)}
-                      className="px-4 py-2 bg-[#f8fafc] border border-[#e2e8f0] rounded-lg focus:outline-none focus:border-[#10b981] focus:ring-2 focus:ring-[#10b981]/20 transition-all text-[#1e293b]"
-                    />
-                  </div>
-                  
-                  <div className="flex flex-col gap-1">
-                    <label className="text-xs text-[#64748b] font-medium px-1">Start Time</label>
-                    <input
-                      type="time"
-                      value={timeFrom}
-                      onChange={(e) => setTimeFrom(e.target.value)}
-                      className="px-4 py-2 bg-[#f8fafc] border border-[#e2e8f0] rounded-lg focus:outline-none focus:border-[#10b981] focus:ring-2 focus:ring-[#10b981]/20 transition-all text-[#1e293b]"
-                    />
-                  </div>
-
-                  <span className="text-[#64748b] text-center sm:text-left self-center mt-5">to</span>
-
-                  <div className="flex flex-col gap-1">
-                    <label className="text-xs text-[#64748b] font-medium px-1">End Date</label>
-                    <input
-                      type="date"
-                      value={dateTo}
-                      onChange={(e) => setDateTo(e.target.value)}
-                      className="px-4 py-2 bg-[#f8fafc] border border-[#e2e8f0] rounded-lg focus:outline-none focus:border-[#10b981] focus:ring-2 focus:ring-[#10b981]/20 transition-all text-[#1e293b]"
-                    />
-                  </div>
-                  
-                  <div className="flex flex-col gap-1">
-                    <label className="text-xs text-[#64748b] font-medium px-1">End Time</label>
-                    <input
-                      type="time"
-                      value={timeTo}
-                      onChange={(e) => setTimeTo(e.target.value)}
-                      className="px-4 py-2 bg-[#f8fafc] border border-[#e2e8f0] rounded-lg focus:outline-none focus:border-[#10b981] focus:ring-2 focus:ring-[#10b981]/20 transition-all text-[#1e293b]"
-                    />
-                  </div>
-                </div>
-
-                {/* Helper Text */}
-                <div className="flex items-center gap-2 text-xs text-[#64748b] bg-blue-50 px-4 py-2 rounded-lg">
-                  <Clock className="w-4 h-4 text-blue-500" />
-                  <span>
-                    {dateFrom && dateTo && (
-                      <>
-                        Report will show data from <span className="font-semibold text-blue-600">
-                          {new Date(dateFrom).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} at {timeFrom}
-                        </span> to <span className="font-semibold text-blue-600">
-                          {new Date(dateTo).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} at {timeTo}
-                        </span>
-                      </>
-                    )}
-                    {(!dateFrom || !dateTo) && 'Select date and time range to generate custom report'}
-                  </span>
-                </div>
-
-                {/* Generate Button */}
+              <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
+                <input
+                  type="date"
+                  value={dateFrom}
+                  onChange={(e) => setDateFrom(e.target.value)}
+                  className="px-4 py-2 bg-[#f8fafc] border border-[#e2e8f0] rounded-lg focus:outline-none focus:border-[#10b981] focus:ring-2 focus:ring-[#10b981]/20 transition-all text-[#1e293b]"
+                />
+                <span className="text-[#64748b] text-center sm:text-left">to</span>
+                <input
+                  type="date"
+                  value={dateTo}
+                  onChange={(e) => setDateTo(e.target.value)}
+                  className="px-4 py-2 bg-[#f8fafc] border border-[#e2e8f0] rounded-lg focus:outline-none focus:border-[#10b981] focus:ring-2 focus:ring-[#10b981]/20 transition-all text-[#1e293b]"
+                />
                 <button
                   onClick={handleGenerateCustomReport}
                   disabled={!dateFrom || !dateTo}
-                  className="px-6 py-3 bg-[#10b981] text-white rounded-lg hover:bg-[#059669] transition-all font-medium shadow-md disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  className="px-6 py-2 bg-[#10b981] text-white rounded-lg hover:bg-[#059669] transition-all font-medium shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <BarChart3 className="w-5 h-5" />
-                  Generate Custom Report
+                  Generate Report
                 </button>
               </div>
             )}
@@ -711,69 +641,69 @@ export default function ReportsPage() {
         </div>
 
         {/* Order Type Breakdown Cards */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.75 }}
-          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-8"
-        >
-          {/* Dine-In Card */}
-          <div className="bg-white rounded-xl p-6 shadow-sm border-l-4 border-[#10b981]">
-            <div className="flex items-center gap-4 mb-4">
-              <div className="bg-[#10b981]/10 p-3 rounded-xl">
-                <Utensils className="w-6 h-6 text-[#10b981]" />
-              </div>
-              <div>
-                <p className="text-[#64748b] text-sm">Dine-In Orders</p>
-                <p className="text-2xl font-bold text-[#1e293b]">{summary.dineInOrders}</p>
-              </div>
-            </div>
-            <div className="bg-[#f8fafc] p-3 rounded-lg">
-              <p className="text-xs text-[#64748b] mb-1">Revenue</p>
-              <p className="text-lg font-bold text-[#10b981]">
-                ₨{summary.dineInRevenue.toLocaleString()}
-              </p>
-            </div>
-          </div>
+<motion.div
+  initial={{ opacity: 0, y: 20 }}
+  animate={{ opacity: 1, y: 0 }}
+  transition={{ delay: 0.75 }}
+  className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-8"
+>
+  {/* Dine-In Card */}
+  <div className="bg-white rounded-xl p-6 shadow-sm border-l-4 border-[#10b981]">
+    <div className="flex items-center gap-4 mb-4">
+      <div className="bg-[#10b981]/10 p-3 rounded-xl">
+        <Utensils className="w-6 h-6 text-[#10b981]" />
+      </div>
+      <div>
+        <p className="text-[#64748b] text-sm">Dine-In Orders</p>
+        <p className="text-2xl font-bold text-[#1e293b]">{summary.dineInOrders}</p>
+      </div>
+    </div>
+    <div className="bg-[#f8fafc] p-3 rounded-lg">
+      <p className="text-xs text-[#64748b] mb-1">Revenue</p>
+      <p className="text-lg font-bold text-[#10b981]">
+        ₨{summary.dineInRevenue.toLocaleString()}
+      </p>
+    </div>
+  </div>
 
-          {/* Takeaway Card */}
-          <div className="bg-white rounded-xl p-6 shadow-sm border-l-4 border-[#3b82f6]">
-            <div className="flex items-center gap-4 mb-4">
-              <div className="bg-[#3b82f6]/10 p-3 rounded-xl">
-                <ShoppingBag className="w-6 h-6 text-[#3b82f6]" />
-              </div>
-              <div>
-                <p className="text-[#64748b] text-sm">Takeaway Orders</p>
-                <p className="text-2xl font-bold text-[#1e293b]">{summary.takeawayOrders}</p>
-              </div>
-            </div>
-            <div className="bg-[#f8fafc] p-3 rounded-lg">
-              <p className="text-xs text-[#64748b] mb-1">Revenue</p>
-              <p className="text-lg font-bold text-[#3b82f6]">
-                ₨{summary.takeawayRevenue.toLocaleString()}
-              </p>
-            </div>
-          </div>
+  {/* Takeaway Card */}
+  <div className="bg-white rounded-xl p-6 shadow-sm border-l-4 border-[#3b82f6]">
+    <div className="flex items-center gap-4 mb-4">
+      <div className="bg-[#3b82f6]/10 p-3 rounded-xl">
+        <ShoppingBag className="w-6 h-6 text-[#3b82f6]" />
+      </div>
+      <div>
+        <p className="text-[#64748b] text-sm">Takeaway Orders</p>
+        <p className="text-2xl font-bold text-[#1e293b]">{summary.takeawayOrders}</p>
+      </div>
+    </div>
+    <div className="bg-[#f8fafc] p-3 rounded-lg">
+      <p className="text-xs text-[#64748b] mb-1">Revenue</p>
+      <p className="text-lg font-bold text-[#3b82f6]">
+        ₨{summary.takeawayRevenue.toLocaleString()}
+      </p>
+    </div>
+  </div>
 
-          {/* Delivery Card */}
-          <div className="bg-white rounded-xl p-6 shadow-sm border-l-4 border-[#f59e0b] sm:col-span-2 lg:col-span-1">
-            <div className="flex items-center gap-4 mb-4">
-              <div className="bg-[#f59e0b]/10 p-3 rounded-xl">
-                <Truck className="w-6 h-6 text-[#f59e0b]" />
-              </div>
-              <div>
-                <p className="text-[#64748b] text-sm">Delivery Orders</p>
-                <p className="text-2xl font-bold text-[#1e293b]">{summary.deliveryOrders}</p>
-              </div>
-            </div>
-            <div className="bg-[#f8fafc] p-3 rounded-lg">
-              <p className="text-xs text-[#64748b] mb-1">Revenue</p>
-              <p className="text-lg font-bold text-[#f59e0b]">
-                ₨{summary.deliveryRevenue.toLocaleString()}
-              </p>
-            </div>
-          </div>
-        </motion.div>
+  {/* Delivery Card */}
+  <div className="bg-white rounded-xl p-6 shadow-sm border-l-4 border-[#f59e0b] sm:col-span-2 lg:col-span-1">
+    <div className="flex items-center gap-4 mb-4">
+      <div className="bg-[#f59e0b]/10 p-3 rounded-xl">
+        <Truck className="w-6 h-6 text-[#f59e0b]" />
+      </div>
+      <div>
+        <p className="text-[#64748b] text-sm">Delivery Orders</p>
+        <p className="text-2xl font-bold text-[#1e293b]">{summary.deliveryOrders}</p>
+      </div>
+    </div>
+    <div className="bg-[#f8fafc] p-3 rounded-lg">
+      <p className="text-xs text-[#64748b] mb-1">Revenue</p>
+      <p className="text-lg font-bold text-[#f59e0b]">
+        ₨{summary.deliveryRevenue.toLocaleString()}
+      </p>
+    </div>
+  </div>
+</motion.div>
 
         {/* ALL ITEMS SECTION - ENHANCED */}
         <motion.div
@@ -1183,11 +1113,6 @@ export default function ReportsPage() {
         >
           <p>
             Report generated for <span className="font-semibold text-[#1e293b]">{reportType}</span>
-            {reportType === 'Custom Range' && dateFrom && dateTo && (
-              <span className="ml-1">
-                ({new Date(dateFrom).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} {timeFrom} - {new Date(dateTo).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} {timeTo})
-              </span>
-            )}
             {' • '}
             Last updated: {new Date().toLocaleString('en-US', { 
               month: 'short', 
