@@ -92,7 +92,12 @@ export default function OrdersPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [isSearching, setIsSearching] = useState(false);
-  
+  const [page, setPage] = useState(1);
+const [hasMore, setHasMore] = useState(true);
+const [totalCount, setTotalCount] = useState(0);
+const [isLoadingMore, setIsLoadingMore] = useState(false);
+const [startTime, setStartTime] = useState('00:00');
+const [endTime, setEndTime] = useState('23:59');
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(100);
@@ -124,75 +129,108 @@ const loadRestaurantSettings = async () => {
     fetchInitialOrders();
        loadRestaurantSettings() 
   }, []);
-
-  const fetchInitialOrders = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      
-      const { getOrders } = await import('@/lib/actions/orders');
-      
-      const result = await getOrders({ limit: 100 });
-      
-      if (result.success) {
-        setOrders(result.data);
-        setAllOrders(result.data);
-        setTotalPages(Math.ceil(result.data.length / itemsPerPage));
-      } else {
-        setError(result.error || 'Failed to fetch orders');
-      }
-    } catch (err) {
-      console.error('Error fetching orders:', err);
-      setError('Failed to load orders');
-    } finally {
-      setLoading(false);
+const fetchInitialOrders = async (resetPage = true) => {
+  try {
+    setLoading(true);
+    setError(null);
+    
+    if (resetPage) {
+      setPage(1);
+      setOrders([]);
     }
-  };
+    
+    const { getOrdersPaginated } = await import('@/lib/actions/orders');
+    
+    const result = await getOrdersPaginated({
+      page: 1,
+      limit: 50,
+      status: statusFilter !== 'All' ? statusFilter : null,
+      orderType: orderType !== 'All' ? orderType : null,
+      startDate: dateFrom || null,
+      endDate: dateTo || null,
+      searchQuery: searchQuery.trim() || null
+    });
+    
+    if (result.success) {
+      setOrders(result.data);
+      setAllOrders(result.data);
+      setHasMore(result.pagination.hasMore);
+      setTotalCount(result.pagination.totalCount);
+      setTotalPages(result.pagination.totalPages);
+    } else {
+      setError(result.error || 'Failed to fetch orders');
+    }
+  } catch (err) {
+    console.error('Error fetching orders:', err);
+    setError('Failed to load orders');
+  } finally {
+    setLoading(false);
+  }
+};
+const loadMoreOrders = async () => {
+  if (!hasMore || isLoadingMore) return;
+  
+  try {
+    setIsLoadingMore(true);
+    const nextPage = page + 1;
+    
+    const { getOrdersPaginated } = await import('@/lib/actions/orders');
+    
+    const result = await getOrdersPaginated({
+      page: nextPage,
+      limit: 50,
+      status: statusFilter !== 'All' ? statusFilter : null,
+      orderType: orderType !== 'All' ? orderType : null,
+      startDate: dateFrom || null,
+      endDate: dateTo || null,
+      searchQuery: searchQuery.trim() || null
+    });
+    
+    if (result.success) {
+      setOrders(prev => [...prev, ...result.data]);
+      setAllOrders(prev => [...prev, ...result.data]);
+      setHasMore(result.pagination.hasMore);
+      setPage(nextPage);
+    }
+  } catch (err) {
+    console.error('Error loading more orders:', err);
+  } finally {
+    setIsLoadingMore(false);
+  }
+};
 
   // Search with filters
-  const performSearch = useCallback(async () => {
-    if (!searchQuery.trim() && !dateFrom && !dateTo && statusFilter === 'All' && orderType === 'All') {
-      setOrders(allOrders);
-      return;
+const performSearch = useCallback(async () => {
+  try {
+    setIsSearching(true);
+    setPage(1);
+    setOrders([]);
+    
+    const { getOrdersPaginated } = await import('@/lib/actions/orders');
+    
+    const result = await getOrdersPaginated({
+      page: 1,
+      limit: 50,
+      status: statusFilter !== 'All' ? statusFilter : null,
+      orderType: orderType !== 'All' ? orderType : null,
+      startDate: dateFrom || null,
+      endDate: dateTo || null,
+      searchQuery: searchQuery.trim() || null
+    });
+    
+    if (result.success) {
+      setOrders(result.data);
+      setAllOrders(result.data);
+      setHasMore(result.pagination.hasMore);
+      setTotalCount(result.pagination.totalCount);
+      setTotalPages(result.pagination.totalPages);
     }
-
-    try {
-      setIsSearching(true);
-      const { getOrders } = await import('@/lib/actions/orders');
-      
-      const filters = {};
-      if (dateFrom) filters.startDate = dateFrom;
-      if (dateTo) filters.endDate = dateTo;
-      if (statusFilter !== 'All') filters.status = statusFilter.toLowerCase();
-      if (orderType !== 'All') filters.orderType = orderType.toLowerCase();
-      
-      const result = await getOrders(filters);
-      
-      if (result.success) {
-        let filtered = result.data;
-        
-        if (searchQuery.trim()) {
-          const query = searchQuery.toLowerCase();
-          filtered = filtered.filter(
-            order =>
-              order.orderNumber?.toLowerCase().includes(query) ||
-              order.customerName?.toLowerCase().includes(query) ||
-              order.tableNumber?.toLowerCase().includes(query)
-          );
-        }
-        
-        setOrders(filtered);
-        setAllOrders(filtered);
-        setTotalPages(Math.ceil(filtered.length / itemsPerPage));
-        setCurrentPage(1);
-      }
-    } catch (err) {
-      console.error('Error searching orders:', err);
-    } finally {
-      setIsSearching(false);
-    }
-  }, [searchQuery, dateFrom, dateTo, statusFilter, orderType, allOrders, itemsPerPage]);
-
+  } catch (err) {
+    console.error('Error searching orders:', err);
+  } finally {
+    setIsSearching(false);
+  }
+}, [searchQuery, dateFrom, dateTo, statusFilter, orderType]);
   // Debounced search
   useEffect(() => {
     if (searchTimeoutRef.current) {
@@ -251,16 +289,19 @@ const loadRestaurantSettings = async () => {
   };
 
   // Clear all filters
-  const handleClearFilters = () => {
-    setSearchQuery('');
-    setStatusFilter('All');
-    setOrderType('All');
-    setDateFrom('');
-    setDateTo('');
-    setSortOrder('desc');
-    setCurrentPage(1);
-    setOrders(allOrders);
-  };
+const handleClearFilters = () => {
+  setSearchQuery('');
+  setStatusFilter('All');
+  setOrderType('All');
+  setDateFrom('');
+  setDateTo('');
+  setStartTime('00:00');
+  setEndTime('23:59');
+  setSortOrder('desc');
+  setCurrentPage(1);
+  setPage(1);
+  fetchInitialOrders(true);
+};
 
   // Export to CSV
   const handleExport = () => {
@@ -604,33 +645,49 @@ const loadRestaurantSettings = async () => {
               >
                 <div className="pt-4 border-t border-[#e2e8f0]">
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                    {/* Date From */}
-                    <div>
-                      <label className="block text-[#475569] font-medium mb-2 text-sm">
-                        <CalendarRange className="w-4 h-4 inline mr-1" />
-                        From Date
-                      </label>
-                      <input
-                        type="date"
-                        value={dateFrom}
-                        onChange={(e) => setDateFrom(e.target.value)}
-                        className="w-full px-4 py-2 bg-[#f8fafc] border border-[#e2e8f0] rounded-lg focus:outline-none focus:border-[#10b981] focus:ring-2 focus:ring-[#10b981]/20 transition-all text-[#1e293b] text-sm"
-                      />
-                    </div>
+               {/* Date From */}
+<div>
+  <label className="block text-[#475569] font-medium mb-2 text-sm">
+    <CalendarRange className="w-4 h-4 inline mr-1" />
+    From Date & Time
+  </label>
+  <div className="space-y-2">
+    <input
+      type="date"
+      value={dateFrom}
+      onChange={(e) => setDateFrom(e.target.value)}
+      className="w-full px-4 py-2 bg-[#f8fafc] border border-[#e2e8f0] rounded-lg focus:outline-none focus:border-[#10b981] focus:ring-2 focus:ring-[#10b981]/20 transition-all text-[#1e293b] text-sm"
+    />
+    <input
+      type="time"
+      value={startTime}
+      onChange={(e) => setStartTime(e.target.value)}
+      className="w-full px-4 py-2 bg-[#f8fafc] border border-[#e2e8f0] rounded-lg focus:outline-none focus:border-[#10b981] focus:ring-2 focus:ring-[#10b981]/20 transition-all text-[#1e293b] text-sm"
+    />
+  </div>
+</div>
 
-                    {/* Date To */}
-                    <div>
-                      <label className="block text-[#475569] font-medium mb-2 text-sm">
-                        <CalendarRange className="w-4 h-4 inline mr-1" />
-                        To Date
-                      </label>
-                      <input
-                        type="date"
-                        value={dateTo}
-                        onChange={(e) => setDateTo(e.target.value)}
-                        className="w-full px-4 py-2 bg-[#f8fafc] border border-[#e2e8f0] rounded-lg focus:outline-none focus:border-[#10b981] focus:ring-2 focus:ring-[#10b981]/20 transition-all text-[#1e293b] text-sm"
-                      />
-                    </div>
+{/* Date To */}
+<div>
+  <label className="block text-[#475569] font-medium mb-2 text-sm">
+    <CalendarRange className="w-4 h-4 inline mr-1" />
+    To Date & Time
+  </label>
+  <div className="space-y-2">
+    <input
+      type="date"
+      value={dateTo}
+      onChange={(e) => setDateTo(e.target.value)}
+      className="w-full px-4 py-2 bg-[#f8fafc] border border-[#e2e8f0] rounded-lg focus:outline-none focus:border-[#10b981] focus:ring-2 focus:ring-[#10b981]/20 transition-all text-[#1e293b] text-sm"
+    />
+    <input
+      type="time"
+      value={endTime}
+      onChange={(e) => setEndTime(e.target.value)}
+      className="w-full px-4 py-2 bg-[#f8fafc] border border-[#e2e8f0] rounded-lg focus:outline-none focus:border-[#10b981] focus:ring-2 focus:ring-[#10b981]/20 transition-all text-[#1e293b] text-sm"
+    />
+  </div>
+</div>
 
                     {/* Order Type */}
                     <div>
@@ -691,18 +748,17 @@ const loadRestaurantSettings = async () => {
 
           {/* Results Summary & Pagination */}
           <div className="mt-4 pt-4 border-t border-[#e2e8f0] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-            <p className="text-[#64748b] text-xs md:text-sm">
-              Showing <span className="font-bold text-[#10b981]">{displayedOrders.length}</span> of{' '}
-              <span className="font-bold text-[#1e293b]">{orders.length}</span> orders
-              {(dateFrom || dateTo) && (
-                <span className="ml-2 text-xs">
-                  {dateFrom && <span>from <span className="font-semibold">{dateFrom}</span></span>}
-                  {dateFrom && dateTo && ' '}
-                  {dateTo && <span>to <span className="font-semibold">{dateTo}</span></span>}
-                </span>
-              )}
-            </p>
-            
+       <p className="text-[#64748b] text-xs md:text-sm">
+  Showing <span className="font-bold text-[#10b981]">{orders.length}</span> of{' '}
+  <span className="font-bold text-[#1e293b]">{totalCount}</span> orders
+  {(dateFrom || dateTo) && (
+    <span className="ml-2 text-xs">
+      {dateFrom && <span>from <span className="font-semibold">{dateFrom} {startTime}</span></span>}
+      {dateFrom && dateTo && ' '}
+      {dateTo && <span>to <span className="font-semibold">{dateTo} {endTime}</span></span>}
+    </span>
+  )}
+</p>
             {/* Pagination Controls */}
             {totalPages > 1 && (
               <div className="flex items-center gap-2">
@@ -850,47 +906,47 @@ const loadRestaurantSettings = async () => {
             </table>
           </div>
 
-          {/* Table Pagination */}
-          {totalPages > 1 && (
-            <div className="px-6 py-4 border-t border-[#e2e8f0] flex items-center justify-between bg-[#f8fafc]">
-              <p className="text-sm text-[#64748b]">
-                Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, orders.length)} of {orders.length} orders
-              </p>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setCurrentPage(1)}
-                  disabled={currentPage === 1}
-                  className="px-3 py-2 rounded-lg bg-white border border-[#e2e8f0] text-[#475569] hover:bg-[#f8fafc] disabled:opacity-50 disabled:cursor-not-allowed transition-all text-sm"
-                >
-                  First
-                </button>
-                <button
-                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                  disabled={currentPage === 1}
-                  className="p-2 rounded-lg bg-white border border-[#e2e8f0] text-[#475569] hover:bg-[#f8fafc] disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-                >
-                  <ChevronLeft className="w-4 h-4" />
-                </button>
-                <span className="text-sm text-[#64748b] px-3">
-                  Page {currentPage} of {totalPages}
-                </span>
-                <button
-                  onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                  disabled={currentPage === totalPages}
-                  className="p-2 rounded-lg bg-white border border-[#e2e8f0] text-[#475569] hover:bg-[#f8fafc] disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-                >
-                  <ChevronRight className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => setCurrentPage(totalPages)}
-                  disabled={currentPage === totalPages}
-                  className="px-3 py-2 rounded-lg bg-white border border-[#e2e8f0] text-[#475569] hover:bg-[#f8fafc] disabled:opacity-50 disabled:cursor-not-allowed transition-all text-sm"
-                >
-                  Last
-                </button>
-              </div>
-            </div>
-          )}
+        {/* Load More Button - Desktop */}
+      {hasMore && !loading && (
+  <motion.div 
+    initial={{ opacity: 0, y: 20 }}
+    animate={{ opacity: 1, y: 0 }}
+    className="mt-6 text-center"
+  >
+    <button
+      onClick={loadMoreOrders}
+      disabled={isLoadingMore}
+      className="w-full px-8 py-3.5 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-xl hover:from-emerald-600 hover:to-teal-600 transition-all font-medium shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center justify-center gap-2 group"
+    >
+      {isLoadingMore ? (
+        <>
+          <Loader2 className="w-5 h-5 animate-spin" />
+          <span>Loading More Orders...</span>
+        </>
+      ) : (
+        <>
+          <span>Load More Orders</span>
+          <ChevronDown className="w-5 h-5 group-hover:translate-y-0.5 transition-transform" />
+        </>
+      )}
+    </button>
+    <div className="mt-3 flex items-center justify-center gap-2">
+      <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
+      <p className="text-sm text-slate-600">
+        Showing <span className="font-bold text-emerald-600">{orders.length}</span> of <span className="font-bold text-slate-800">{totalCount}</span> orders
+      </p>
+    </div>
+    {/* Progress Bar */}
+    <div className="mt-3 w-full bg-slate-200 rounded-full h-2 overflow-hidden">
+      <motion.div 
+        initial={{ width: 0 }}
+        animate={{ width: `${(orders.length / totalCount) * 100}%` }}
+        transition={{ duration: 0.5, ease: "easeOut" }}
+        className="h-full bg-gradient-to-r from-emerald-500 to-teal-500 rounded-full"
+      />
+    </div>
+  </motion.div>
+)}
         </motion.div>
 
         {/* Orders Cards - Mobile View */}
@@ -964,30 +1020,49 @@ const loadRestaurantSettings = async () => {
             })}
           </AnimatePresence>
 
-          {/* Mobile Pagination */}
-          {totalPages > 1 && (
-            <div className="flex items-center justify-between bg-white rounded-xl shadow-sm p-4">
-              <button
-                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                disabled={currentPage === 1}
-                className="flex items-center gap-2 px-4 py-2 bg-[#f1f5f9] text-[#475569] rounded-lg hover:bg-[#e2e8f0] disabled:opacity-50 disabled:cursor-not-allowed transition-all text-sm font-medium"
-              >
-                <ChevronLeft className="w-4 h-4" />
-                Previous
-              </button>
-              <span className="text-sm text-[#64748b] font-medium">
-                {currentPage} / {totalPages}
-              </span>
-              <button
-                onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                disabled={currentPage === totalPages}
-                className="flex items-center gap-2 px-4 py-2 bg-[#f1f5f9] text-[#475569] rounded-lg hover:bg-[#e2e8f0] disabled:opacity-50 disabled:cursor-not-allowed transition-all text-sm font-medium"
-              >
-                Next
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
-          )}
+   
+
+        {/* Load More Button - Mobile */}
+  {hasMore && !loading && (
+  <motion.div 
+    initial={{ opacity: 0, y: 20 }}
+    animate={{ opacity: 1, y: 0 }}
+    className="mt-6 text-center"
+  >
+    <button
+      onClick={loadMoreOrders}
+      disabled={isLoadingMore}
+      className="w-full px-8 py-3.5 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-xl hover:from-emerald-600 hover:to-teal-600 transition-all font-medium shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center justify-center gap-2 group"
+    >
+      {isLoadingMore ? (
+        <>
+          <Loader2 className="w-5 h-5 animate-spin" />
+          <span>Loading More Orders...</span>
+        </>
+      ) : (
+        <>
+          <span>Load More Orders</span>
+          <ChevronDown className="w-5 h-5 group-hover:translate-y-0.5 transition-transform" />
+        </>
+      )}
+    </button>
+    <div className="mt-3 flex items-center justify-center gap-2">
+      <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
+      <p className="text-sm text-slate-600">
+        Showing <span className="font-bold text-emerald-600">{orders.length}</span> of <span className="font-bold text-slate-800">{totalCount}</span> orders
+      </p>
+    </div>
+    {/* Progress Bar */}
+    <div className="mt-3 w-full bg-slate-200 rounded-full h-2 overflow-hidden">
+      <motion.div 
+        initial={{ width: 0 }}
+        animate={{ width: `${(orders.length / totalCount) * 100}%` }}
+        transition={{ duration: 0.5, ease: "easeOut" }}
+        className="h-full bg-gradient-to-r from-emerald-500 to-teal-500 rounded-full"
+      />
+    </div>
+  </motion.div>
+)}
         </div>
 
         {/* Empty State */}
