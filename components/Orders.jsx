@@ -186,7 +186,7 @@ const loadMoreOrders = async () => {
     
     if (result.success) {
       setOrders(prev => [...prev, ...result.data]);
-      setAllOrders(prev => [...prev, ...result.data]);
+      
       setHasMore(result.pagination.hasMore);
       setPage(nextPage);
     }
@@ -335,7 +335,7 @@ const handleClearFilters = () => {
       
       if (result.success) {
         setOrders(prev => prev.map(o => o._id === orderId ? result.data : o));
-        setAllOrders(prev => prev.map(o => o._id === orderId ? result.data : o));
+     
         if (selectedOrder && selectedOrder._id === orderId) {
           setSelectedOrder(result.data);
         }
