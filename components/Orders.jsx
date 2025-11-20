@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Search,
@@ -13,7 +13,7 @@ import {
   CreditCard,
   Utensils,
   Package,
-  CheckCircle,  
+  CheckCircle,
   AlertCircle,
   ShoppingBag,
   Calendar,
@@ -28,9 +28,12 @@ import {
   Loader2,
   ChevronLeft,
   ChevronRight,
+  FileText,
+  TrendingDown,
 } from 'lucide-react';
 import { getSettings } from '@/lib/actions/settings';
-// Status configuration with colors
+
+// Status configuration
 const statusConfig = {
   pending: {
     color: '#f59e0b',
@@ -76,15 +79,12 @@ const orderTypeConfig = {
   'delivery': { icon: '🚗', label: 'Delivery', color: '#7c3aed' },
 };
 
-
-
-
 export default function OrdersPage() {
-   const [restaurantSettings, setRestaurantSettings] = useState(null)
+  const [restaurantSettings, setRestaurantSettings] = useState(null);
   const [orders, setOrders] = useState([]);
-  const [allOrders, setAllOrders] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
+  const [orderType, setOrderType] = useState('All');
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -92,210 +92,205 @@ export default function OrdersPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [isSearching, setIsSearching] = useState(false);
-  const [page, setPage] = useState(1);
-const [hasMore, setHasMore] = useState(true);
-const [totalCount, setTotalCount] = useState(0);
-const [isLoadingMore, setIsLoadingMore] = useState(false);
-const [startTime, setStartTime] = useState('00:00');
-const [endTime, setEndTime] = useState('23:59');
-  // Pagination
 
-  
-  // Date range filters
+  // Pagination & infinite scroll
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const observerTarget = useRef(null);
+
+  // Filters
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
+  const [startTime, setStartTime] = useState('00:00');
+  const [endTime, setEndTime] = useState('23:59');
   const [sortOrder, setSortOrder] = useState('desc');
-  const [orderType, setOrderType] = useState('All');
 
-  // Debounce search
+  // Statistics - from server
+  const [totalStats, setTotalStats] = useState({
+    totalCount: 0,
+    pendingCount: 0,
+    preparingCount: 0,
+    completedCount: 0,
+    totalRevenue: 0,
+    avgOrderValue: 0,
+  });
+
   const searchTimeoutRef = useRef(null);
 
-const loadRestaurantSettings = async () => {
-  try {
-    const response = await getSettings()
-    if (response.success) {
-      setRestaurantSettings(response.data)
-     
+  // Load restaurant settings
+  const loadRestaurantSettings = async () => {
+    try {
+      const response = await getSettings();
+      if (response.success) {
+        setRestaurantSettings(response.data);
+      }
+    } catch (error) {
+      console.error('Error loading restaurant settings:', error);
     }
-  } catch (error) {
-    console.error('Error loading restaurant settings:', error)
-  }
-}
+  };
 
-  // Fetch initial orders (100 most recent)
+  // Fetch statistics from server
+  const fetchStatistics = useCallback(async () => {
+    try {
+      const { getOrderStatistics } = await import('@/lib/actions/orders');
+      const result = await getOrderStatistics({
+        status: statusFilter !== 'All' ? statusFilter : null,
+        orderType: orderType !== 'All' ? orderType : null,
+        startDate: dateFrom || null,
+        endDate: dateTo || null,
+        startTime: startTime || null,
+        endTime: endTime || null,
+      });
+
+      if (result.success) {
+        setTotalStats(result.data);
+      }
+    } catch (err) {
+      console.error('Error fetching statistics:', err);
+    }
+  }, [statusFilter, orderType, dateFrom, dateTo, startTime, endTime]);
+
+  // Fetch orders with pagination
+  const fetchOrders = useCallback(
+    async (pageNum = 1, append = false) => {
+      try {
+        if (pageNum === 1) {
+          setLoading(true);
+          setError(null);
+        } else {
+          setIsLoadingMore(true);
+        }
+
+        const { getOrdersPaginated } = await import('@/lib/actions/orders');
+
+        const result = await getOrdersPaginated({
+          page: pageNum,
+          limit: 50,
+          status: statusFilter !== 'All' ? statusFilter.toLowerCase() : null,
+          orderType: orderType !== 'All' ? orderType : null,
+          startDate: dateFrom || null,
+          endDate: dateTo || null,
+          startTime: startTime || null,
+          endTime: endTime || null,
+          searchQuery: searchQuery.trim() || null,
+        });
+
+        if (result.success) {
+          if (append) {
+            setOrders((prev) => [...prev, ...result.data]);
+          } else {
+            setOrders(result.data);
+          }
+          setHasMore(result.pagination.hasMore);
+          setPage(pageNum);
+        } else {
+          setError(result.error || 'Failed to fetch orders');
+        }
+      } catch (err) {
+        console.error('Error fetching orders:', err);
+        setError('Failed to load orders');
+      } finally {
+        setLoading(false);
+        setIsLoadingMore(false);
+      }
+    },
+    [statusFilter, orderType, dateFrom, dateTo, startTime, endTime, searchQuery]
+  );
+
+  // Initial load
   useEffect(() => {
-    fetchInitialOrders();
-       loadRestaurantSettings() 
+    fetchOrders(1, false);
+    fetchStatistics();
+    loadRestaurantSettings();
   }, []);
-const fetchInitialOrders = async (resetPage = true) => {
-  try {
-    setLoading(true);
-    setError(null);
-    
-    if (resetPage) {
-      setPage(1);
-      setOrders([]);
-    }
-    
-    const { getOrdersPaginated } = await import('@/lib/actions/orders');
-    
-    const result = await getOrdersPaginated({
-      page: 1,
-      limit: 50,
-      status: statusFilter !== 'All' ? statusFilter : null,
-      orderType: orderType !== 'All' ? orderType : null,
-      startDate: dateFrom || null,
-      endDate: dateTo || null,
-      searchQuery: searchQuery.trim() || null
-    });
-    
-    if (result.success) {
-      setOrders(result.data);
-      setAllOrders(result.data);
-      setHasMore(result.pagination.hasMore);
-      setTotalCount(result.pagination.totalCount);
 
-    } else {
-      setError(result.error || 'Failed to fetch orders');
-    }
-  } catch (err) {
-    console.error('Error fetching orders:', err);
-    setError('Failed to load orders');
-  } finally {
-    setLoading(false);
-  }
-};
-const loadMoreOrders = async () => {
-  if (!hasMore || isLoadingMore) return;
-  
-  try {
-    setIsLoadingMore(true);
-    const nextPage = page + 1;
-    
-    const { getOrdersPaginated } = await import('@/lib/actions/orders');
-    
-    const result = await getOrdersPaginated({
-      page: nextPage,
-      limit: 50,
-      status: statusFilter !== 'All' ? statusFilter : null,
-      orderType: orderType !== 'All' ? orderType : null,
-      startDate: dateFrom || null,
-      endDate: dateTo || null,
-      searchQuery: searchQuery.trim() || null
-    });
-    
-    if (result.success) {
-      setOrders(prev => [...prev, ...result.data]);
-      
-      setHasMore(result.pagination.hasMore);
-      setPage(nextPage);
-    }
-  } catch (err) {
-    console.error('Error loading more orders:', err);
-  } finally {
-    setIsLoadingMore(false);
-  }
-};
-
-  // Search with filters
-const performSearch = useCallback(async () => {
-  try {
-    setIsSearching(true);
-    setPage(1);
-    setOrders([]);
-    
-    const { getOrdersPaginated } = await import('@/lib/actions/orders');
-    
-    const result = await getOrdersPaginated({
-      page: 1,
-      limit: 50,
-      status: statusFilter !== 'All' ? statusFilter : null,
-      orderType: orderType !== 'All' ? orderType : null,
-      startDate: dateFrom || null,
-      endDate: dateTo || null,
-      searchQuery: searchQuery.trim() || null
-    });
-    
-    if (result.success) {
-      setOrders(result.data);
-      setHasMore(result.pagination.hasMore);
-      setTotalCount(result.pagination.totalCount);
-    }
-  } catch (err) {
-    console.error('Error searching orders:', err);
-  } finally {
-    setIsSearching(false);
-  }
-}, [searchQuery, dateFrom, dateTo, statusFilter, orderType]);
   // Debounced search
-useEffect(() => {
-  if (searchTimeoutRef.current) {
-    clearTimeout(searchTimeoutRef.current);
-  }
-
-  searchTimeoutRef.current = setTimeout(() => {
-    performSearch();
-  }, 500);
-
-  return () => {
+  useEffect(() => {
     if (searchTimeoutRef.current) {
       clearTimeout(searchTimeoutRef.current);
     }
-  };
-}, [searchQuery, performSearch]);
 
-  // Apply filters when changed
+    setIsSearching(true);
+    searchTimeoutRef.current = setTimeout(() => {
+      setPage(1);
+      fetchOrders(1, false);
+      fetchStatistics();
+      setIsSearching(false);
+    }, 500);
+
+    return () => {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
+    };
+  }, [searchQuery]);
+
+  // Apply filters
   useEffect(() => {
-    performSearch();
-  }, [dateFrom, dateTo, statusFilter, orderType]);
+    setPage(1);
+    fetchOrders(1, false);
+    fetchStatistics();
+  }, [statusFilter, orderType, dateFrom, dateTo, startTime, endTime]);
 
-  // Calculate statistics
-  const stats = {
-    total: orders.length,
-    pending: orders.filter(o => o.status === 'pending').length,
-    preparing: orders.filter(o => o.status === 'preparing').length,
-    completed: orders.filter(o => o.status === 'completed').length,
-    revenue: orders.filter(o => o.status === 'completed').reduce((sum, o) => sum + o.total, 0),
-    avgOrder: orders.length > 0 ? Math.round(orders.reduce((sum, o) => sum + o.total, 0) / orders.length) : 0,
-  };
+  // Infinite scroll observer
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMore && !isLoadingMore && !loading) {
+          fetchOrders(page + 1, true);
+        }
+      },
+      { threshold: 0.1 }
+    );
 
-  // Paginated and sorted orders
-const displayedOrders = React.useMemo(() => {
-  return [...orders].sort((a, b) => {
-    const dateA = new Date(a.orderDate).getTime();
-    const dateB = new Date(b.orderDate).getTime();
-    return sortOrder === 'desc' ? dateB - dateA : dateA - dateB;
-  });
-}, [orders, sortOrder]);
+    const currentTarget = observerTarget.current;
+    if (currentTarget) {
+      observer.observe(currentTarget);
+    }
 
-  // Handle refresh button
+    return () => {
+      if (currentTarget) {
+        observer.unobserve(currentTarget);
+      }
+    };
+  }, [hasMore, isLoadingMore, loading, page, fetchOrders]);
+
+  // Sorted orders
+  const displayedOrders = useMemo(() => {
+    return [...orders].sort((a, b) => {
+      const dateA = new Date(a.orderDate).getTime();
+      const dateB = new Date(b.orderDate).getTime();
+      return sortOrder === 'desc' ? dateB - dateA : dateA - dateB;
+    });
+  }, [orders, sortOrder]);
+
+  // Handle refresh
   const handleRefresh = async () => {
     setIsRefreshing(true);
-    await fetchInitialOrders();
     handleClearFilters();
+    await Promise.all([fetchOrders(1, false), fetchStatistics()]);
     setTimeout(() => setIsRefreshing(false), 1000);
   };
 
-  // Clear all filters
-const handleClearFilters = () => {
-  setSearchQuery('');
-  setStatusFilter('All');
-  setOrderType('All');
-  setDateFrom('');
-  setDateTo('');
-  setStartTime('00:00');
-  setEndTime('23:59');
-  setSortOrder('desc');
-
-  setPage(1);
-  fetchInitialOrders(true);
-};
+  // Clear filters
+  const handleClearFilters = () => {
+    setSearchQuery('');
+    setStatusFilter('All');
+    setOrderType('All');
+    setDateFrom('');
+    setDateTo('');
+    setStartTime('00:00');
+    setEndTime('23:59');
+    setSortOrder('desc');
+    setPage(1);
+  };
 
   // Export to CSV
   const handleExport = () => {
     const csvContent = [
       ['Order Number', 'Customer', 'Type', 'Table', 'Total', 'Payment', 'Status', 'Date', 'Time'],
-      ...orders.map(order => {
+      ...orders.map((order) => {
         const date = new Date(order.orderDate);
         return [
           order.orderNumber,
@@ -310,7 +305,7 @@ const handleClearFilters = () => {
         ];
       }),
     ]
-      .map(row => row.join(','))
+      .map((row) => row.join(','))
       .join('\n');
 
     const blob = new Blob([csvContent], { type: 'text/csv' });
@@ -321,7 +316,7 @@ const handleClearFilters = () => {
     a.click();
   };
 
-  // Open order details modal
+  // View order details
   const handleViewOrder = (order) => {
     setSelectedOrder(order);
     setIsModalOpen(true);
@@ -332,13 +327,13 @@ const handleClearFilters = () => {
     try {
       const { updateOrderStatus } = await import('@/lib/actions/orders');
       const result = await updateOrderStatus(orderId, newStatus);
-      
+
       if (result.success) {
-        setOrders(prev => prev.map(o => o._id === orderId ? result.data : o));
-     
+        setOrders((prev) => prev.map((o) => (o._id === orderId ? result.data : o)));
         if (selectedOrder && selectedOrder._id === orderId) {
           setSelectedOrder(result.data);
         }
+        await fetchStatistics();
       } else {
         alert(result.error || 'Failed to update status');
       }
@@ -351,13 +346,13 @@ const handleClearFilters = () => {
   // Cancel order
   const handleCancelOrder = async (orderId) => {
     if (!confirm('Are you sure you want to cancel this order?')) return;
-    
+
     try {
       const { cancelOrder } = await import('@/lib/actions/orders');
       const result = await cancelOrder(orderId);
-      
+
       if (result.success) {
-        await fetchInitialOrders();
+        await Promise.all([fetchOrders(1, false), fetchStatistics()]);
         setIsModalOpen(false);
       } else {
         alert(result.error || 'Failed to cancel order');
@@ -373,7 +368,7 @@ const handleClearFilters = () => {
     window.print();
   };
 
-  // Get active filters count
+  // Active filters count
   const activeFiltersCount = [
     statusFilter !== 'All',
     orderType !== 'All',
@@ -382,7 +377,7 @@ const handleClearFilters = () => {
     searchQuery.trim(),
   ].filter(Boolean).length;
 
-  // Format date and time
+  // Format functions
   const formatDate = (dateString) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
@@ -393,7 +388,7 @@ const handleClearFilters = () => {
     return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
   };
 
-  if (loading) {
+  if (loading && page === 1) {
     return (
       <div className="min-h-screen bg-[#f5f7fa] flex items-center justify-center">
         <div className="text-center">
@@ -404,7 +399,7 @@ const handleClearFilters = () => {
     );
   }
 
-  if (error) {
+  if (error && page === 1) {
     return (
       <div className="min-h-screen bg-[#f5f7fa] flex items-center justify-center p-4">
         <div className="bg-white rounded-xl p-8 shadow-lg max-w-md w-full text-center">
@@ -412,7 +407,7 @@ const handleClearFilters = () => {
           <h2 className="text-2xl font-bold text-[#1e293b] mb-2">Error Loading Orders</h2>
           <p className="text-[#64748b] mb-6">{error}</p>
           <button
-            onClick={fetchInitialOrders}
+            onClick={() => fetchOrders(1, false)}
             className="px-6 py-3 bg-[#10b981] text-white rounded-lg hover:bg-[#059669] transition-all font-medium"
           >
             Try Again
@@ -436,9 +431,7 @@ const handleClearFilters = () => {
               <ShoppingBag className="w-6 h-6 md:w-8 md:h-8 text-[#10b981]" />
               Orders Management
             </h1>
-            <p className="text-sm md:text-base text-[#64748b]">
-              Track and manage all customer orders
-            </p>
+            <p className="text-sm md:text-base text-[#64748b]">Track and manage all customer orders</p>
           </div>
           <div className="flex gap-2 md:gap-3">
             <button
@@ -452,7 +445,7 @@ const handleClearFilters = () => {
           </div>
         </motion.div>
 
-        {/* Statistics Cards */}
+        {/* Statistics Cards - Using Server Data */}
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 md:gap-6 mb-6 md:mb-8">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -462,8 +455,8 @@ const handleClearFilters = () => {
           >
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-[#64748b] text-xs md:text-sm mb-1">Total</p>
-                <p className="text-xl md:text-3xl font-bold text-[#1e293b]">{stats.total}</p>
+                <p className="text-[#64748b] text-xs md:text-sm mb-1">Total Orders</p>
+                <p className="text-xl md:text-3xl font-bold text-[#1e293b]">{totalStats.totalCount}</p>
               </div>
               <div className="bg-[#10b981] p-2 md:p-3 rounded-xl">
                 <ShoppingBag className="w-4 h-4 md:w-6 md:h-6 text-white" />
@@ -480,7 +473,7 @@ const handleClearFilters = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-[#64748b] text-xs md:text-sm mb-1">Pending</p>
-                <p className="text-xl md:text-3xl font-bold text-[#1e293b]">{stats.pending}</p>
+                <p className="text-xl md:text-3xl font-bold text-[#1e293b]">{totalStats.pendingCount}</p>
               </div>
               <div className="bg-[#f59e0b] p-2 md:p-3 rounded-xl">
                 <Clock className="w-4 h-4 md:w-6 md:h-6 text-white" />
@@ -497,7 +490,7 @@ const handleClearFilters = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-[#64748b] text-xs md:text-sm mb-1">Preparing</p>
-                <p className="text-xl md:text-3xl font-bold text-[#1e293b]">{stats.preparing}</p>
+                <p className="text-xl md:text-3xl font-bold text-[#1e293b]">{totalStats.preparingCount}</p>
               </div>
               <div className="bg-[#3b82f6] p-2 md:p-3 rounded-xl">
                 <Utensils className="w-4 h-4 md:w-6 md:h-6 text-white" />
@@ -514,7 +507,7 @@ const handleClearFilters = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-[#64748b] text-xs md:text-sm mb-1">Completed</p>
-                <p className="text-xl md:text-3xl font-bold text-[#1e293b]">{stats.completed}</p>
+                <p className="text-xl md:text-3xl font-bold text-[#1e293b]">{totalStats.completedCount}</p>
               </div>
               <div className="bg-[#10b981] p-2 md:p-3 rounded-xl">
                 <CheckCircle className="w-4 h-4 md:w-6 md:h-6 text-white" />
@@ -531,7 +524,9 @@ const handleClearFilters = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-[#64748b] text-xs md:text-sm mb-1">Revenue</p>
-                <p className="text-lg md:text-2xl font-bold text-[#1e293b]">₨{stats.revenue.toLocaleString()}</p>
+                <p className="text-lg md:text-2xl font-bold text-[#1e293b]">
+                  ₨{totalStats.totalRevenue.toLocaleString()}
+                </p>
               </div>
               <div className="bg-[#8b5cf6] p-2 md:p-3 rounded-xl">
                 <TrendingUp className="w-4 h-4 md:w-6 md:h-6 text-white" />
@@ -548,7 +543,9 @@ const handleClearFilters = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-[#64748b] text-xs md:text-sm mb-1">Avg Order</p>
-                <p className="text-lg md:text-2xl font-bold text-[#1e293b]">₨{stats.avgOrder}</p>
+                <p className="text-lg md:text-2xl font-bold text-[#1e293b]">
+                  ₨{Math.round(totalStats.avgOrderValue)}
+                </p>
               </div>
               <div className="bg-[#06b6d4] p-2 md:p-3 rounded-xl">
                 <DollarSign className="w-4 h-4 md:w-6 md:h-6 text-white" />
@@ -557,7 +554,7 @@ const handleClearFilters = () => {
           </motion.div>
         </div>
 
-        {/* Advanced Filters Bar */}
+        {/* Filters Bar */}
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -633,49 +630,49 @@ const handleClearFilters = () => {
               >
                 <div className="pt-4 border-t border-[#e2e8f0]">
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-               {/* Date From */}
-<div>
-  <label className="block text-[#475569] font-medium mb-2 text-sm">
-    <CalendarRange className="w-4 h-4 inline mr-1" />
-    From Date & Time
-  </label>
-  <div className="space-y-2">
-    <input
-      type="date"
-      value={dateFrom}
-      onChange={(e) => setDateFrom(e.target.value)}
-      className="w-full px-4 py-2 bg-[#f8fafc] border border-[#e2e8f0] rounded-lg focus:outline-none focus:border-[#10b981] focus:ring-2 focus:ring-[#10b981]/20 transition-all text-[#1e293b] text-sm"
-    />
-    <input
-      type="time"
-      value={startTime}
-      onChange={(e) => setStartTime(e.target.value)}
-      className="w-full px-4 py-2 bg-[#f8fafc] border border-[#e2e8f0] rounded-lg focus:outline-none focus:border-[#10b981] focus:ring-2 focus:ring-[#10b981]/20 transition-all text-[#1e293b] text-sm"
-    />
-  </div>
-</div>
+                    {/* Date From */}
+                    <div>
+                      <label className="block text-[#475569] font-medium mb-2 text-sm">
+                        <CalendarRange className="w-4 h-4 inline mr-1" />
+                        From Date & Time
+                      </label>
+                      <div className="space-y-2">
+                        <input
+                          type="date"
+                          value={dateFrom}
+                          onChange={(e) => setDateFrom(e.target.value)}
+                          className="w-full px-4 py-2 bg-[#f8fafc] border border-[#e2e8f0] rounded-lg focus:outline-none focus:border-[#10b981] focus:ring-2 focus:ring-[#10b981]/20 transition-all text-[#1e293b] text-sm"
+                        />
+                        <input
+                          type="time"
+                          value={startTime}
+                          onChange={(e) => setStartTime(e.target.value)}
+                          className="w-full px-4 py-2 bg-[#f8fafc] border border-[#e2e8f0] rounded-lg focus:outline-none focus:border-[#10b981] focus:ring-2 focus:ring-[#10b981]/20 transition-all text-[#1e293b] text-sm"
+                        />
+                      </div>
+                    </div>
 
-{/* Date To */}
-<div>
-  <label className="block text-[#475569] font-medium mb-2 text-sm">
-    <CalendarRange className="w-4 h-4 inline mr-1" />
-    To Date & Time
-  </label>
-  <div className="space-y-2">
-    <input
-      type="date"
-      value={dateTo}
-      onChange={(e) => setDateTo(e.target.value)}
-      className="w-full px-4 py-2 bg-[#f8fafc] border border-[#e2e8f0] rounded-lg focus:outline-none focus:border-[#10b981] focus:ring-2 focus:ring-[#10b981]/20 transition-all text-[#1e293b] text-sm"
-    />
-    <input
-      type="time"
-      value={endTime}
-      onChange={(e) => setEndTime(e.target.value)}
-      className="w-full px-4 py-2 bg-[#f8fafc] border border-[#e2e8f0] rounded-lg focus:outline-none focus:border-[#10b981] focus:ring-2 focus:ring-[#10b981]/20 transition-all text-[#1e293b] text-sm"
-    />
-  </div>
-</div>
+                    {/* Date To */}
+                    <div>
+                      <label className="block text-[#475569] font-medium mb-2 text-sm">
+                        <CalendarRange className="w-4 h-4 inline mr-1" />
+                        To Date & Time
+                      </label>
+                      <div className="space-y-2">
+                        <input
+                          type="date"
+                          value={dateTo}
+                          onChange={(e) => setDateTo(e.target.value)}
+                          className="w-full px-4 py-2 bg-[#f8fafc] border border-[#e2e8f0] rounded-lg focus:outline-none focus:border-[#10b981] focus:ring-2 focus:ring-[#10b981]/20 transition-all text-[#1e293b] text-sm"
+                        />
+                        <input
+                          type="time"
+                          value={endTime}
+                          onChange={(e) => setEndTime(e.target.value)}
+                          className="w-full px-4 py-2 bg-[#f8fafc] border border-[#e2e8f0] rounded-lg focus:outline-none focus:border-[#10b981] focus:ring-2 focus:ring-[#10b981]/20 transition-all text-[#1e293b] text-sm"
+                        />
+                      </div>
+                    </div>
 
                     {/* Order Type */}
                     <div>
@@ -734,20 +731,27 @@ const handleClearFilters = () => {
             )}
           </AnimatePresence>
 
-          {/* Results Summary & Pagination */}
+          {/* Results Summary */}
           <div className="mt-4 pt-4 border-t border-[#e2e8f0] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-       <p className="text-[#64748b] text-xs md:text-sm">
-  Showing <span className="font-bold text-[#10b981]">{orders.length}</span> of{' '}
-  <span className="font-bold text-[#1e293b]">{totalCount}</span> orders
-  {(dateFrom || dateTo) && (
-    <span className="ml-2 text-xs">
-      {dateFrom && <span>from <span className="font-semibold">{dateFrom} {startTime}</span></span>}
-      {dateFrom && dateTo && ' '}
-      {dateTo && <span>to <span className="font-semibold">{dateTo} {endTime}</span></span>}
-    </span>
-  )}
-</p>
-   
+            <p className="text-[#64748b] text-xs md:text-sm">
+              Showing <span className="font-bold text-[#10b981]">{orders.length}</span> of{' '}
+              <span className="font-bold text-[#1e293b]">{totalStats.totalCount}</span> orders
+              {(dateFrom || dateTo) && (
+                <span className="ml-2 text-xs">
+                  {dateFrom && (
+                    <span>
+                      from <span className="font-semibold">{dateFrom} {startTime}</span>
+                    </span>
+                  )}
+                  {dateFrom && dateTo && ' '}
+                  {dateTo && (
+                    <span>
+                      to <span className="font-semibold">{dateTo} {endTime}</span>
+                    </span>
+                  )}
+                </span>
+              )}
+            </p>
           </div>
         </motion.div>
 
@@ -762,30 +766,14 @@ const handleClearFilters = () => {
             <table className="w-full">
               <thead className="bg-[#f8fafc] border-b border-[#e2e8f0]">
                 <tr>
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-[#475569]">
-                    Order Number
-                  </th>
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-[#475569]">
-                    Customer
-                  </th>
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-[#475569]">
-                    Type / Table
-                  </th>
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-[#475569]">
-                    Total Amount
-                  </th>
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-[#475569]">
-                    Payment
-                  </th>
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-[#475569]">
-                    Status
-                  </th>
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-[#475569]">
-                    Date & Time
-                  </th>
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-[#475569]">
-                    Action
-                  </th>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-[#475569]">Order Number</th>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-[#475569]">Customer</th>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-[#475569]">Type / Table</th>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-[#475569]">Total Amount</th>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-[#475569]">Payment</th>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-[#475569]">Status</th>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-[#475569]">Date & Time</th>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-[#475569]">Action</th>
                 </tr>
               </thead>
               <tbody>
@@ -794,7 +782,7 @@ const handleClearFilters = () => {
                     const status = statusConfig[order.status] || statusConfig.pending;
                     const StatusIcon = status.icon;
                     const orderTypeInfo = orderTypeConfig[order.orderType] || orderTypeConfig['dine-in'];
-                    
+
                     return (
                       <motion.tr
                         key={order._id}
@@ -804,18 +792,17 @@ const handleClearFilters = () => {
                         transition={{ delay: index * 0.03 }}
                         className="border-b border-[#f1f5f9] hover:bg-[#f8fafc] transition-all"
                       >
-                        <td className="px-6 py-4 font-bold text-[#1e293b]">
-                          {order.orderNumber}
-                        </td>
-                        <td className="px-6 py-4 text-[#475569]">
-                          {order.customerName || 'Guest'}
-                        </td>
+                        <td className="px-6 py-4 font-bold text-[#1e293b]">{order.orderNumber}</td>
+                        <td className="px-6 py-4 text-[#475569]">{order.customerName || 'Guest'}</td>
                         <td className="px-6 py-4">
                           <div className="flex items-center gap-2">
-                            <span className="px-3 py-1 rounded-lg text-sm font-medium" style={{ 
-                              backgroundColor: `${orderTypeInfo.color}20`,
-                              color: orderTypeInfo.color 
-                            }}>
+                            <span
+                              className="px-3 py-1 rounded-lg text-sm font-medium"
+                              style={{
+                                backgroundColor: `${orderTypeInfo.color}20`,
+                                color: orderTypeInfo.color,
+                              }}
+                            >
                               {orderTypeInfo.icon} {orderTypeInfo.label}
                               {order.tableNumber && order.orderType === 'dine-in' && ` ${order.tableNumber}`}
                             </span>
@@ -871,47 +858,17 @@ const handleClearFilters = () => {
             </table>
           </div>
 
-        {/* Load More Button - Desktop */}
-      {hasMore && !loading && (
-  <motion.div 
-    initial={{ opacity: 0, y: 20 }}
-    animate={{ opacity: 1, y: 0 }}
-    className="mt-6 text-center"
-  >
-    <button
-      onClick={loadMoreOrders}
-      disabled={isLoadingMore}
-      className="w-full px-8 py-3.5 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-xl hover:from-emerald-600 hover:to-teal-600 transition-all font-medium shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center justify-center gap-2 group"
-    >
-      {isLoadingMore ? (
-        <>
-          <Loader2 className="w-5 h-5 animate-spin" />
-          <span>Loading More Orders...</span>
-        </>
-      ) : (
-        <>
-          <span>Load More Orders</span>
-          <ChevronDown className="w-5 h-5 group-hover:translate-y-0.5 transition-transform" />
-        </>
-      )}
-    </button>
-    <div className="mt-3 flex items-center justify-center gap-2">
-      <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
-      <p className="text-sm text-slate-600">
-        Showing <span className="font-bold text-emerald-600">{orders.length}</span> of <span className="font-bold text-slate-800">{totalCount}</span> orders
-      </p>
-    </div>
-    {/* Progress Bar */}
-    <div className="mt-3 w-full bg-slate-200 rounded-full h-2 overflow-hidden">
-      <motion.div 
-        initial={{ width: 0 }}
-        animate={{ width: `${(orders.length / totalCount) * 100}%` }}
-        transition={{ duration: 0.5, ease: "easeOut" }}
-        className="h-full bg-gradient-to-r from-emerald-500 to-teal-500 rounded-full"
-      />
-    </div>
-  </motion.div>
-)}
+          {/* Infinite Scroll Trigger */}
+          {hasMore && (
+            <div ref={observerTarget} className="py-8 flex justify-center">
+              {isLoadingMore && (
+                <div className="flex items-center gap-2 text-[#64748b]">
+                  <Loader2 className="w-5 h-5 animate-spin text-[#10b981]" />
+                  <span className="text-sm">Loading more orders...</span>
+                </div>
+              )}
+            </div>
+          )}
         </motion.div>
 
         {/* Orders Cards - Mobile View */}
@@ -921,7 +878,7 @@ const handleClearFilters = () => {
               const status = statusConfig[order.status] || statusConfig.pending;
               const StatusIcon = status.icon;
               const orderTypeInfo = orderTypeConfig[order.orderType] || orderTypeConfig['dine-in'];
-              
+
               return (
                 <motion.div
                   key={order._id}
@@ -967,9 +924,7 @@ const handleClearFilters = () => {
                     </div>
                     <div className="flex items-center justify-between pt-2.5 border-t border-[#f1f5f9]">
                       <span className="text-[#64748b] font-medium text-sm">Total:</span>
-                      <span className="font-bold text-[#10b981] text-lg">
-                        ₨{order.total.toLocaleString()}
-                      </span>
+                      <span className="font-bold text-[#10b981] text-lg">₨{order.total.toLocaleString()}</span>
                     </div>
                   </div>
 
@@ -985,49 +940,17 @@ const handleClearFilters = () => {
             })}
           </AnimatePresence>
 
-   
-
-        {/* Load More Button - Mobile */}
-  {hasMore && !loading && (
-  <motion.div 
-    initial={{ opacity: 0, y: 20 }}
-    animate={{ opacity: 1, y: 0 }}
-    className="mt-6 text-center"
-  >
-    <button
-      onClick={loadMoreOrders}
-      disabled={isLoadingMore}
-      className="w-full px-8 py-3.5 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-xl hover:from-emerald-600 hover:to-teal-600 transition-all font-medium shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center justify-center gap-2 group"
-    >
-      {isLoadingMore ? (
-        <>
-          <Loader2 className="w-5 h-5 animate-spin" />
-          <span>Loading More Orders...</span>
-        </>
-      ) : (
-        <>
-          <span>Load More Orders</span>
-          <ChevronDown className="w-5 h-5 group-hover:translate-y-0.5 transition-transform" />
-        </>
-      )}
-    </button>
-    <div className="mt-3 flex items-center justify-center gap-2">
-      <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
-      <p className="text-sm text-slate-600">
-        Showing <span className="font-bold text-emerald-600">{orders.length}</span> of <span className="font-bold text-slate-800">{totalCount}</span> orders
-      </p>
-    </div>
-    {/* Progress Bar */}
-    <div className="mt-3 w-full bg-slate-200 rounded-full h-2 overflow-hidden">
-      <motion.div 
-        initial={{ width: 0 }}
-        animate={{ width: `${(orders.length / totalCount) * 100}%` }}
-        transition={{ duration: 0.5, ease: "easeOut" }}
-        className="h-full bg-gradient-to-r from-emerald-500 to-teal-500 rounded-full"
-      />
-    </div>
-  </motion.div>
-)}
+          {/* Infinite Scroll Trigger - Mobile */}
+          {hasMore && (
+            <div ref={observerTarget} className="py-8 flex justify-center">
+              {isLoadingMore && (
+                <div className="flex items-center gap-2 text-[#64748b]">
+                  <Loader2 className="w-5 h-5 animate-spin text-[#10b981]" />
+                  <span className="text-sm">Loading more orders...</span>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Empty State */}
@@ -1081,7 +1004,8 @@ const handleClearFilters = () => {
                   </h2>
                   <p className="text-[#d1fae5] text-xs md:text-sm mt-1 flex items-center gap-2">
                     <Calendar className="w-3 h-3 md:w-4 md:h-4" />
-                    {formatDate(selectedOrder.orderDate)} • <Clock className="w-3 h-3 md:w-4 md:h-4" /> {formatTime(selectedOrder.orderDate)}
+                    {formatDate(selectedOrder.orderDate)} • <Clock className="w-3 h-3 md:w-4 md:h-4" />{' '}
+                    {formatTime(selectedOrder.orderDate)}
                   </p>
                 </div>
                 <button
@@ -1099,7 +1023,9 @@ const handleClearFilters = () => {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4">
                   <div className="bg-gradient-to-br from-[#dbeafe] to-[#bfdbfe] p-4 rounded-xl">
                     <p className="text-[#3b82f6] text-xs font-medium mb-1">Customer</p>
-                    <p className="font-bold text-[#1e293b] text-base md:text-lg">{selectedOrder.customerName || 'Guest'}</p>
+                    <p className="font-bold text-[#1e293b] text-base md:text-lg">
+                      {selectedOrder.customerName || 'Guest'}
+                    </p>
                     {selectedOrder.phoneNumber && (
                       <p className="text-xs text-[#64748b] mt-1">📞 {selectedOrder.phoneNumber}</p>
                     )}
@@ -1107,7 +1033,8 @@ const handleClearFilters = () => {
                   <div className="bg-gradient-to-br from-[#fef3c7] to-[#fde68a] p-4 rounded-xl">
                     <p className="text-[#d97706] text-xs font-medium mb-1">Order Type</p>
                     <p className="font-bold text-[#1e293b] text-base md:text-lg">
-                      {orderTypeConfig[selectedOrder.orderType]?.icon} {orderTypeConfig[selectedOrder.orderType]?.label}
+                      {orderTypeConfig[selectedOrder.orderType]?.icon}{' '}
+                      {orderTypeConfig[selectedOrder.orderType]?.label}
                     </p>
                     {selectedOrder.tableNumber && (
                       <p className="text-xs text-[#64748b] mt-1">Table: {selectedOrder.tableNumber}</p>
@@ -1119,7 +1046,9 @@ const handleClearFilters = () => {
                   <div
                     className="p-4 rounded-xl"
                     style={{
-                      background: `linear-gradient(to bottom right, ${statusConfig[selectedOrder.status]?.bgColor}, ${statusConfig[selectedOrder.status]?.color}20)`,
+                      background: `linear-gradient(to bottom right, ${
+                        statusConfig[selectedOrder.status]?.bgColor
+                      }, ${statusConfig[selectedOrder.status]?.color}20)`,
                     }}
                   >
                     <p
@@ -1145,15 +1074,19 @@ const handleClearFilters = () => {
                       <CreditCard className="w-4 h-4 md:w-5 md:h-5 text-[#64748b]" />
                       <span className="font-medium text-[#475569] text-sm md:text-base">Payment Method:</span>
                     </div>
-                    <span className="font-bold text-[#1e293b] text-sm md:text-base">{selectedOrder.paymentMethod}</span>
+                    <span className="font-bold text-[#1e293b] text-sm md:text-base">
+                      {selectedOrder.paymentMethod}
+                    </span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="font-medium text-[#475569] text-sm md:text-base">Payment Status:</span>
-                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                      selectedOrder.paymentStatus === 'paid' 
-                        ? 'bg-[#d1fae5] text-[#059669]' 
-                        : 'bg-[#fee2e2] text-[#dc2626]'
-                    }`}>
+                    <span
+                      className={`px-3 py-1 rounded-full text-xs font-medium ${
+                        selectedOrder.paymentStatus === 'paid'
+                          ? 'bg-[#d1fae5] text-[#059669]'
+                          : 'bg-[#fee2e2] text-[#dc2626]'
+                      }`}
+                    >
                       {selectedOrder.paymentStatus === 'paid' ? '✓ Paid' : '⏱ Pending'}
                     </span>
                   </div>
@@ -1219,12 +1152,14 @@ const handleClearFilters = () => {
                         <span className="font-semibold">-₨{selectedOrder.discount.toLocaleString()}</span>
                       </div>
                     )}
-                  { selectedOrder.tax > 0 &&  <div className="flex justify-between items-center text-sm md:text-base">
-                      <span className="text-[#64748b]">Tax ({selectedOrder.taxPercentage}%):</span>
-                      <span className="font-semibold text-[#1e293b]">
-                        ₨{selectedOrder.tax.toLocaleString()}
-                      </span>
-                    </div>}
+                    {selectedOrder.tax > 0 && (
+                      <div className="flex justify-between items-center text-sm md:text-base">
+                        <span className="text-[#64748b]">Tax ({selectedOrder.taxPercentage}%):</span>
+                        <span className="font-semibold text-[#1e293b]">
+                          ₨{selectedOrder.tax.toLocaleString()}
+                        </span>
+                      </div>
+                    )}
                     {selectedOrder.deliveryCharge > 0 && (
                       <div className="flex justify-between items-center text-sm md:text-base">
                         <span className="text-[#64748b]">Delivery Charge:</span>
@@ -1308,16 +1243,21 @@ const handleClearFilters = () => {
       </AnimatePresence>
 
       {/* Thermal Receipt Print Style */}
-   {selectedOrder && (
+      {selectedOrder && (
         <div className="hidden print:block print-receipt">
           <div className="receipt-container">
             {/* Header */}
             <div className="text-center mb-1 border-b-2 border-dashed border-black pb-1">
-                  <h1 className="text-[22px] font-bold uppercase">{restaurantSettings?.restaurantName || 'RESTAURANT'}</h1>
-                  <p className="text-xs">{restaurantSettings?.address || ''}</p>
-                  <p className="text-xs"> {restaurantSettings?.phone1 || ''}{restaurantSettings?.phone2 ? ` | ${restaurantSettings.phone2}` : ''}</p>
-                  <p className="text-xs text-center font-bold">BILL RECEIPT</p>
-                </div>
+              <h1 className="text-[22px] font-bold uppercase">
+                {restaurantSettings?.restaurantName || 'RESTAURANT'}
+              </h1>
+              <p className="text-xs">{restaurantSettings?.address || ''}</p>
+              <p className="text-xs">
+                {restaurantSettings?.phone1 || ''}
+                {restaurantSettings?.phone2 ? ` | ${restaurantSettings.phone2}` : ''}
+              </p>
+              <p className="text-xs text-center font-bold">BILL RECEIPT</p>
+            </div>
 
             {/* Order Info */}
             <div className="text-xs mb-1 pb-1 border-b border-dashed border-black">
@@ -1327,9 +1267,15 @@ const handleClearFilters = () => {
               </div>
               <div className="flex justify-between">
                 <span>Date:</span>
-                <span>{new Date(selectedOrder.orderDate).toLocaleString('en-US', { 
-                  month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' 
-                })}</span>
+                <span>
+                  {new Date(selectedOrder.orderDate).toLocaleString('en-US', {
+                    month: 'short',
+                    day: 'numeric',
+                    year: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })}
+                </span>
               </div>
               <div className="flex justify-between">
                 <span>Type:</span>
@@ -1341,7 +1287,7 @@ const handleClearFilters = () => {
                   <span className="font-bold">{selectedOrder.tableNumber}</span>
                 </div>
               )}
-              {selectedOrder.customerName !=="Guest" && (
+              {selectedOrder.customerName !== 'Guest' && (
                 <div className="flex justify-between">
                   <span>Customer:</span>
                   <span>{selectedOrder.customerName}</span>
@@ -1359,10 +1305,12 @@ const handleClearFilters = () => {
                   <p className="text-xs">{selectedOrder.address}</p>
                 </div>
               )}
-             {selectedOrder.paymentMethod !=="cash" &&  <div className="flex justify-between">
-                <span>Payment:</span>
-                <span className="font-bold">{selectedOrder.paymentMethod}</span>
-              </div>}
+              {selectedOrder.paymentMethod !== 'cash' && (
+                <div className="flex justify-between">
+                  <span>Payment:</span>
+                  <span className="font-bold">{selectedOrder.paymentMethod}</span>
+                </div>
+              )}
             </div>
 
             {/* Items Table */}
@@ -1395,30 +1343,30 @@ const handleClearFilters = () => {
                 <span>Subtotal:</span>
                 <span>₨{selectedOrder.subtotal.toFixed(2)}</span>
               </div>
-           { selectedOrder.tax > 0 &&  <div className="flex justify-between">
-                <span>Service Charges ({selectedOrder.taxPercentage}%):</span>
-                <span>₨{selectedOrder.tax.toFixed(2)}</span>
-              </div>}
+              {selectedOrder.tax > 0 && (
+                <div className="flex justify-between">
+                  <span>Service Charges ({selectedOrder.taxPercentage}%):</span>
+                  <span>₨{selectedOrder.tax.toFixed(2)}</span>
+                </div>
+              )}
               {selectedOrder.deliveryCharge > 0 && (
                 <div className="flex justify-between">
                   <span>Delivery Charges:</span>
                   <span>₨{selectedOrder.deliveryCharge.toFixed(2)}</span>
                 </div>
               )}
-          {selectedOrder.discountPercentage > 0 && (
-  <div className="flex justify-between">
-    <span>
-      Discount (
-        {
-          selectedOrder.discountPercentage.toString().includes(".")
-            ? selectedOrder.discountPercentage.toString().split(".")[0]
-            : selectedOrder.discountPercentage
-        }%
-      ):
-    </span>
-    <span>-₨{selectedOrder.discount.toFixed(2)}</span>
-  </div>
-)}
+              {selectedOrder.discountPercentage > 0 && (
+                <div className="flex justify-between">
+                  <span>
+                    Discount (
+                    {selectedOrder.discountPercentage.toString().includes('.')
+                      ? selectedOrder.discountPercentage.toString().split('.')[0]
+                      : selectedOrder.discountPercentage}
+                    %):
+                  </span>
+                  <span>-₨{selectedOrder.discount.toFixed(2)}</span>
+                </div>
+              )}
 
               <div className="flex justify-between text-base font-bold border-t border-black pt-1">
                 <span>TOTAL:</span>
@@ -1427,59 +1375,56 @@ const handleClearFilters = () => {
             </div>
 
             {/* Footer */}
-                           <div className="text-center text-xs border-t border-dashed border-black pt-1">
-                  <p className="font-bold">{restaurantSettings?.footerMessage || 'Thank You for Dining with Us!'}</p>
-          
-                  <p className="text-[10px]">Print Time:{new Date().toLocaleString()}</p>
-   <div className="pt-1 border-t text-center border-black">
-                    <p className="text-[15px] font-medium">
-                      Software By: M.Ammar Shaikh
-                    </p>
-                    <p className="text-[13px] font-[400] break-all">
-                      Tel: 0316-0346330 | 0370-2741544
-                    </p>
-                  </div>
-</div>
-</div>
-</div>
+            <div className="text-center text-xs border-t border-dashed border-black pt-1">
+              <p className="font-bold">{restaurantSettings?.footerMessage || 'Thank You for Dining with Us!'}</p>
+
+              <p className="text-[10px]">Print Time:{new Date().toLocaleString()}</p>
+              <div className="pt-1 border-t text-center border-black">
+                <p className="text-[15px] font-medium">Software By: M.Ammar Shaikh</p>
+                <p className="text-[13px] font-[400] break-all">Tel: 0316-0346330 | 0370-2741544</p>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
+
       {/* Print Styles */}
       <style jsx global>{`
         @media print {
           body * {
             visibility: hidden;
           }
-          
+
           .print-receipt,
           .print-receipt * {
             visibility: visible;
           }
-          
+
           .print-receipt {
             position: absolute;
             left: 0;
             top: 0;
             width: 72mm;
           }
-          
+
           .receipt-container {
             width: 72mm;
             max-width: 72mm;
             margin: 0;
-           padding: 2mm 2mm;
-           padding-right: 1mm;: 
+            padding: 2mm 2mm;
+            padding-right: 1mm;
             font-family: 'Courier New', monospace;
             color: #000;
             background: #fff;
             font-size: 11px;
             line-height: 1.3;
           }
-          
+
           @page {
             size: 72mm auto;
             margin: 0;
           }
-          
+
           * {
             box-shadow: none !important;
             text-shadow: none !important;
