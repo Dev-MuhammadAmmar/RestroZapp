@@ -90,6 +90,7 @@ export default function ProfessionalReportsPage() {
   const [orderTypeFilter, setOrderTypeFilter] = useState('all');
   const [orderPaymentFilter, setOrderPaymentFilter] = useState('all');
   const [showAllOrders, setShowAllOrders] = useState(false);
+  const [ordersToShow, setOrdersToShow] = useState(50); // ADD THI
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [showOrderModal, setShowOrderModal] = useState(false);
 
@@ -112,21 +113,31 @@ export default function ProfessionalReportsPage() {
     }
   }, [reportType]);
 
-  const getDateFilters = () => {
-    const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    let startDate, endDate;
+const getDateFilters = () => {
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  let startDate, endDate;
 
-    if (reportType === 'Today') {
-      startDate = today;
-      endDate = new Date(today);
-      endDate.setHours(23, 59, 59, 999);
-    } else if (reportType === 'This Week') {
-      startDate = new Date(today);
-      startDate.setDate(startDate.getDate() - 7);
-      endDate = new Date(today);
-      endDate.setHours(23, 59, 59, 999);
-    } else if (reportType === 'This Month') {
+  if (reportType === 'Today') {
+    startDate = today;
+    endDate = new Date(today);
+    endDate.setHours(23, 59, 59, 999);
+  } else if (reportType === 'Yesterday') {
+    // ADD THIS NEW BLOCK
+    startDate = new Date(today);
+    startDate.setDate(startDate.getDate() - 1);
+    startDate.setHours(0, 0, 0, 0);
+    endDate = new Date(today);
+    endDate.setDate(endDate.getDate() - 1);
+    endDate.setHours(23, 59, 59, 999);
+  } else if (reportType === 'This Week') {
+    startDate = new Date(today);
+    startDate.setDate(startDate.getDate() - 7);
+    endDate = new Date(today);
+    endDate.setHours(23, 59, 59, 999);
+  }
+  // ... rest of the function
+    else if (reportType === 'This Month') {
       startDate = new Date(today);
       startDate.setDate(startDate.getDate() - 30);
       endDate = new Date(today);
@@ -286,33 +297,34 @@ const handleExportPDF = () => {
     return showAllItems ? items : items.slice(0, 8);
   };
 
-  const getFilteredOrders = useMemo(() => {
-    if (!reportsData?.orders) return [];
-    
-    let filtered = [...reportsData.orders];
-    
-    if (orderSearchTerm) {
-      filtered = filtered.filter(order => 
-        order.orderNumber.toLowerCase().includes(orderSearchTerm.toLowerCase()) ||
-        order.customerName.toLowerCase().includes(orderSearchTerm.toLowerCase()) ||
-        order.phoneNumber?.includes(orderSearchTerm)
-      );
-    }
-    
-    if (orderStatusFilter !== 'all') {
-      filtered = filtered.filter(order => order.status === orderStatusFilter);
-    }
-    
-    if (orderTypeFilter !== 'all') {
-      filtered = filtered.filter(order => order.orderType === orderTypeFilter);
-    }
-    
-    if (orderPaymentFilter !== 'all') {
-      filtered = filtered.filter(order => order.paymentMethod === orderPaymentFilter);
-    }
-    
-    return showAllOrders ? filtered : filtered.slice(0, 10);
-  }, [reportsData?.orders, orderSearchTerm, orderStatusFilter, orderTypeFilter, orderPaymentFilter, showAllOrders]);
+const getFilteredOrders = useMemo(() => {
+  if (!reportsData?.orders) return [];
+  
+  let filtered = [...reportsData.orders];
+  
+  if (orderSearchTerm) {
+    filtered = filtered.filter(order => 
+      order.orderNumber.toLowerCase().includes(orderSearchTerm.toLowerCase()) ||
+      order.customerName.toLowerCase().includes(orderSearchTerm.toLowerCase()) ||
+      order.phoneNumber?.includes(orderSearchTerm)
+    );
+  }
+  
+  if (orderStatusFilter !== 'all') {
+    filtered = filtered.filter(order => order.status === orderStatusFilter);
+  }
+  
+  if (orderTypeFilter !== 'all') {
+    filtered = filtered.filter(order => order.orderType === orderTypeFilter);
+  }
+  
+  if (orderPaymentFilter !== 'all') {
+    filtered = filtered.filter(order => order.paymentMethod === orderPaymentFilter);
+  }
+  
+  // CHANGE THIS LINE:
+  return showAllOrders ? filtered : filtered.slice(0, ordersToShow);
+}, [reportsData?.orders, orderSearchTerm, orderStatusFilter, orderTypeFilter, orderPaymentFilter, showAllOrders, ordersToShow]);
 
   const getOrderTypeIcon = (type) => {
     switch (type) {
@@ -342,7 +354,10 @@ const handleExportPDF = () => {
     };
     return badges[status] || badges.pending;
   };
-
+// Reset pagination when filters change
+useEffect(() => {
+  setOrdersToShow(50);
+}, [orderSearchTerm, orderStatusFilter, orderTypeFilter, orderPaymentFilter, reportType]);
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center p-4">
@@ -436,7 +451,7 @@ const handleExportPDF = () => {
               <Calendar className="w-5 h-5 text-emerald-500" />
               <span className="font-semibold text-slate-800">Report Period:</span>
               <div className="flex flex-wrap gap-2">
-                {['Today', 'This Week', 'This Month', 'Custom Range'].map((type) => (
+                {['Today', 'Yesterday','This Week', 'This Month', 'Custom Range'].map((type) => (
                   <button
                     key={type}
                     onClick={() => {
@@ -698,17 +713,18 @@ const handleExportPDF = () => {
                   />
                 </div>
                 
-                <select
-                  value={orderStatusFilter}
-                  onChange={(e) => setOrderStatusFilter(e.target.value)}
-                  className="px-4 py-2.5 bg-white border-2 border-slate-200 rounded-xl focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all text-sm"
-                >
-                  <option value="all">All Status</option>
-                  <option value="completed">Completed</option>
-                  <option value="pending">Pending</option>
-                  <option value="cancelled">Cancelled</option>
-                </select>
-                
+             <select
+  value={orderStatusFilter}
+  onChange={(e) => setOrderStatusFilter(e.target.value)}
+  className="px-4 py-2.5 bg-white border-2 border-slate-200 rounded-xl focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all text-sm"
+>
+  <option value="all">All Status</option>
+  <option value="completed">Completed</option>
+  <option value="pending">Pending</option>
+  <option value="preparing">Preparing</option>
+  <option value="ready">Ready</option>
+  <option value="cancelled">Cancelled</option> {/* ADD THIS */}
+</select>
                 <select
                   value={orderTypeFilter}
                   onChange={(e) => setOrderTypeFilter(e.target.value)}
@@ -849,26 +865,32 @@ const handleExportPDF = () => {
                 </div>
               )}
 
-              {orders && orders.length > 10 && (
-                <div className="text-center mt-6">
-                  <button
-                    onClick={() => setShowAllOrders(!showAllOrders)}
-                    className="px-6 py-3 bg-gradient-to-r from-blue-500 to-cyan-600 text-white rounded-xl hover:from-blue-600 hover:to-cyan-700 transition-all font-semibold shadow-lg hover:shadow-xl flex items-center gap-2 mx-auto"
-                  >
-                    {showAllOrders ? (
-                      <>
-                        <ChevronUp className="w-5 h-5" />
-                        Show Less
-                      </>
-                    ) : (
-                      <>
-                        <ChevronDown className="w-5 h-5" />
-                        Show All {orders.length} Orders
-                      </>
-                    )}
-                  </button>
-                </div>
-              )}
+         {orders && orders.length > ordersToShow && !showAllOrders && (
+  <div className="text-center mt-6">
+    <button
+      onClick={() => setOrdersToShow(prev => prev + 50)}
+      className="px-6 py-3 bg-gradient-to-r from-blue-500 to-cyan-600 text-white rounded-xl hover:from-blue-600 hover:to-cyan-700 transition-all font-semibold shadow-lg hover:shadow-xl flex items-center gap-2 mx-auto"
+    >
+      <ChevronDown className="w-5 h-5" />
+      Load 50 More Orders ({Math.min(ordersToShow + 50, orders.length - ordersToShow)} remaining)
+    </button>
+  </div>
+)}
+
+{showAllOrders && (
+  <div className="text-center mt-6">
+    <button
+      onClick={() => {
+        setShowAllOrders(false);
+        setOrdersToShow(50);
+      }}
+      className="px-6 py-3 bg-gradient-to-r from-blue-500 to-cyan-600 text-white rounded-xl hover:from-blue-600 hover:to-cyan-700 transition-all font-semibold shadow-lg hover:shadow-xl flex items-center gap-2 mx-auto"
+    >
+      <ChevronUp className="w-5 h-5" />
+      Show Less
+    </button>
+  </div>
+)}
             </div>
           </div>
         </motion.div>
