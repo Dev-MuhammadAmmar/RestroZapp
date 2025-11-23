@@ -405,7 +405,7 @@ const loadRestaurantSettings = async () => {
  // Auto-update delivery charge and tax based on order type
  useEffect(() => {
   if (orderDetails.orderType === 'delivery' && orderDetails.deliveryCharge === 0) {
-    setOrderDetails(prev => ({ ...prev, deliveryCharge: restaurantSettings?.deliveryCharges || 50 }))
+    setOrderDetails(prev => ({ ...prev, deliveryCharge: restaurantSettings?.deliveryCharges || 0 }))
   } else if (orderDetails.orderType !== 'delivery') {
     setOrderDetails(prev => ({ ...prev, deliveryCharge: 0 }))
   }
