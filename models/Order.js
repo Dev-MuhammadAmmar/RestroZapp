@@ -231,12 +231,13 @@ orderSchema.statics.getDailySales = async function(date = new Date()) {
 };
 
 // Static method to get sales for date range
+// Static method to get sales for date range
 orderSchema.statics.getSalesForRange = async function(startDate, endDate) {
   const result = await this.aggregate([
     {
       $match: {
         orderDate: { $gte: new Date(startDate), $lte: new Date(endDate) },
-        status: { $in: ['completed', 'ready'] },
+        status: { $in: ['completed', 'ready'] }, // ✅ ADD THIS LINE
       },
     },
     {
@@ -255,11 +256,12 @@ orderSchema.statics.getSalesForRange = async function(startDate, endDate) {
 };
 
 // Static method to get popular items
+// Static method to get popular items
 orderSchema.statics.getPopularItems = async function(limit = 10) {
   const result = await this.aggregate([
     {
       $match: {
-        status: { $in: ['completed', 'ready'] },
+        status: { $in: ['completed', 'ready'] }, // ✅ ADD THIS LINE
       },
     },
     { $unwind: '$items' },

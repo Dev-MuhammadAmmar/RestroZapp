@@ -33,7 +33,7 @@ import {
   Line,
 } from 'recharts';
 import { getSalesForRange } from '@/lib/actions/orders';
-import { getPopularItems } from '@/lib/actions/orders';
+import {getPopularItemsForRange } from '@/lib/actions/orders';
 import { getActiveMenuItems } from '@/lib/actions/menuItems';
 
 // Status colors configuration
@@ -176,7 +176,13 @@ export default function DashboardPage() {
         }
 
         // Fetch popular items
-        const popularResult = await getPopularItems(5);
+        const todayStart = new Date();
+todayStart.setHours(0, 0, 0, 0);
+const todayEnd = new Date();
+todayEnd.setHours(23, 59, 59, 999);
+
+const popularResult = await getPopularItemsForRange(todayStart.toISOString(), todayEnd.toISOString(), 5);
+
         const popularItems = popularResult.success ? popularResult.data : [];
 
         // Fetch menu items for stats
@@ -502,11 +508,11 @@ export default function DashboardPage() {
           >
             <div className="flex items-center justify-between mb-4 sm:mb-6">
               <div>
-                <h2 className="text-lg sm:text-xl font-bold text-[#1e293b] flex items-center gap-2">
-                  <Package className="w-5 h-5 sm:w-6 sm:h-6 text-[#8b5cf6]" />
-                  Popular Items
-                </h2>
-                <p className="text-xs sm:text-sm text-[#64748b] mt-1">Best sellers</p>
+<h2 className="text-lg sm:text-xl font-bold text-[#1e293b] flex items-center gap-2">
+  <Package className="w-5 h-5 sm:w-6 sm:h-6 text-[#8b5cf6]" />
+  Popular Items Today
+</h2>
+<p className="text-xs sm:text-sm text-[#64748b] mt-1">Today's best sellers</p>
               </div>
             </div>
             <div className="space-y-2 sm:space-y-3">

@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { useMemo } from 'react'
+import { useCallback } from 'react'
 import {
   Search,
   Plus,
@@ -105,12 +107,22 @@ const [completionDetails, setCompletionDetails] = useState({
   const [isSubmittingOrder, setIsSubmittingOrder] = useState(false)
   const [isLoadingPendingOrders, setIsLoadingPendingOrders] = useState(false)
   const [restaurantSettings, setRestaurantSettings] = useState(null)
+  const [isCancellingOrder, setIsCancellingOrder] = useState(false) 
 // Edit order states - REPLACE your existing edit states with these
 const [editingOrder, setEditingOrder] = useState(null)
 const [editCart, setEditCart] = useState([])
 const [isEditModalOpen, setIsEditModalOpen] = useState(false)
 const [isSavingEdit, setIsSavingEdit] = useState(false)
 const [cancelConfirmation, setCancelConfirmation] = useState(null)
+// Quick quantity input states
+// ✅ ADD THESE NEW STATES FOR EDIT MODAL QUANTITY INPUT
+const [editQuickQuantity, setEditQuickQuantity] = useState(0)
+const [selectedEditItemForQuantity, setSelectedEditItemForQuantity] = useState(null)
+const editQuantityInputRef = useRef(null)
+// Quick quantity input states
+const [quickQuantity, setQuickQuantity] = useState(0)
+const [selectedItemForQuantity, setSelectedItemForQuantity] = useState(null)
+const quantityInputRef = useRef(null)
 // NEW: Add these for edit modal functionality
 const [editSearchQuery, setEditSearchQuery] = useState('')
 const [editSelectedCategory, setEditSelectedCategory] = useState('All')
@@ -144,6 +156,12 @@ const [orderDetails, setOrderDetails] = useState({
     notes: '',
   })
 
+
+    // Show notification
+  const showNotification = (message, type = 'success') => {
+    setNotification({ message, type })
+    setTimeout(() => setNotification(null), 3000)
+  }
 
   // Add after your existing state declarations (around line 45)
 const [pinnedItems, setPinnedItems] = useState([])
@@ -347,14 +365,11 @@ const loadMenuItems = async () => {
 }
 
 // Add this function after loadMenuItems
-const handleTogglePin = async (menuItemId, currentPinStatus) => {
+const handleTogglePin = useCallback(async (menuItemId, currentPinStatus) => {
   try {
     const response = await toggleMenuItemPin(menuItemId)
-    
     if (response.success) {
-      // Reload menu items to update the display
       await loadMenuItems()
-      
       showNotification(
         currentPinStatus ? 'Item unpinned' : 'Item pinned to top', 
         'success'
@@ -366,7 +381,7 @@ const handleTogglePin = async (menuItemId, currentPinStatus) => {
     console.error('Error toggling pin:', error)
     showNotification('Failed to update pin status', 'error')
   }
-}
+}, [loadMenuItems, showNotification])
 
   const loadPendingOrders = async () => {
     try {
@@ -471,26 +486,24 @@ const updateDiscountAmount = (amount) => {
     }
   }, [searchQuery, menuItems])
 
-  const handleSearchKeyDown = (e) => {
-    if (!showSearchDropdown || searchResults.length === 0) return
+const handleSearchKeyDown = (e) => {
+  if (!showSearchDropdown || searchResults.length === 0) return
 
-    if (e.key === 'ArrowDown') {
-      e.preventDefault()
-      setSelectedSearchIndex((prev) => prev < searchResults.length - 1 ? prev + 1 : prev)
-    } else if (e.key === 'ArrowUp') {
-      e.preventDefault()
-      setSelectedSearchIndex((prev) => (prev > 0 ? prev - 1 : -1))
-    } else if (e.key === 'Enter') {
-      e.preventDefault()
-      if (selectedSearchIndex >= 0) {
-        addToCart(searchResults[selectedSearchIndex])
-        setSearchQuery('')
-        setShowSearchDropdown(false)
-      }
-    } else if (e.key === 'Escape') {
-      setShowSearchDropdown(false)
+  if (e.key === 'ArrowDown') {
+    e.preventDefault()
+    setSelectedSearchIndex((prev) => prev < searchResults.length - 1 ? prev + 1 : prev)
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault()
+    setSelectedSearchIndex((prev) => (prev > 0 ? prev - 1 : -1))
+  } else if (e.key === 'Enter') {
+    e.preventDefault()
+    if (selectedSearchIndex >= 0) {
+      handleItemSelectForQuantity(searchResults[selectedSearchIndex]) // NEW
     }
+  } else if (e.key === 'Escape') {
+    setShowSearchDropdown(false)
   }
+}
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -509,46 +522,78 @@ const updateDiscountAmount = (amount) => {
 
   // Filter products
 // Replace your existing filteredProducts logic (around line 280)
-const filteredProducts = (() => {
-  // Filter by category
+const filteredProducts = useMemo(() => {
   const categoryFiltered = menuItems.filter((item) => {
     const matchesCategory = selectedCategory === 'All' || 
       (item.categoryId && item.categoryId.name === selectedCategory)
     return matchesCategory
   })
 
-  // Separate pinned and unpinned
   const pinned = categoryFiltered.filter(item => item.isPinned)
   const unpinned = categoryFiltered.filter(item => !item.isPinned)
   
-  // Sort pinned by pinnedAt (most recent first)
   pinned.sort((a, b) => new Date(b.pinnedAt) - new Date(a.pinnedAt))
   
-  // Return pinned items first, then unpinned
   return [...pinned, ...unpinned]
-})()
+}, [menuItems, selectedCategory])
 
-  // Show notification
-  const showNotification = (message, type = 'success') => {
-    setNotification({ message, type })
-    setTimeout(() => setNotification(null), 3000)
-  }
+
 
   // Cart operations
-  const addToCart = (menuItem) => {
-    const existingItem = cart.find((item) => item._id === menuItem._id)
-    if (existingItem) {
-      setCart(
-        cart.map((item) =>
-          item._id === menuItem._id ? { ...item, quantity: item.quantity + 1 } : item
-        )
+ // Enhanced add to cart with quantity support
+// Enhanced add to cart with quantity support
+const addToCartWithQuantity = (menuItem, quantity = 1) => {
+  const existingItem = cart.find((item) => item._id === menuItem._id)
+  if (existingItem) {
+    setCart(
+      cart.map((item) =>
+        item._id === menuItem._id 
+          ? { ...item, quantity: item.quantity + quantity } 
+          : item
       )
-      showNotification(`${menuItem.name} quantity increased`, 'success')
-    } else {
-      setCart([...cart, { ...menuItem, quantity: 1 }])
-      showNotification(`${menuItem.name} added to cart`, 'success')
-    }
+    )
+    showNotification(`${menuItem.name} +${quantity} (Total: ${existingItem.quantity + quantity})`, 'success')
+  } else {
+    setCart([...cart, { ...menuItem, quantity }])
+    showNotification(`${menuItem.name} x${quantity} added`, 'success')
   }
+  
+  // Reset and focus back to search
+  setQuickQuantity(0)
+  setSelectedItemForQuantity(null)
+  setSearchQuery('')
+  setTimeout(() => searchInputRef.current?.focus(), 100)
+}
+
+// Handle item selection - move focus to quantity
+const handleItemSelectForQuantity = (item) => {
+  setSelectedItemForQuantity(item)
+  setSearchQuery('')
+  setShowSearchDropdown(false)
+  setTimeout(() => quantityInputRef.current?.focus(), 100)
+}
+
+// Handle quantity confirmation
+const handleQuantityConfirm = () => {
+  if (selectedItemForQuantity && quickQuantity > 0) {
+    addToCartWithQuantity(selectedItemForQuantity, quickQuantity)
+  }
+}
+
+// Handle quantity input key press
+const handleQuantityKeyDown = (e) => {
+  if (e.key === 'Enter') {
+    e.preventDefault()
+    handleQuantityConfirm()
+  } else if (e.key === 'Escape') {
+    e.preventDefault()
+    setSelectedItemForQuantity(null)
+    setQuickQuantity(0)
+    searchInputRef.current?.focus()
+  }
+}
+// Keep original addToCart for backward compatibility
+const addToCart = (menuItem) => addToCartWithQuantity(menuItem, 1)
 
   const updateQuantity = (id, change) => {
     setCart(
@@ -659,6 +704,13 @@ const orderData = {
     setIsSubmittingOrder(false)
   }
 }
+
+
+
+
+
+// Handle quantity input key press
+
 useEffect(() => {
   orderDetailsRef.current = orderDetails
 }, [orderDetails])
@@ -871,6 +923,7 @@ useEffect(() => {
       clearCart()
     }
 
+
     // Ctrl/Cmd + F - Focus Search
     if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
       e.preventDefault()
@@ -915,20 +968,60 @@ const startEditingOrder = (order) => {
   setIsEditModalOpen(true)
   setIsPendingOrdersOpen(false)
 }
-const addToEditCart = (menuItem) => {
+// ✅ ENHANCED: Add to edit cart with quantity support
+const addToEditCartWithQuantity = (menuItem, quantity = 1) => {
   const existingItem = editCart.find((item) => item._id === menuItem._id)
   if (existingItem) {
     setEditCart(
       editCart.map((item) =>
-        item._id === menuItem._id ? { ...item, quantity: item.quantity + 1 } : item
+        item._id === menuItem._id 
+          ? { ...item, quantity: item.quantity + quantity } 
+          : item
       )
     )
-    showNotification(`${menuItem.name} quantity increased`, 'success')
+    showNotification(`${menuItem.name} +${quantity} (Total: ${existingItem.quantity + quantity})`, 'success')
   } else {
-    setEditCart([...editCart, { ...menuItem, quantity: 1 }])
-    showNotification(`${menuItem.name} added to cart`, 'success')
+    setEditCart([...editCart, { ...menuItem, quantity }])
+    showNotification(`${menuItem.name} x${quantity} added`, 'success')
+  }
+  
+  // Reset and focus back to search
+  setEditQuickQuantity(0)
+  setSelectedEditItemForQuantity(null)
+  setEditSearchQuery('')
+  setTimeout(() => editSearchInputRef.current?.focus(), 100)
+}
+
+// ✅ Handle item selection for quantity
+const handleEditItemSelectForQuantity = (item) => {
+  setSelectedEditItemForQuantity(item)
+  setEditSearchQuery('')
+  setShowEditSearchDropdown(false)
+  setTimeout(() => editQuantityInputRef.current?.focus(), 100)
+}
+
+// ✅ Handle quantity confirmation
+const handleEditQuantityConfirm = () => {
+  if (selectedEditItemForQuantity && editQuickQuantity > 0) {
+    addToEditCartWithQuantity(selectedEditItemForQuantity, editQuickQuantity)
   }
 }
+
+// ✅ Handle quantity input key press
+const handleEditQuantityKeyDown = (e) => {
+  if (e.key === 'Enter') {
+    e.preventDefault()
+    handleEditQuantityConfirm()
+  } else if (e.key === 'Escape') {
+    e.preventDefault()
+    setSelectedEditItemForQuantity(null)
+    setEditQuickQuantity(0)
+    editSearchInputRef.current?.focus()
+  }
+}
+
+// Keep original addToEditCart for backward compatibility (clicking items)
+const addToEditCart = (menuItem) => addToEditCartWithQuantity(menuItem, 1)
 // ADD this function for filtering edit products
 const getEditFilteredProducts = () => {
   return menuItems.filter((item) => {
@@ -961,6 +1054,7 @@ const saveEditedOrder = async () => {
       setIsEditModalOpen(false)
       setEditingOrder(null)
       setEditCart([])
+      setIsPendingOrdersOpen(true)
       await loadPendingOrders()
     } else {
       showNotification(response.error || 'Failed to update order', 'error')
@@ -1032,6 +1126,8 @@ const handleCancelOrder = (orderId, orderNumber) => {
 const confirmCancelOrder = async () => {
   if (!cancelConfirmation) return
   
+  setIsCancellingOrder(true) // ✅ START LOADING
+  
   try {
     const response = await cancelOrder(cancelConfirmation.orderId)
     
@@ -1045,6 +1141,8 @@ const confirmCancelOrder = async () => {
   } catch (error) {
     console.error('Error cancelling order:', error)
     showNotification('Error cancelling order', 'error')
+  } finally {
+    setIsCancellingOrder(false) // ✅ STOP LOADING
   }
 }
 // Edit Modal Search functionality
@@ -1064,6 +1162,7 @@ useEffect(() => {
 }, [editSearchQuery, menuItems])
 
 // Edit search keyboard navigation
+// Edit search keyboard navigation
 const handleEditSearchKeyDown = (e) => {
   if (!showEditSearchDropdown || editSearchResults.length === 0) return
 
@@ -1076,9 +1175,8 @@ const handleEditSearchKeyDown = (e) => {
   } else if (e.key === 'Enter') {
     e.preventDefault()
     if (selectedEditSearchIndex >= 0) {
-      addToEditCart(editSearchResults[selectedEditSearchIndex])
-      setEditSearchQuery('')
-      setShowEditSearchDropdown(false)
+      // ✅ CHANGED: Show quantity input instead of directly adding
+      handleEditItemSelectForQuantity(editSearchResults[selectedEditSearchIndex])
     }
   } else if (e.key === 'Escape') {
     setShowEditSearchDropdown(false)
@@ -1101,6 +1199,14 @@ useEffect(() => {
   document.addEventListener('mousedown', handleClickOutside)
   return () => document.removeEventListener('mousedown', handleClickOutside)
 }, [])
+useEffect(() => {
+  if (!isEditModalOpen) {
+    setEditQuickQuantity(0)
+    setSelectedEditItemForQuantity(null)
+    setEditSearchQuery('')
+    setShowEditSearchDropdown(false)
+  }
+}, [isEditModalOpen])
 
 
     return (
@@ -1206,65 +1312,188 @@ useEffect(() => {
                 animate={{ opacity: 1, y: 0 }}
                 className="bg-white rounded-xl sm:rounded-2xl p-3 sm:p-4 shadow-sm border border-slate-100"
               >
-                {/* Search */}
-                <div className="relative mb-3 sm:mb-4">
-                  <Search className="absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5 text-slate-400 z-10" />
-                  <input
-                    ref={searchInputRef}
-                    type="text"
-                    autoFocus
-                    placeholder="Search menu... (Ctrl+F)"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    onKeyDown={handleSearchKeyDown}
-                    onFocus={() => searchQuery && setShowSearchDropdown(true)}
-                    className="w-full pl-10 sm:pl-12 pr-3 sm:pr-4 py-2 sm:py-3 bg-slate-50 border-2 border-slate-200 rounded-lg sm:rounded-xl focus:outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all text-slate-800 font-medium text-sm sm:text-base"
-                  />
-                  
-                  {/* Search Dropdown */}
-                  <AnimatePresence>
-                    {showSearchDropdown && searchResults.length > 0 && (
-                      <motion.div
-                        ref={searchDropdownRef}
-                        initial={{ opacity: 0, y: -10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -10 }}
-                        className="absolute top-full left-0 right-0 mt-2 bg-white rounded-xl shadow-2xl border border-slate-200 overflow-hidden z-50 max-h-60 sm:max-h-80 overflow-y-auto"
-                      >
-                        <div className="p-1.5 sm:p-2">
-                          {searchResults.map((product, index) => (
-                            <motion.button
-                              key={product._id}
-                              onClick={() => {
-                                addToCart(product)
-                                setSearchQuery('')
-                                setShowSearchDropdown(false)
-                              }}
-                              onMouseEnter={() => setSelectedSearchIndex(index)}
-                              className={`w-full flex items-center gap-2 sm:gap-3 p-2 sm:p-3 rounded-lg transition-all text-left ${
-                                selectedSearchIndex === index
-                                  ? 'bg-emerald-50 border-2 border-emerald-500'
-                                  : 'hover:bg-slate-50 border-2 border-transparent'
-                              }`}
-                              whileHover={{ x: 4 }}
-                            >
-                              <div className="text-2xl sm:text-3xl">{product.categoryId?.icon || '🍽️'}</div>
-                              <div className="flex-1 min-w-0">
-                                <p className="font-semibold text-slate-800 text-xs sm:text-sm truncate">
-                                  {product.name}
-                                </p>
-                                <p className="text-xs text-slate-500">{product.categoryId?.name || 'Uncategorized'}</p>
-                              </div>
-                              <div className="text-right">
-                                <p className="font-bold text-emerald-600 text-sm">₨{product.sellingPrice}</p>
-                              </div>
-                            </motion.button>
-                          ))}
-                        </div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </div>
+           {/* Search & Quantity Input - Inline */}
+<div className="mb-3 sm:mb-4">
+  <div className="flex gap-2 sm:gap-3">
+    {/* Search Input */}
+    <div className="relative flex-1">
+      <Search className="absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5 text-slate-400 z-10" />
+      <input
+        ref={searchInputRef}
+        type="text"
+        autoFocus
+        placeholder="Search menu... (Ctrl+F)"
+        value={searchQuery}
+        onChange={(e) => setSearchQuery(e.target.value)}
+        onKeyDown={handleSearchKeyDown}
+        onFocus={() => searchQuery && setShowSearchDropdown(true)}
+        disabled={selectedItemForQuantity !== null}
+        className="w-full pl-10 sm:pl-12 pr-3 sm:pr-4 py-2 sm:py-3 bg-slate-50 border-2 border-slate-200 rounded-lg sm:rounded-xl focus:outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all text-slate-800 font-medium text-sm sm:text-base disabled:opacity-50 disabled:cursor-not-allowed"
+      />
+      
+      {/* Search Dropdown */}
+      <AnimatePresence>
+        {showSearchDropdown && searchResults.length > 0 && (
+          <motion.div
+            ref={searchDropdownRef}
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="absolute top-full left-0 right-0 mt-2 bg-white rounded-xl shadow-2xl border border-slate-200 overflow-hidden z-50 max-h-60 sm:max-h-80 overflow-y-auto"
+          >
+            <div className="p-1.5 sm:p-2">
+              {searchResults.map((product, index) => (
+                <motion.button
+                  key={product._id}
+                  onClick={() => handleItemSelectForQuantity(product)}
+                  onMouseEnter={() => setSelectedSearchIndex(index)}
+                  className={`w-full flex items-center gap-2 sm:gap-3 p-2 sm:p-3 rounded-lg transition-all text-left ${
+                    selectedSearchIndex === index
+                      ? 'bg-emerald-50 border-2 border-emerald-500'
+                      : 'hover:bg-slate-50 border-2 border-transparent'
+                  }`}
+                  whileHover={{ x: 4 }}
+                >
+                  <div className="text-2xl sm:text-3xl">{product.categoryId?.icon || '🍽️'}</div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-slate-800 text-xs sm:text-sm truncate">
+                      {product.name}
+                    </p>
+                    <p className="text-xs text-slate-500">{product.categoryId?.name || 'Uncategorized'}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-bold text-emerald-600 text-sm">₨{product.sellingPrice}</p>
+                  </div>
+                </motion.button>
+              ))}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+
+    {/* Quantity Input - Shows when item selected */}
+    <AnimatePresence>
+      {selectedItemForQuantity ? (
+        <motion.div
+          initial={{ opacity: 0, x: 20, scale: 0.8 }}
+          animate={{ opacity: 1, x: 0, scale: 1 }}
+          exit={{ opacity: 0, x: 20, scale: 0.8 }}
+          className="flex items-center gap-2"
+        >
+          {/* Item Preview Badge */}
+          <div className="hidden sm:flex items-center gap-2 px-3 py-2 bg-gradient-to-r from-emerald-50 to-teal-50 border-2 border-emerald-500 rounded-xl">
+            <span className="text-2xl">{selectedItemForQuantity.categoryId?.icon || '🍽️'}</span>
+            <div className="min-w-0">
+              <p className="font-bold text-slate-800 text-xs truncate max-w-[100px]">
+                {selectedItemForQuantity.name}
+              </p>
+              <p className="text-[10px] text-emerald-600 font-bold">
+                ₨{selectedItemForQuantity.sellingPrice}
+              </p>
+            </div>
+          </div>
+
+          {/* Quantity Controls */}
+          <div className="flex items-center gap-1.5 bg-white border-2 border-emerald-500 rounded-xl p-1 shadow-lg">
+            <motion.button
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.9 }}
+              onClick={() => setQuickQuantity(Math.max(1, quickQuantity - 1))}
+              className="p-1.5 sm:p-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-all"
+            >
+              <Minus className="w-3 h-3 sm:w-4 sm:h-4" />
+            </motion.button>
+            
+            <input
+              ref={quantityInputRef}
+              type="number"
+              value={quickQuantity}
+              onChange={(e) => {
+                const val = parseInt(e.target.value) || 0
+                setQuickQuantity(Math.max(0, Math.min(999, val)))
+              }}
+              onKeyDown={handleQuantityKeyDown}
+              min="0"
+              max="999"
+              className="w-12 sm:w-16 text-center text-lg sm:text-xl font-bold px-2 py-1 border-2 border-transparent focus:border-emerald-500 rounded-lg focus:outline-none bg-slate-50 transition-all"
+            />
+            
+            <motion.button
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.9 }}
+              onClick={() => setQuickQuantity(quickQuantity + 1)}
+              className="p-1.5 sm:p-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-all"
+            >
+              <Plus className="w-3 h-3 sm:w-4 sm:h-4" />
+            </motion.button>
+          </div>
+
+          {/* Add Button */}
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={handleQuantityConfirm}
+            className="px-4 sm:px-6 py-2 sm:py-2.5 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-xl font-bold hover:shadow-xl transition-all flex items-center gap-2 text-sm sm:text-base"
+          >
+            <Check className="w-4 h-4" />
+            <span className="hidden sm:inline">Add</span>
+          </motion.button>
+
+          {/* Cancel Button */}
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={() => {
+              setSelectedItemForQuantity(null)
+              setQuickQuantity(0)
+              searchInputRef.current?.focus()
+            }}
+            className="p-2 sm:p-2.5 bg-red-100 text-red-600 rounded-xl hover:bg-red-200 transition-all"
+            title="Cancel (Esc)"
+          >
+            <X className="w-4 h-4" />
+          </motion.button>
+        </motion.div>
+      ) : (
+        // Placeholder when no item selected
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="flex items-center gap-2 px-4 py-2 sm:py-3 bg-slate-100 border-2 border-slate-200 rounded-xl"
+        >
+          <Hash className="w-4 h-4 text-slate-400" />
+          <span className="text-slate-400 font-medium text-sm hidden sm:inline">
+            Qty
+          </span>
+          <span className="text-slate-400 font-bold text-lg">-</span>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  </div>
+
+  {/* Selected Item Info Banner - Mobile Only */}
+  <AnimatePresence>
+    {selectedItemForQuantity && (
+      <motion.div
+        initial={{ opacity: 0, height: 0 }}
+        animate={{ opacity: 1, height: 'auto' }}
+        exit={{ opacity: 0, height: 0 }}
+        className="sm:hidden mt-2 px-3 py-2 bg-gradient-to-r from-emerald-50 to-teal-50 border-2 border-emerald-500 rounded-lg flex items-center gap-2"
+      >
+        <span className="text-2xl">{selectedItemForQuantity.categoryId?.icon || '🍽️'}</span>
+        <div className="flex-1 min-w-0">
+          <p className="font-bold text-slate-800 text-sm truncate">
+            {selectedItemForQuantity.name}
+          </p>
+          <p className="text-xs text-emerald-600">
+            ₨{selectedItemForQuantity.sellingPrice} × {quickQuantity} = ₨{(selectedItemForQuantity.sellingPrice * quickQuantity).toFixed(2)}
+          </p>
+        </div>
+      </motion.div>
+    )}
+  </AnimatePresence>
+</div>
 
                 {/* Categories */}
                 <div className="flex gap-2 overflow-x-auto pb-2  modern-scrollbar">
@@ -1656,7 +1885,7 @@ useEffect(() => {
                   { keys: ['Esc'], action: 'Close Modal', desc: 'Close any open modal' },
                   { keys: ['?'], action: 'Show Shortcuts', desc: 'Toggle this help' },
                   { keys: ['↑', '↓'], action: 'Navigate Search', desc: 'Move through search results' },
-                  { keys: ['Enter'], action: 'Select Item', desc: 'Add item from search' },
+                 { keys: ['Enter', 'Qty', 'Enter'], action: 'Quick Add Item', desc: 'Search → Select → Enter quantity → Add' },
                 ].map((shortcut, index) => (
                   <motion.div
                     key={index}
@@ -2885,98 +3114,221 @@ useEffect(() => {
           {/* Left Side - Menu Items - FIXED HEIGHT */}
           <div className="flex-1 flex flex-col p-3 sm:p-4 lg:p-6 border-b lg:border-b-0 lg:border-r border-slate-200 overflow-hidden">
             {/* Search & Categories - FIXED AT TOP */}
-            <div className="space-y-3 sm:space-y-4 mb-3 sm:mb-4 flex-shrink-0">
-              {/* Search Bar */}
-              <div className="relative">
-                <Search className="absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5 text-slate-400 z-10" />
-                <input
-                  ref={editSearchInputRef}
-                  type="text"
-                  placeholder="Search menu items..."
-                  value={editSearchQuery}
-                  onChange={(e) => setEditSearchQuery(e.target.value)}
-                  onKeyDown={handleEditSearchKeyDown}
-                  onFocus={() => editSearchQuery && setShowEditSearchDropdown(true)}
-                  className="w-full pl-10 sm:pl-12 pr-3 sm:pr-4 py-2 sm:py-3 bg-slate-50 border-2 border-slate-200 rounded-lg sm:rounded-xl focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all text-slate-800 font-medium text-sm sm:text-base"
-                />
-                
-                {/* Search Dropdown */}
-                <AnimatePresence>
-                  {showEditSearchDropdown && editSearchResults.length > 0 && (
-                    <motion.div
-                      ref={editSearchDropdownRef}
-                      initial={{ opacity: 0, y: -10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -10 }}
-                      className="absolute top-full left-0 right-0 mt-2 bg-white rounded-xl shadow-2xl border border-slate-200 overflow-hidden z-50 max-h-60 sm:max-h-80 overflow-y-auto"
-                    >
-                      <div className="p-1.5 sm:p-2">
-                        {editSearchResults.map((product, index) => (
-                          <motion.button
-                            key={product._id}
-                            onClick={() => {
-                              addToEditCart(product)
-                              setEditSearchQuery('')
-                              setShowEditSearchDropdown(false)
-                            }}
-                            onMouseEnter={() => setSelectedEditSearchIndex(index)}
-                            className={`w-full flex items-center gap-2 sm:gap-3 p-2 sm:p-3 rounded-lg transition-all text-left ${
-                              selectedEditSearchIndex === index
-                                ? 'bg-blue-50 border-2 border-blue-500'
-                                : 'hover:bg-slate-50 border-2 border-transparent'
-                            }`}
-                            whileHover={{ x: 4 }}
-                          >
-                            <div className="text-2xl sm:text-3xl">{product.categoryId?.icon || '🍽️'}</div>
-                            <div className="flex-1 min-w-0">
-                              <p className="font-semibold text-slate-800 text-xs sm:text-sm truncate">
-                                {product.name}
-                              </p>
-                              <p className="text-xs text-slate-500">{product.categoryId?.name || 'Uncategorized'}</p>
-                            </div>
-                            <div className="text-right">
-                              <p className="font-bold text-blue-600 text-sm">₨{product.sellingPrice}</p>
-                            </div>
-                          </motion.button>
-                        ))}
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
-
-              {/* Category Filters */}
-              <div className="flex gap-2 overflow-x-auto pb-2 mordern-scrollbar">
+        {/* Search & Categories - FIXED AT TOP */}
+<div className="space-y-3 sm:space-y-4 mb-3 sm:mb-4 flex-shrink-0">
+  {/* Search & Quantity Input - Inline */}
+  <div className="flex gap-2 sm:gap-3">
+    {/* Search Bar */}
+    <div className="relative flex-1">
+      <Search className="absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5 text-slate-400 z-10" />
+      <input
+        ref={editSearchInputRef}
+        type="text"
+        autoFocus
+        placeholder="Search menu items..."
+        value={editSearchQuery}
+        onChange={(e) => setEditSearchQuery(e.target.value)}
+        onKeyDown={handleEditSearchKeyDown}
+        onFocus={() => editSearchQuery && setShowEditSearchDropdown(true)}
+        disabled={selectedEditItemForQuantity !== null}
+        className="w-full pl-10 sm:pl-12 pr-3 sm:pr-4 py-2 sm:py-3 bg-slate-50 border-2 border-slate-200 rounded-lg sm:rounded-xl focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all text-slate-800 font-medium text-sm sm:text-base disabled:opacity-50 disabled:cursor-not-allowed"
+      />
+      
+      {/* Search Dropdown */}
+      <AnimatePresence>
+        {showEditSearchDropdown && editSearchResults.length > 0 && (
+          <motion.div
+            ref={editSearchDropdownRef}
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="absolute top-full left-0 right-0 mt-2 bg-white rounded-xl shadow-2xl border border-slate-200 overflow-hidden z-50 max-h-60 sm:max-h-80 overflow-y-auto"
+          >
+            <div className="p-1.5 sm:p-2">
+              {editSearchResults.map((product, index) => (
                 <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={() => setEditSelectedCategory('All')}
-                  className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold text-xs sm:text-sm whitespace-nowrap transition-all ${
-                    editSelectedCategory === 'All'
-                      ? 'bg-gradient-to-r from-blue-500 to-cyan-500 text-white shadow-lg'
-                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  key={product._id}
+                  onClick={() => handleEditItemSelectForQuantity(product)}
+                  onMouseEnter={() => setSelectedEditSearchIndex(index)}
+                  className={`w-full flex items-center gap-2 sm:gap-3 p-2 sm:p-3 rounded-lg transition-all text-left ${
+                    selectedEditSearchIndex === index
+                      ? 'bg-blue-50 border-2 border-blue-500'
+                      : 'hover:bg-slate-50 border-2 border-transparent'
                   }`}
+                  whileHover={{ x: 4 }}
                 >
-                  All Items
+                  <div className="text-2xl sm:text-3xl">{product.categoryId?.icon || '🍽️'}</div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-slate-800 text-xs sm:text-sm truncate">
+                      {product.name}
+                    </p>
+                    <p className="text-xs text-slate-500">{product.categoryId?.name || 'Uncategorized'}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-bold text-blue-600 text-sm">₨{product.sellingPrice}</p>
+                  </div>
                 </motion.button>
-                {categories.map((category) => (
-                  <motion.button
-                    key={category._id}
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    onClick={() => setEditSelectedCategory(category.name)}
-                    className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold text-xs sm:text-sm whitespace-nowrap transition-all flex items-center gap-1.5 sm:gap-2 ${
-                      editSelectedCategory === category.name
-                        ? 'bg-gradient-to-r from-blue-500 to-cyan-500 text-white shadow-lg'
-                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                    }`}
-                  >
-                    <span className="text-base sm:text-lg">{category.icon}</span>
-                    {category.name}
-                  </motion.button>
-                ))}
-              </div>
+              ))}
             </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+
+    {/* Quantity Input - Shows when item selected */}
+    <AnimatePresence>
+      {selectedEditItemForQuantity ? (
+        <motion.div
+          initial={{ opacity: 0, x: 20, scale: 0.8 }}
+          animate={{ opacity: 1, x: 0, scale: 1 }}
+          exit={{ opacity: 0, x: 20, scale: 0.8 }}
+          className="flex items-center gap-2"
+        >
+          {/* Item Preview Badge */}
+          <div className="hidden sm:flex items-center gap-2 px-3 py-2 bg-gradient-to-r from-blue-50 to-cyan-50 border-2 border-blue-500 rounded-xl">
+            <span className="text-2xl">{selectedEditItemForQuantity.categoryId?.icon || '🍽️'}</span>
+            <div className="min-w-0">
+              <p className="font-bold text-slate-800 text-xs truncate max-w-[100px]">
+                {selectedEditItemForQuantity.name}
+              </p>
+              <p className="text-[10px] text-blue-600 font-bold">
+                ₨{selectedEditItemForQuantity.sellingPrice}
+              </p>
+            </div>
+          </div>
+
+          {/* Quantity Controls */}
+          <div className="flex items-center gap-1.5 bg-white border-2 border-blue-500 rounded-xl p-1 shadow-lg">
+            <motion.button
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.9 }}
+              onClick={() => setEditQuickQuantity(Math.max(0, editQuickQuantity - 1))}
+              className="p-1.5 sm:p-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-all"
+            >
+              <Minus className="w-3 h-3 sm:w-4 sm:h-4" />
+            </motion.button>
+            
+            <input
+              ref={editQuantityInputRef}
+              type="number"
+              value={editQuickQuantity}
+              onChange={(e) => {
+                const val = parseInt(e.target.value) || 0
+                setEditQuickQuantity(Math.max(0, Math.min(999, val)))
+              }}
+              onKeyDown={handleEditQuantityKeyDown}
+              min="0"
+              max="999"
+              className="w-12 sm:w-16 text-center text-lg sm:text-xl font-bold px-2 py-1 border-2 border-transparent focus:border-blue-500 rounded-lg focus:outline-none bg-slate-50 transition-all"
+            />
+            
+            <motion.button
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.9 }}
+              onClick={() => setEditQuickQuantity(editQuickQuantity + 1)}
+              className="p-1.5 sm:p-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-all"
+            >
+              <Plus className="w-3 h-3 sm:w-4 sm:h-4" />
+            </motion.button>
+          </div>
+
+          {/* Add Button */}
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={handleEditQuantityConfirm}
+            className="px-4 sm:px-6 py-2 sm:py-2.5 bg-gradient-to-r from-blue-500 to-cyan-500 text-white rounded-xl font-bold hover:shadow-xl transition-all flex items-center gap-2 text-sm sm:text-base"
+          >
+            <Check className="w-4 h-4" />
+            <span className="hidden sm:inline">Add</span>
+          </motion.button>
+
+          {/* Cancel Button */}
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={() => {
+              setSelectedEditItemForQuantity(null)
+              setEditQuickQuantity(0)
+              editSearchInputRef.current?.focus()
+            }}
+            className="p-2 sm:p-2.5 bg-red-100 text-red-600 rounded-xl hover:bg-red-200 transition-all"
+            title="Cancel (Esc)"
+          >
+            <X className="w-4 h-4" />
+          </motion.button>
+        </motion.div>
+      ) : (
+        // Placeholder when no item selected
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="flex items-center gap-2 px-4 py-2 sm:py-3 bg-slate-100 border-2 border-slate-200 rounded-xl"
+        >
+          <Hash className="w-4 h-4 text-slate-400" />
+          <span className="text-slate-400 font-medium text-sm hidden sm:inline">
+            Qty
+          </span>
+          <span className="text-slate-400 font-bold text-lg">-</span>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  </div>
+
+  {/* Selected Item Info Banner - Mobile Only */}
+  <AnimatePresence>
+    {selectedEditItemForQuantity && (
+      <motion.div
+        initial={{ opacity: 0, height: 0 }}
+        animate={{ opacity: 1, height: 'auto' }}
+        exit={{ opacity: 0, height: 0 }}
+        className="sm:hidden mt-2 px-3 py-2 bg-gradient-to-r from-blue-50 to-cyan-50 border-2 border-blue-500 rounded-lg flex items-center gap-2"
+      >
+        <span className="text-2xl">{selectedEditItemForQuantity.categoryId?.icon || '🍽️'}</span>
+        <div className="flex-1 min-w-0">
+          <p className="font-bold text-slate-800 text-sm truncate">
+            {selectedEditItemForQuantity.name}
+          </p>
+          <p className="text-xs text-blue-600">
+            ₨{selectedEditItemForQuantity.sellingPrice} × {editQuickQuantity} = ₨{(selectedEditItemForQuantity.sellingPrice * editQuickQuantity).toFixed(2)}
+          </p>
+        </div>
+      </motion.div>
+    )}
+  </AnimatePresence>
+
+  {/* Category Filters - KEEP EXISTING */}
+  <div className="flex gap-2 overflow-x-auto pb-2 mordern-scrollbar">
+    <motion.button
+      whileHover={{ scale: 1.05 }}
+      whileTap={{ scale: 0.95 }}
+      onClick={() => setEditSelectedCategory('All')}
+      className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold text-xs sm:text-sm whitespace-nowrap transition-all ${
+        editSelectedCategory === 'All'
+          ? 'bg-gradient-to-r from-blue-500 to-cyan-500 text-white shadow-lg'
+          : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+      }`}
+    >
+      All Items
+    </motion.button>
+    {categories.map((category) => (
+      <motion.button
+        key={category._id}
+        whileHover={{ scale: 1.05 }}
+        whileTap={{ scale: 0.95 }}
+        onClick={() => setEditSelectedCategory(category.name)}
+        className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold text-xs sm:text-sm whitespace-nowrap transition-all flex items-center gap-1.5 sm:gap-2 ${
+          editSelectedCategory === category.name
+            ? 'bg-gradient-to-r from-blue-500 to-cyan-500 text-white shadow-lg'
+            : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+        }`}
+      >
+        <span className="text-base sm:text-lg">{category.icon}</span>
+        {category.name}
+      </motion.button>
+    ))}
+  </div>
+</div>
 
             {/* Menu Items Grid - SCROLLABLE AREA */}
             <div className="flex-1 overflow-y-auto modern-scrollbar pr-2">
@@ -3045,7 +3397,7 @@ useEffect(() => {
             </div>
 
             {/* Cart Items - SCROLLABLE */}
-            <div className="flex-1 overflow-y-auto p-3 sm:p-4 lg:p-6 modern-scrollbar">
+            <div className="flex-1 overflow-y-auto md:max-h-[100%] max-h-[20vh] p-3 sm:p-4 lg:p-6 modern-scrollbar">
               <div className="space-y-2">
                 <AnimatePresence>
                   {editCart.length === 0 ? (
@@ -3171,81 +3523,6 @@ useEffect(() => {
   )}
 </AnimatePresence>
 
-{/* Cancel Confirmation Modal */}
-<AnimatePresence>
-  {cancelConfirmation && (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="fixed inset-0 bg-black/70 backdrop-blur-md flex items-center justify-center p-4 z-[60]"
-      onClick={() => setCancelConfirmation(null)}
-    >
-      <motion.div
-        initial={{ scale: 0.9, y: 20 }}
-        animate={{ scale: 1, y: 0 }}
-        exit={{ scale: 0.9, y: 20 }}
-        onClick={(e) => e.stopPropagation()}
-        className="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden"
-      >
-        {/* Header */}
-        <div className="bg-gradient-to-r from-red-500 to-pink-500 text-white p-5 flex items-center gap-3">
-          <div className="p-2 bg-white/20 rounded-lg">
-            <AlertCircle className="w-6 h-6" />
-          </div>
-          <div>
-            <h2 className="text-xl font-bold">Cancel Order</h2>
-            <p className="text-red-100 text-sm">This action cannot be undone</p>
-          </div>
-        </div>
-
-        {/* Content */}
-        <div className="p-6">
-          <p className="text-slate-700 text-center mb-2">
-            Are you sure you want to cancel order
-          </p>
-          <p className="text-2xl font-bold text-center text-slate-800 mb-4">
-            {cancelConfirmation.orderNumber}?
-          </p>
-          <div className="bg-red-50 border-2 border-red-200 rounded-lg p-4 mb-4">
-            <div className="flex items-start gap-2">
-              <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
-              <div className="text-sm text-red-800">
-                <p className="font-semibold mb-1">Warning:</p>
-                <ul className="list-disc list-inside space-y-1 text-xs">
-                  <li>Order will be marked as cancelled</li>
-                  <li>Items will not be prepared</li>
-                  <li>This cannot be reversed</li>
-                </ul>
-              </div>
-            </div>
-          </div>
-
-          {/* Buttons */}
-          <div className="flex gap-3">
-            <motion.button
-              onClick={() => setCancelConfirmation(null)}
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              className="flex-1 py-3 border-2 border-slate-200 text-slate-600 rounded-xl font-semibold hover:bg-slate-50 transition-all"
-            >
-              Keep Order
-            </motion.button>
-            <motion.button
-              onClick={confirmCancelOrder}
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              className="flex-1 py-3 bg-gradient-to-r from-red-500 to-pink-500 text-white rounded-xl font-bold hover:shadow-lg transition-all flex items-center justify-center gap-2"
-            >
-              <X className="w-5 h-5" />
-              Yes, Cancel Order
-            </motion.button>
-          </div>
-        </div>
-      </motion.div>
-    </motion.div>
-  )}
-</AnimatePresence>
 
 {/* Cancel Confirmation Modal */}
 <AnimatePresence>
@@ -3297,26 +3574,37 @@ useEffect(() => {
             </div>
           </div>
 
-          {/* Buttons */}
-          <div className="flex gap-3">
-            <motion.button
-              onClick={() => setCancelConfirmation(null)}
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              className="flex-1 py-3 border-2 border-slate-200 text-slate-600 rounded-xl font-semibold hover:bg-slate-50 transition-all"
-            >
-              Keep Order
-            </motion.button>
-            <motion.button
-              onClick={confirmCancelOrder}
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              className="flex-1 py-3 bg-gradient-to-r from-red-500 to-pink-500 text-white rounded-xl font-bold hover:shadow-lg transition-all flex items-center justify-center gap-2"
-            >
-              <X className="w-5 h-5" />
-              Yes, Cancel Order
-            </motion.button>
-          </div>
+        {/* Buttons */}
+<div className="flex gap-3">
+  <motion.button
+    onClick={() => setCancelConfirmation(null)}
+    disabled={isCancellingOrder} // ✅ DISABLE WHILE CANCELLING
+    whileHover={{ scale: 1.02 }}
+    whileTap={{ scale: 0.98 }}
+    className="flex-1 py-3 border-2 border-slate-200 text-slate-600 rounded-xl font-semibold hover:bg-slate-50 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+  >
+    Keep Order
+  </motion.button>
+  <motion.button
+    onClick={confirmCancelOrder}
+    disabled={isCancellingOrder} // ✅ DISABLE WHILE CANCELLING
+    whileHover={{ scale: isCancellingOrder ? 1 : 1.02 }}
+    whileTap={{ scale: isCancellingOrder ? 1 : 0.98 }}
+    className="flex-1 py-3 bg-gradient-to-r from-red-500 to-pink-500 text-white rounded-xl font-bold hover:shadow-lg transition-all flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
+  >
+    {isCancellingOrder ? (
+      <>
+        <Loader2 className="w-5 h-5 animate-spin" />
+        <span>Cancelling...</span>
+      </>
+    ) : (
+      <>
+        <X className="w-5 h-5" />
+        <span>Yes, Cancel Order</span>
+      </>
+    )}
+  </motion.button>
+</div>
         </div>
       </motion.div>
     </motion.div>
