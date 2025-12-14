@@ -51,6 +51,7 @@ useEffect(() => {
       { icon: ClipboardList, label: 'Orders', href: '/orders' },
       { icon: BarChart3, label: 'Reports', href: '/reports' },
       { icon: Users, label: 'Customers', href: '/customers' },
+
       { icon: SettingsIcon, label: 'Settings', href: '/settings' },
     ]
 
