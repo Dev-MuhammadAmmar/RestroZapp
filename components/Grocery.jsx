@@ -103,7 +103,10 @@ const [vendorPaymentData, setVendorPaymentData] = useState({
 });
 const [vendorPage, setVendorPage] = useState(1);
 const VENDORS_PER_PAGE = 20;
-
+const [vendorLoading, setVendorLoading] = useState(false);
+const [showVendorPaymentHistoryFilterModal, setShowVendorPaymentHistoryFilterModal] = useState(false);
+const [vendorHistoryDateFilter, setVendorHistoryDateFilter] = useState('all');
+const [vendorHistoryCustomRange, setVendorHistoryCustomRange] = useState({ startDate: '', endDate: '' });
 const paginatedVendors = vendors.slice(
   (vendorPage - 1) * VENDORS_PER_PAGE,
   vendorPage * VENDORS_PER_PAGE
@@ -411,8 +414,8 @@ const handleVendorPaymentSubmit = async (e) => {
 
   if (result.success) {
     showNotification(result.message);
-    
-    // Create payment receipt for printing
+
+      // Create payment receipt for printing
     const paymentReceipt = {
       ...selectedVendorForPayment,
       paymentAmount: amount,
@@ -426,11 +429,13 @@ const handleVendorPaymentSubmit = async (e) => {
     setShowVendorPaymentModal(false);
     setSelectedVendorForPayment(null);
     loadVendors();
-    loadGroceryData();
+    if (sidebarOpen) loadGroceryData();
     
     // Print payment receipt
     setPrintVendor(paymentReceipt);
     setTimeout(() => window.print(), 100);
+    
+    
   } else {
     showNotification(result.error || 'Payment failed', 'error');
   }
@@ -558,6 +563,7 @@ const paymentReceipt = {
 };
 // Load all vendors
 const loadVendors = async () => {
+  setVendorLoading(true);
   try {
     const result = await getAllVendors({ isActive: true });
     if (result.success) {
@@ -595,9 +601,13 @@ const loadVendors = async () => {
       }
       
       setVendors(filtered);
+      showNotification(`${filtered.length} vendor(s) loaded`, 'success');
     }
   } catch (error) {
     console.error('Failed to load vendors:', error);
+    showNotification('Failed to load vendors', 'error');
+  } finally {
+    setVendorLoading(false);
   }
 };
 // Enhanced vendor search with loading state
@@ -3439,20 +3449,21 @@ const remainingRecords = totalRecords - displayLimit;
                 <span className="hidden xs:inline">Add Vendor</span>
                 <span className="xs:hidden">Add</span>
               </button>
-              <button
-                onClick={loadVendors}
-                disabled={loading}
+       <button
+  onClick={loadVendors}
+  disabled={vendorLoading}
                 className="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-medium transition-all flex items-center gap-2 text-xs sm:text-sm disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <RefreshCw className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${loading ? 'animate-spin' : ''}`} />
+                <RefreshCw className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${vendorLoading ? 'animate-spin' : ''}`} />
                 <span className="hidden sm:inline">Refresh</span>
               </button>
             </div>
           </div>
 
           {/* Content Area */}
-          <div className="flex-1 overflow-y-auto p-3 sm:p-4">
-            {loading ? (
+       {/* Content Area */}
+<div className="flex-1 overflow-y-auto p-3 sm:p-4">
+  {vendorLoading ? (
               <div className="flex flex-col items-center justify-center h-full">
                 <div className="animate-spin rounded-full h-10 w-10 sm:h-12 sm:w-12 border-b-4 border-blue-600 mb-4"></div>
                 <p className="text-slate-600 font-medium text-sm sm:text-base">Loading vendors...</p>
@@ -3624,13 +3635,7 @@ const remainingRecords = totalRecords - displayLimit;
     </button>
   )}
 
-  <button
-    onClick={() => handlePrintVendor(vendor)}
-    className="flex-1 min-w-[90px] px-3 py-2 bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 transition-all font-medium text-xs sm:text-sm flex items-center justify-center gap-1.5"
-  >
-    <Printer className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-    <span>Print</span>
-  </button>
+ 
 </div>
                  </div>
                   </motion.div>
@@ -3910,15 +3915,10 @@ const remainingRecords = totalRecords - displayLimit;
             <p className="text-blue-100 text-xs sm:text-sm mt-1 truncate">{selectedVendorForHistory.vendorName}</p>
           </div>
           <div className="flex gap-2 flex-shrink-0">
-            <button
-              onClick={() => {
-                setPrintVendor({ 
-                  ...selectedVendorForHistory, 
-                  isPaymentHistory: true,
-                  isVendorPaymentHistory: true
-                });
-                setTimeout(() => window.print(), 100);
-              }}
+          <button
+  onClick={() => {
+    setShowVendorPaymentHistoryFilterModal(true);
+  }}
               className="p-2 hover:bg-white/20 rounded-lg transition-all"
               title="Print Payment History"
             >
@@ -3993,29 +3993,58 @@ const remainingRecords = totalRecords - displayLimit;
                       className="bg-white border-2 border-slate-200 rounded-lg sm:rounded-xl p-3 sm:p-4 md:p-5 hover:shadow-lg transition-all"
                     >
                       {/* Payment Header */}
-                      <div className="flex flex-col sm:flex-row items-start sm:items-start justify-between gap-3 mb-3">
-                        <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
-                          <div className="bg-blue-100 p-2 sm:p-3 rounded-full flex-shrink-0">
-                            <DollarSign className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 text-blue-600" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-xl sm:text-2xl font-bold text-blue-600 break-words">₨{payment.amount.toFixed(2)}</p>
-                            <p className="text-xs sm:text-sm text-slate-600 truncate">
-                              {new Date(payment.date).toLocaleString('en-US', {
-                                month: 'short',
-                                day: 'numeric',
-                                year: 'numeric',
-                                hour: '2-digit',
-                                minute: '2-digit',
-                                hour12: true
-                              })}
-                            </p>
-                          </div>
-                        </div>
-                        <span className="flex-1 sm:flex-none inline-block px-2 sm:px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-bold whitespace-nowrap">
-                          Payment #{allPayments.length - index}
-                        </span>
-                      </div>
+                     <div className="flex flex-col sm:flex-row items-start sm:items-start justify-between gap-3 mb-3">
+  <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
+    <div className="bg-blue-100 p-2 sm:p-3 rounded-full flex-shrink-0">
+      <DollarSign className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 text-blue-600" />
+    </div>
+    <div className="flex-1 min-w-0">
+      <p className="text-xl sm:text-2xl font-bold text-blue-600 break-words">₨{payment.amount.toFixed(2)}</p>
+      <p className="text-xs sm:text-sm text-slate-600 truncate">
+        {new Date(payment.date).toLocaleString('en-US', {
+          month: 'short',
+          day: 'numeric',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: true
+        })}
+      </p>
+    </div>
+  </div>
+  <div className="flex items-center gap-2 w-full sm:w-auto">
+    <span className="flex-1 sm:flex-none inline-block px-2 sm:px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-bold whitespace-nowrap">
+      Payment #{allPayments.length - index}
+    </span>
+    {/* Reprint Button */}
+    <button
+      onClick={() => {
+        // Calculate running totals up to this payment
+        const paymentsUpToThis = allPayments.slice(index);
+        const runningPaid = paymentsUpToThis.reduce((sum, p) => sum + p.amount, 0);
+        const runningRemaining = selectedVendorForHistory.totalPurchaseValue - runningPaid;
+        
+        setPrintVendor({
+          ...selectedVendorForHistory,
+          itemName: payment.itemName,
+          paymentAmount: payment.amount,
+          paymentMethod: payment.method,
+          paymentNote: payment.note,
+          paidBy: payment.paidBy,
+          paymentDate: payment.date,
+          newPaidAmount: runningPaid,
+          newRemainingAmount: runningRemaining,
+          isVendorPaymentReceipt: true
+        });
+        setTimeout(() => window.print(), 100);
+      }}
+      className="p-2 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-lg transition-all flex-shrink-0"
+      title="Reprint Payment Receipt"
+    >
+      <Printer className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+    </button>
+  </div>
+</div>
 
                       {/* Payment Details */}
                       <div className="grid grid-cols-2 gap-2 sm:gap-3 mb-3">
@@ -4080,13 +4109,7 @@ const remainingRecords = totalRecords - displayLimit;
             <p className="text-purple-100 text-xs sm:text-sm mt-1 truncate">{selectedVendorDetails.vendor.vendorName}</p>
           </div>
           <div className="flex gap-2 flex-shrink-0">
-            <button
-              onClick={() => handlePrintVendor(selectedVendorDetails.vendor)}
-              className="p-2 hover:bg-white/20 rounded-lg transition-all"
-              title="Print Vendor Summary"
-            >
-              <Printer className="w-5 h-5 sm:w-6 sm:h-6" />
-            </button>
+        
             <button
               onClick={() => setSelectedVendorDetails(null)}
               className="p-2 hover:bg-white/20 rounded-lg transition-all"
@@ -4229,6 +4252,10 @@ const remainingRecords = totalRecords - displayLimit;
       {/* Payment Details */}
       <div className="text-xs mb-1 border-b border-dashed border-black pb-1">
         <div className="flex justify-between">
+          <span>Receipt #:</span>
+          <span className="font-bold">{Date.now().toString().slice(-8)}</span>
+        </div>
+        <div className="flex justify-between">
           <span>Payment Date:</span>
           <span className='text-[10px]'>{new Date(printVendor.paymentDate).toLocaleString('en-US', { 
             month: 'short', 
@@ -4247,51 +4274,75 @@ const remainingRecords = totalRecords - displayLimit;
           <span>Contact:</span>
           <span className="font-bold">{printVendor.phoneNumber}</span>
         </div>
-        <div className="flex justify-between">
-          <span>Method:</span>
-          <span className="font-bold">{printVendor.paymentMethod}</span>
-        </div>
-        <div className="flex justify-between">
-          <span>Paid By:</span>
-          <span className="font-bold">{printVendor.paidBy || 'Unknown'}</span>
-        </div>
-      </div>
-
-      {/* Amount Details */}
-      <div className="text-xs mb-1 border-b border-dashed border-black pb-1">
-        <div className="flex justify-between">
-          <span>Payment Amount:</span>
-          <span className="font-bold text-base text-green-600">₨{printVendor.paymentAmount.toFixed(2)}</span>
-        </div>
-        {printVendor.paymentNote && (
-          <div className="mt-2 pt-2 border-t border-dotted border-gray-300">
-            <p className="font-bold mb-1">Note:</p>
-            <p className="text-xs">{printVendor.paymentNote}</p>
+        {printVendor.itemName && (
+          <div className="flex justify-between">
+            <span>For Item:</span>
+            <span className="font-bold text-[10px]">{printVendor.itemName}</span>
           </div>
         )}
       </div>
 
-      {/* Summary */}
-      <div className="text-xs mb-1">
+      {/* Payment Transaction */}
+      <div className="text-xs mb-1 border-b border-dashed border-black pb-1">
+        <div className="flex justify-between mb-1">
+          <span>Payment Method:</span>
+          <span className="font-bold">{printVendor.paymentMethod}</span>
+        </div>
+        <div className="flex justify-between mb-1">
+          <span>Paid By:</span>
+          <span className="font-bold">{printVendor.paidBy || 'Unknown'}</span>
+        </div>
+        <div className="flex justify-between items-center bg-green-50 p-2 rounded">
+          <span className="font-bold">Payment Amount:</span>
+          <span className="font-bold text-lg text-green-600">₨{printVendor.paymentAmount.toFixed(2)}</span>
+        </div>
+        {printVendor.paymentNote && (
+          <div className="mt-2 pt-2 border-t border-dotted border-gray-300">
+            <p className="font-bold mb-1">Note:</p>
+            <p className="text-[10px]">{printVendor.paymentNote}</p>
+          </div>
+        )}
+      </div>
+
+      {/* Account Summary */}
+      <div className="text-xs mb-1 border-b border-dashed border-black pb-1">
+        <p className="font-bold mb-1">ACCOUNT SUMMARY:</p>
         <div className="flex justify-between">
           <span>Total Orders:</span>
           <span className="font-bold">{printVendor.totalOrders}</span>
         </div>
         <div className="flex justify-between">
           <span>Total Value:</span>
-          <span className="font-bold">₨{printVendor.totalPurchaseValue.toFixed(2)}</span>
+          <span className="font-bold">₨{printVendor.totalPurchaseValue?.toFixed(2) || '0.00'}</span>
         </div>
         <div className="flex justify-between">
-          <span>Total Paid:</span>
-          <span className="font-bold text-green-600">₨{printVendor.totalPaid.toFixed(2)}</span>
+          <span>Previously Paid:</span>
+          <span className="font-bold">₨{((printVendor.totalPaid || 0) - printVendor.paymentAmount).toFixed(2)}</span>
+        </div>
+        <div className="flex justify-between bg-blue-50 p-1 rounded">
+          <span className="font-bold">This Payment:</span>
+          <span className="font-bold text-green-600">₨{printVendor.paymentAmount.toFixed(2)}</span>
+        </div>
+        <div className="flex justify-between border-t border-dashed border-gray-400 pt-1 mt-1">
+          <span className="font-bold">Total Paid Now:</span>
+          <span className="font-bold text-green-600">₨{printVendor.totalPaid?.toFixed(2) || '0.00'}</span>
         </div>
         <div className="flex justify-between">
-          <span className="text-red-600">Remaining:</span>
-          <span className="font-bold text-red-600">₨{printVendor.totalPending.toFixed(2)}</span>
+          <span className={printVendor.totalPending > 0 ? 'text-red-600 font-bold' : 'font-bold'}>Remaining Balance:</span>
+          <span className={printVendor.totalPending > 0 ? 'text-red-600 font-bold' : 'font-bold text-green-600'}>
+            ₨{printVendor.totalPending?.toFixed(2) || '0.00'}
+          </span>
         </div>
+        {printVendor.totalPending <= 0 && (
+          <div className="text-center mt-2 p-2 bg-green-100 rounded border border-green-600">
+            <p className="font-bold text-sm text-green-700">✓ FULLY PAID</p>
+          </div>
+        )}
       </div>
 
+      {/* Footer */}
       <div className="text-center text-xs border-t border-dashed border-black pt-1">
+       
         <p className="text-[10px]">Print Time: {new Date().toLocaleString('en-US', {
           month: 'short',
           day: 'numeric',
@@ -4300,7 +4351,7 @@ const remainingRecords = totalRecords - displayLimit;
           minute: '2-digit',
           hour12: true
         })}</p>
-        <div className="pt-1 border-t text-center border-black">
+        <div className="pt-1 border-t text-center border-black mt-1">
           <p className="text-[14px] font-medium">
             Software By: M.Ammar Shaikh
           </p>
@@ -5112,6 +5163,189 @@ const remainingRecords = totalRecords - displayLimit;
               </button>
             </div>
           </form>
+        </div>
+      </motion.div>
+    </motion.div>
+  )}
+</AnimatePresence>
+{/* Vendor Payment History Filter Modal */}
+<AnimatePresence>
+  {showVendorPaymentHistoryFilterModal && (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 z-[80]"
+      onClick={() => setShowVendorPaymentHistoryFilterModal(false)}
+    >
+      <motion.div 
+        initial={{ scale: 0.9, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        exit={{ scale: 0.9, opacity: 0 }}
+        transition={{ type: 'spring', damping: 25 }}
+        className="bg-white rounded-xl sm:rounded-2xl shadow-2xl w-full max-w-md"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="bg-gradient-to-r from-indigo-600 to-indigo-700 text-white p-3 sm:p-4 md:p-6 flex items-center justify-between rounded-t-xl sm:rounded-t-2xl">
+          <div className="flex-1 min-w-0 pr-2">
+            <h2 className="text-lg sm:text-xl md:text-2xl font-bold flex items-center gap-2">
+              <Calendar className="w-5 h-5 sm:w-6 sm:h-6 flex-shrink-0" />
+              <span className="truncate">Select Date Range</span>
+            </h2>
+            <p className="text-indigo-100 text-xs sm:text-sm mt-1 truncate">Filter payment history</p>
+          </div>
+          <button
+            onClick={() => setShowVendorPaymentHistoryFilterModal(false)}
+            className="p-2 hover:bg-white/20 rounded-lg transition-all flex-shrink-0"
+          >
+            <X className="w-5 h-5 sm:w-6 sm:h-6" />
+          </button>
+        </div>
+
+        {/* Content */}
+        <div className="p-3 sm:p-4 md:p-6">
+          <div className="space-y-3 sm:space-y-4">
+            {/* Quick Filters */}
+            <div className="grid grid-cols-2 gap-2 sm:gap-3">
+              {[
+                { value: 'all', label: 'All Time', icon: '📊' },
+                { value: 'today', label: 'Today', icon: '📅' },
+                { value: 'week', label: 'This Week', icon: '📆' },
+                { value: 'month', label: 'This Month', icon: '🗓️' },
+                { value: 'custom', label: 'Custom Range', icon: '🔍' }
+              ].map(filter => (
+                <button
+                  key={filter.value}
+                  onClick={() => setVendorHistoryDateFilter(filter.value)}
+                  className={`p-3 sm:p-4 rounded-lg sm:rounded-xl border-2 transition-all text-left ${
+                    vendorHistoryDateFilter === filter.value
+                      ? 'border-indigo-500 bg-indigo-50'
+                      : 'border-slate-200 hover:border-indigo-300'
+                  }`}
+                >
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-xl">{filter.icon}</span>
+                    <span className={`font-semibold text-sm ${
+                      vendorHistoryDateFilter === filter.value ? 'text-indigo-700' : 'text-slate-700'
+                    }`}>
+                      {filter.label}
+                    </span>
+                  </div>
+                </button>
+              ))}
+            </div>
+
+            {/* Custom Date Range */}
+            {vendorHistoryDateFilter === 'custom' && (
+              <div className="space-y-3 border-t border-slate-200 pt-3">
+                <div>
+                  <label className="block text-xs sm:text-sm font-semibold text-slate-700 mb-1.5">
+                    Start Date
+                  </label>
+                  <input
+                    type="date"
+                    value={vendorHistoryCustomRange.startDate}
+                    onChange={(e) => setVendorHistoryCustomRange({
+                      ...vendorHistoryCustomRange,
+                      startDate: e.target.value
+                    })}
+                    max={vendorHistoryCustomRange.endDate || new Date().toISOString().split('T')[0]}
+                    className="w-full px-3 sm:px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs sm:text-sm font-semibold text-slate-700 mb-1.5">
+                    End Date
+                  </label>
+                  <input
+                    type="date"
+                    value={vendorHistoryCustomRange.endDate}
+                    onChange={(e) => setVendorHistoryCustomRange({
+                      ...vendorHistoryCustomRange,
+                      endDate: e.target.value
+                    })}
+                    min={vendorHistoryCustomRange.startDate}
+                    max={new Date().toISOString().split('T')[0]}
+                    className="w-full px-3 sm:px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 mt-4 sm:mt-6">
+            <button
+              onClick={async () => {
+                if (vendorHistoryDateFilter === 'custom' && (!vendorHistoryCustomRange.startDate || !vendorHistoryCustomRange.endDate)) {
+                  showNotification('Please select both start and end dates', 'error');
+                  return;
+                }
+                
+                setShowVendorPaymentHistoryFilterModal(false);
+                
+                // Build date filters
+                let dateFilters = {};
+                const now = new Date();
+                
+                switch(vendorHistoryDateFilter) {
+                  case 'today':
+                    dateFilters.createdAt = { $gte: new Date(now.setHours(0, 0, 0, 0)) };
+                    break;
+                  case 'week':
+                    dateFilters.createdAt = { $gte: new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000) };
+                    break;
+                  case 'month':
+                    dateFilters.createdAt = { $gte: new Date(now.getFullYear(), now.getMonth(), 1) };
+                    break;
+                  case 'custom':
+                    const start = new Date(vendorHistoryCustomRange.startDate);
+                    start.setHours(0, 0, 0, 0);
+                    const end = new Date(vendorHistoryCustomRange.endDate);
+                    end.setHours(23, 59, 59, 999);
+                    dateFilters.createdAt = { $gte: start, $lte: end };
+                    break;
+                }
+                
+                // Load vendor details with filters
+                setLoadingState('loadVendorPaymentHistory', true);
+                const result = await getVendorDetails(selectedVendorForHistory.vendorName, dateFilters);
+                setLoadingState('loadVendorPaymentHistory', false);
+                
+                if (result.success) {
+                  setSelectedVendorForHistory({
+                    ...selectedVendorForHistory,
+                    purchases: result.data.purchases
+                  });
+                  
+                  // Now print
+                  setPrintVendor({ 
+                    ...selectedVendorForHistory,
+                    purchases: result.data.purchases,
+                    isPaymentHistory: true,
+                    isVendorPaymentHistory: true,
+                    dateFilter: vendorHistoryDateFilter,
+                    customRange: vendorHistoryDateFilter === 'custom' ? vendorHistoryCustomRange : null
+                  });
+                  setTimeout(() => window.print(), 100);
+                } else {
+                  showNotification(result.error || 'Failed to load payment history', 'error');
+                }
+              }}
+              disabled={vendorHistoryDateFilter === 'custom' && (!vendorHistoryCustomRange.startDate || !vendorHistoryCustomRange.endDate)}
+              className="flex-1 px-6 sm:px-8 py-2.5 sm:py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg sm:rounded-xl font-semibold transition-all shadow-lg flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base"
+            >
+              <Printer className="w-4 h-4 sm:w-5 sm:h-5" />
+              <span>Print History</span>
+            </button>
+            <button
+              onClick={() => setShowVendorPaymentHistoryFilterModal(false)}
+              className="px-6 sm:px-8 py-2.5 sm:py-3 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-lg sm:rounded-xl font-semibold transition-all text-sm sm:text-base"
+            >
+              Cancel
+            </button>
+          </div>
         </div>
       </motion.div>
     </motion.div>
