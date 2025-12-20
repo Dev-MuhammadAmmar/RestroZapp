@@ -33,6 +33,19 @@ import {
 import { getSettings } from '@/lib/actions/settings';
 
 const GroceryManagement = () => {
+   useEffect(() => {
+      const metaViewport = document.querySelector('meta[name=viewport]');
+      if (metaViewport) {
+        metaViewport.setAttribute('content', 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no');
+      }
+      
+      return () => {
+        if (metaViewport) {
+          metaViewport.setAttribute('content', 'width=device-width, initial-scale=1.0');
+        }
+      };
+    }, []);
+  
   const [vendorFilterStatus, setVendorFilterStatus] = useState('ALL');
 const [vendorSortBy, setVendorSortBy] = useState('name');
   // NEW: Vendor-related states
@@ -1010,38 +1023,40 @@ const remainingRecords = totalRecords - displayLimit;
                 <p className="text-slate-600 text-sm sm:text-base">Track purchases, vendors & financial control</p>
               </div>
               <div className="flex gap-3">
-                {/* ADD THIS NEW BUTTON */}
+ {/* Vendors Button */}
   <motion.button
     whileHover={{ scale: 1.05 }}
     whileTap={{ scale: 0.95 }}
     onClick={() => setShowVendorSidebar(true)}
-    className="flex-1 sm:flex-initial px-4 sm:px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium transition-all flex items-center justify-center gap-2 shadow-lg"
+    className="flex-1 sm:flex-initial px-3 sm:px-6 py-2.5 sm:py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg sm:rounded-xl font-medium transition-all flex items-center justify-center gap-2 shadow-lg text-sm sm:text-base"
   >
-    <Users className="w-5 h-5" />
+    <Users className="w-4 h-4 sm:w-5 sm:h-5" />
     <span>Vendors</span>
   </motion.button>
   
-  {/* Existing buttons */}
+  {/* View Groceries Button */}
   <motion.button
     whileHover={{ scale: 1.05 }}
     whileTap={{ scale: 0.95 }}
     onClick={() => setSidebarOpen(true)}
-    className="flex-1 sm:flex-initial px-4 sm:px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-medium transition-all flex items-center justify-center gap-2 shadow-lg"
+    className="flex-1 sm:flex-initial px-3 sm:px-6 py-2.5 sm:py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg sm:rounded-xl font-medium transition-all flex items-center justify-center gap-2 shadow-lg text-sm sm:text-base"
   >
-    <Menu className="w-5 h-5" />
-    <span>View Groceries</span>
+    <Menu className="w-4 h-4 sm:w-5 sm:h-5" />
+    <span className="hidden sm:inline">View Groceries</span>
+    <span className="sm:hidden">Groceries</span>
   </motion.button>
-               
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={() => setShowForm(true)}
-                  className="flex-1 sm:flex-initial px-4 sm:px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium transition-all flex items-center justify-center gap-2 shadow-lg"
-                >
-                  <Plus className="w-5 h-5" />
-                  <span className="hidden sm:inline">Add Purchase</span>
-                  <span className="sm:hidden">Add</span>
-                </motion.button>
+  
+  {/* Add Purchase Button */}
+  <motion.button
+    whileHover={{ scale: 1.05 }}
+    whileTap={{ scale: 0.95 }}
+    onClick={() => setShowForm(true)}
+    className="flex-1 sm:flex-initial px-3 sm:px-6 py-2.5 sm:py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-lg sm:rounded-xl font-medium transition-all flex items-center justify-center gap-2 shadow-lg text-sm sm:text-base"
+  >
+    <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
+    <span className="hidden sm:inline">Add Purchase</span>
+    <span className="sm:hidden">Add</span>
+  </motion.button>
               </div>
             </div>
 
