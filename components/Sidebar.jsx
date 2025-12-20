@@ -48,6 +48,7 @@ useEffect(() => {
       { icon: LayoutDashboard, label: 'Dashboard', href: '/dashboard' },
       { icon: ShoppingCart, label: 'POS', href: '/pos' },
       { icon: Package, label: 'Inventory', href: '/inventory' },
+      { icon: ChefHat, label: 'Grocery', href: '/grocery' },
       { icon: ClipboardList, label: 'Orders', href: '/orders' },
       { icon: BarChart3, label: 'Reports', href: '/reports' },
       { icon: Users, label: 'Customers', href: '/customers' },

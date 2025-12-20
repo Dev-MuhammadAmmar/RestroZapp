@@ -115,6 +115,19 @@ const [endTime, setEndTime] = useState('23:59');
   avgOrderValue: 0,
 });
 
+
+  useEffect(() => {
+    const metaViewport = document.querySelector('meta[name=viewport]');
+    if (metaViewport) {
+      metaViewport.setAttribute('content', 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no');
+    }
+    
+    return () => {
+      if (metaViewport) {
+        metaViewport.setAttribute('content', 'width=device-width, initial-scale=1.0');
+      }
+    };
+  }, []);
   // Debounce search
   const searchTimeoutRef = useRef(null);
 

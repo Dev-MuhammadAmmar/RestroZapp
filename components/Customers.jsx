@@ -262,6 +262,19 @@ export default function CustomersPage() {
     email: '',
     notes: ''
   });
+  
+    useEffect(() => {
+      const metaViewport = document.querySelector('meta[name=viewport]');
+      if (metaViewport) {
+        metaViewport.setAttribute('content', 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no');
+      }
+      
+      return () => {
+        if (metaViewport) {
+          metaViewport.setAttribute('content', 'width=device-width, initial-scale=1.0');
+        }
+      };
+    }, []);
   const [formError, setFormError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
   const [showFilters, setShowFilters] = useState(false);
