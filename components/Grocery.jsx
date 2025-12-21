@@ -4267,316 +4267,307 @@
       </motion.div>
     )}
   </AnimatePresence>
-  {/* Print Templates */}
- {/* Vendor Payment Receipt Print */}
-{printVendor?.isVendorPaymentReceipt && (
-  <div className="hidden print:block print-content">
-    <div className="receipt-container">
-      {/* Header */}
-      <div className="text-center mb-1 border-b-2 border-dashed border-black pb-1">
-        <h1 className="text-[22px] font-bold uppercase">{grocerySettings?.restaurantName || 'GROCERY STORE'}</h1>
-        <p className="text-xs">{grocerySettings?.address || ''}</p>
-        <p className="text-xs">{grocerySettings?.phone1 || ''}{grocerySettings?.phone2 ? ` | ${grocerySettings.phone2}` : ''}</p>
-        <p className="text-sm font-bold">VENDOR PAYMENT RECEIPT</p>
-      </div>
+{/* Grocery Print Templates - Enhanced */}
+  
+  {/* Vendor Payment Receipt Print */}
+  {printVendor?.isVendorPaymentReceipt && (
+    <div className="hidden print:block print-content">
+      <div className="receipt-container">
+        {/* Header */}
+        <div className="text-center mb-2 border-b-2 border-black pb-2">
+          <h1 className="text-2xl font-bold uppercase text-black">{grocerySettings?.restaurantName || 'GROCERY STORE'}</h1>
+          <p className="text-sm text-black font-medium">{grocerySettings?.address || ''}</p>
+          <p className="text-sm text-black font-medium">{grocerySettings?.phone1 || ''}{grocerySettings?.phone2 ? ` | ${grocerySettings.phone2}` : ''}</p>
+          <p className="text-base font-bold text-black mt-1">VENDOR PAYMENT RECEIPT</p>
+        </div>
 
-      {/* Payment Details */}
-      <div className="text-xs mb-1 border-b border-dashed border-black pb-1">
-        <div className="flex justify-between">
-          <span>Receipt #:</span>
-          <span className="font-bold">{Date.now().toString().slice(-8)}</span>
+        {/* Payment Details */}
+        <div className="text-sm mb-2 border-b border-black pb-2">
+          <div className="flex justify-between mb-1">
+            <span className="font-bold text-black">Receipt #:</span>
+            <span className="font-bold text-black">{Date.now().toString().slice(-8)}</span>
+          </div>
+          <div className="flex justify-between mb-1">
+            <span className="font-bold text-black">Payment Date:</span>
+            <span className="text-xs text-black font-medium">{new Date(printVendor.paymentDate).toLocaleString('en-US', { 
+              month: 'short', 
+              day: 'numeric', 
+              year: 'numeric', 
+              hour: '2-digit', 
+              minute: '2-digit',
+              hour12: true 
+            })}</span>
+          </div>
+          <div className="flex justify-between mb-1">
+            <span className="font-bold text-black">Vendor:</span>
+            <span className="font-bold text-black">{printVendor.vendorName}</span>
+          </div>
+          <div className="flex justify-between mb-1">
+            <span className="font-bold text-black">Contact:</span>
+            <span className="font-bold text-black">{printVendor.phoneNumber}</span>
+          </div>
+          {printVendor.itemName && (
+            <div className="flex justify-between">
+              <span className="font-bold text-black">For Item:</span>
+              <span className="font-bold text-black text-xs">{printVendor.itemName}</span>
+            </div>
+          )}
         </div>
-        <div className="flex justify-between">
-          <span>Payment Date:</span>
-          <span className='text-[10px]'>{new Date(printVendor.paymentDate).toLocaleString('en-US', { 
-            month: 'short', 
-            day: 'numeric', 
-            year: 'numeric', 
-            hour: '2-digit', 
-            minute: '2-digit',
-            hour12: true 
-          })}</span>
+
+        {/* Payment Transaction */}
+        <div className="text-sm mb-2 border-b border-black pb-2">
+          <div className="flex justify-between mb-1">
+            <span className="font-bold text-black">Payment Method:</span>
+            <span className="font-bold text-black">{printVendor.paymentMethod}</span>
+          </div>
+          <div className="flex justify-between mb-2">
+            <span className="font-bold text-black">Paid By:</span>
+            <span className="font-bold text-black">{printVendor.paidBy || 'Unknown'}</span>
+          </div>
+          <div className="flex justify-between items-center border-2 border-black p-2 mb-2">
+            <span className="font-bold text-black text-base">Payment Amount:</span>
+            <span className="font-bold text-lg text-black">₨{printVendor.paymentAmount.toFixed(2)}</span>
+          </div>
+          {printVendor.paymentNote && (
+            <div className="mt-2 pt-2 border-t border-black">
+              <p className="font-bold mb-1 text-black">Note:</p>
+              <p className="text-xs text-black font-medium">{printVendor.paymentNote}</p>
+            </div>
+          )}
         </div>
-        <div className="flex justify-between">
-          <span>Vendor:</span>
-          <span className="font-bold">{printVendor.vendorName}</span>
-        </div>
-        <div className="flex justify-between">
-          <span>Contact:</span>
-          <span className="font-bold">{printVendor.phoneNumber}</span>
-        </div>
-        {printVendor.itemName && (
+
+        {/* Account Summary */}
+        <div className="text-sm mb-2 border-b border-black pb-2">
+          <p className="font-bold mb-2 text-black text-base">ACCOUNT SUMMARY:</p>
+          <div className="flex justify-between mb-1">
+            <span className="font-bold text-black">Total Orders:</span>
+            <span className="font-bold text-black">{printVendor.totalOrders}</span>
+          </div>
+          <div className="flex justify-between mb-1">
+            <span className="font-bold text-black">Total Value:</span>
+            <span className="font-bold text-black">₨{(printVendor.totalPurchaseValue || 0).toFixed(2)}</span>
+          </div>
+          <div className="flex justify-between mb-1">
+            <span className="font-bold text-black">Previously Paid:</span>
+            <span className="font-bold text-black">₨{(printVendor.previousPaid || 0).toFixed(2)}</span>
+          </div>
+          <div className="flex justify-between border border-black p-1 mb-1">
+            <span className="font-bold text-black">This Payment:</span>
+            <span className="font-bold text-black">₨{printVendor.paymentAmount.toFixed(2)}</span>
+          </div>
+          <div className="flex justify-between border-t-2 border-black pt-1 mb-1">
+            <span className="font-bold text-black">Total Paid Now:</span>
+            <span className="font-bold text-black">₨{(printVendor.totalPaid || 0).toFixed(2)}</span>
+          </div>
           <div className="flex justify-between">
-            <span>For Item:</span>
-            <span className="font-bold text-[10px]">{printVendor.itemName}</span>
+            <span className="font-bold text-black">Remaining Balance:</span>
+            <span className="font-bold text-black">₨{(printVendor.totalPending || 0).toFixed(2)}</span>
           </div>
-        )}
-      </div>
+          {printVendor.totalPending <= 0 && (
+            <div className="text-center mt-2 p-2 border-2 border-black">
+              <p className="font-bold text-base text-black">✓ FULLY PAID</p>
+            </div>
+          )}
+        </div>
 
-      {/* Payment Transaction */}
-      <div className="text-xs mb-1 border-b border-dashed border-black pb-1">
-        <div className="flex justify-between mb-1">
-          <span>Payment Method:</span>
-          <span className="font-bold">{printVendor.paymentMethod}</span>
-        </div>
-        <div className="flex justify-between mb-1">
-          <span>Paid By:</span>
-          <span className="font-bold">{printVendor.paidBy || 'Unknown'}</span>
-        </div>
-        <div className="flex justify-between items-center bg-green-50 p-2 rounded">
-          <span className="font-bold">Payment Amount:</span>
-          <span className="font-bold text-lg text-green-600">₨{printVendor.paymentAmount.toFixed(2)}</span>
-        </div>
-        {printVendor.paymentNote && (
-          <div className="mt-2 pt-2 border-t border-dotted border-gray-300">
-            <p className="font-bold mb-1">Note:</p>
-            <p className="text-[10px]">{printVendor.paymentNote}</p>
+        {/* Footer */}
+        <div className="text-center text-sm border-t-2 border-black pt-2">
+          <p className="text-xs text-black font-medium mb-2">Print Time: {new Date().toLocaleString('en-US', {
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: true
+          })}</p>
+          <div className="pt-1 border-t border-black">
+            <p className="text-base font-bold text-black">Software By: M.Ammar Shaikh</p>
+            <p className="text-sm font-medium text-black">Tel: 0316-0346330 | 0370-2741544</p>
           </div>
-        )}
-      </div>
-
-      {/* Account Summary - FIXED CALCULATIONS */}
-      <div className="text-xs mb-1 border-b border-dashed border-black pb-1">
-        <p className="font-bold mb-1">ACCOUNT SUMMARY:</p>
-        <div className="flex justify-between">
-          <span>Total Orders:</span>
-          <span className="font-bold">{printVendor.totalOrders}</span>
-        </div>
-        <div className="flex justify-between">
-          <span>Total Value:</span>
-          <span className="font-bold">₨{(printVendor.totalPurchaseValue || 0).toFixed(2)}</span>
-        </div>
-        <div className="flex justify-between">
-          <span>Previously Paid:</span>
-          <span className="font-bold">₨{(printVendor.previousPaid || 0).toFixed(2)}</span>
-        </div>
-        <div className="flex justify-between bg-blue-50 p-1 rounded">
-          <span className="font-bold">This Payment:</span>
-          <span className="font-bold text-green-600">₨{printVendor.paymentAmount.toFixed(2)}</span>
-        </div>
-        <div className="flex justify-between border-t border-dashed border-gray-400 pt-1 mt-1">
-          <span className="font-bold">Total Paid Now:</span>
-          <span className="font-bold text-green-600">₨{(printVendor.totalPaid || 0).toFixed(2)}</span>
-        </div>
-        <div className="flex justify-between">
-          <span className={printVendor.totalPending > 0 ? 'text-red-600 font-bold' : 'font-bold'}>Remaining Balance:</span>
-          <span className={printVendor.totalPending > 0 ? 'text-red-600 font-bold' : 'font-bold text-green-600'}>
-            ₨{(printVendor.totalPending || 0).toFixed(2)}
-          </span>
-        </div>
-        {printVendor.totalPending <= 0 && (
-          <div className="text-center mt-2 p-2 bg-green-100 rounded border border-green-600">
-            <p className="font-bold text-sm text-green-700">✓ FULLY PAID</p>
-          </div>
-        )}
-      </div>
-
-      {/* Footer */}
-      <div className="text-center text-xs border-t border-dashed border-black pt-1">
-        <p className="text-[10px]">Print Time: {new Date().toLocaleString('en-US', {
-          month: 'short',
-          day: 'numeric',
-          year: 'numeric',
-          hour: '2-digit',
-          minute: '2-digit',
-          hour12: true
-        })}</p>
-        <div className="pt-1 border-t text-center border-black mt-1">
-          <p className="text-[14px] font-medium">
-            Software By: M.Ammar Shaikh
-          </p>
-          <p className="text-[12px] font-[400] break-all">
-            Tel: 0316-0346330 | 0370-2741544
-          </p>
         </div>
       </div>
     </div>
-  </div>
-)}
+  )}
 
-{/* Vendor Payment History Print */}
-{printVendor?.isVendorPaymentHistory && (
-  <div className="hidden print:block print-content">
-    <div className="receipt-container">
-      {/* Header */}
-      <div className="text-center mb-1 border-b-2 border-dashed border-black pb-1">
-        <h1 className="text-[22px] font-bold uppercase">{grocerySettings?.restaurantName || 'GROCERY STORE'}</h1>
-        <p className="text-xs">{grocerySettings?.address || ''}</p>
-        <p className="text-xs">{grocerySettings?.phone1 || ''}{grocerySettings?.phone2 ? ` | ${grocerySettings.phone2}` : ''}</p>
-        <p className="text-sm font-bold">VENDOR PAYMENT HISTORY</p>
-      </div>
+  {/* Vendor Payment History Print */}
+  {printVendor?.isVendorPaymentHistory && (
+    <div className="hidden print:block print-content">
+      <div className="receipt-container">
+        {/* Header */}
+        <div className="text-center mb-2 border-b-2 border-black pb-2">
+          <h1 className="text-2xl font-bold uppercase text-black">{grocerySettings?.restaurantName || 'GROCERY STORE'}</h1>
+          <p className="text-sm text-black font-medium">{grocerySettings?.address || ''}</p>
+          <p className="text-sm text-black font-medium">{grocerySettings?.phone1 || ''}{grocerySettings?.phone2 ? ` | ${grocerySettings.phone2}` : ''}</p>
+          <p className="text-base font-bold text-black mt-1">VENDOR PAYMENT HISTORY</p>
+        </div>
 
-      {/* Vendor & Date Range Info */}
-      <div className="text-xs mb-1 border-b border-dashed border-black pb-1">
-        <div className="flex justify-between">
-          <span>Vendor:</span>
-          <span className="font-bold">{printVendor.vendorName}</span>
+        {/* Vendor & Date Range Info */}
+        <div className="text-sm mb-2 border-b border-black pb-2">
+          <div className="flex justify-between mb-1">
+            <span className="font-bold text-black">Vendor:</span>
+            <span className="font-bold text-black">{printVendor.vendorName}</span>
+          </div>
+          <div className="flex justify-between mb-1">
+            <span className="font-bold text-black">Contact:</span>
+            <span className="font-bold text-black">{printVendor.phoneNumber}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="font-bold text-black">Period:</span>
+            <span className="font-bold text-black">{printVendor.dateRangeLabel || 'All Time'}</span>
+          </div>
         </div>
-        <div className="flex justify-between">
-          <span>Contact:</span>
-          <span className="font-bold">{printVendor.phoneNumber}</span>
-        </div>
-        {/* ADD DATE RANGE INFO */}
-        <div className="flex justify-between">
-          <span>Period:</span>
-          <span className="font-bold">{printVendor.dateRangeLabel || 'All Time'}</span>
-        </div>
-      </div>
 
-      {/* Stats Summary */}
-      <div className="text-xs mb-1 border-b border-dashed border-black pb-1">
-        <div className="flex justify-between">
-          <span>Total Orders:</span>
-          <span className="font-bold">{printVendor.totalOrders}</span>
+        {/* Stats Summary */}
+        <div className="text-sm mb-2 border-b border-black pb-2">
+          <div className="flex justify-between mb-1">
+            <span className="font-bold text-black">Total Orders:</span>
+            <span className="font-bold text-black">{printVendor.totalOrders}</span>
+          </div>
+          <div className="flex justify-between mb-1">
+            <span className="font-bold text-black">Total Value:</span>
+            <span className="font-bold text-black">₨{printVendor.totalPurchaseValue.toFixed(2)}</span>
+          </div>
+          <div className="flex justify-between mb-1">
+            <span className="font-bold text-black">Total Paid:</span>
+            <span className="font-bold text-black">₨{printVendor.totalPaid.toFixed(2)}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="font-bold text-black">Pending:</span>
+            <span className="font-bold text-black">₨{printVendor.totalPending.toFixed(2)}</span>
+          </div>
         </div>
-        <div className="flex justify-between">
-          <span>Total Value:</span>
-          <span className="font-bold">₨{printVendor.totalPurchaseValue.toFixed(2)}</span>
-        </div>
-        <div className="flex justify-between">
-          <span>Total Paid:</span>
-          <span className="font-bold text-green-600">₨{printVendor.totalPaid.toFixed(2)}</span>
-        </div>
-        <div className="flex justify-between">
-          <span className="text-red-600">Pending:</span>
-          <span className="font-bold text-red-600">₨{printVendor.totalPending.toFixed(2)}</span>
-        </div>
-      </div>
 
-      {/* Payment List */}
-      <div className="text-xs mb-1">
-        <p className="font-bold text-sm mb-1">ALL PAYMENTS:</p>
-        {(() => {
-          const allPayments = [];
-          printVendor.purchases?.forEach(purchase => {
-            purchase.paymentHistory?.forEach(payment => {
-              allPayments.push({
-                ...payment,
-                itemName: purchase.itemName
+        {/* Payment List */}
+        <div className="text-sm mb-2">
+          <p className="font-bold text-base mb-2 text-black">ALL PAYMENTS:</p>
+          {(() => {
+            const allPayments = [];
+            printVendor.purchases?.forEach(purchase => {
+              purchase.paymentHistory?.forEach(payment => {
+                allPayments.push({
+                  ...payment,
+                  itemName: purchase.itemName
+                });
               });
             });
-          });
-          allPayments.sort((a, b) => new Date(b.date) - new Date(a.date));
+            allPayments.sort((a, b) => new Date(b.date) - new Date(a.date));
 
-          return allPayments.length > 0 ? (
-            allPayments.map((payment, index) => (
-              <div key={index} className="border border-dashed border-gray-300 p-1 mb-1">
-                <div className="flex justify-between mb-1">
-                  <span className="font-bold">₨{payment.amount.toFixed(2)}</span>
-                  <span className="text-[9px]">{new Date(payment.date).toLocaleString('en-US', {
-                    month: 'short',
-                    day: 'numeric',
-                    hour: '2-digit',
-                    minute: '2-digit',
-                    hour12: true
-                  })}</span>
-                </div>
-                <div className="flex justify-between text-[10px]">
-                  <span>Item:</span>
-                  <span>{payment.itemName}</span>
-                </div>
-                <div className="flex justify-between text-[10px]">
-                  <span>Method:</span>
-                  <span>{payment.method}</span>
-                </div>
-                <div className="flex justify-between text-[10px]">
-                  <span>By:</span>
-                  <span>{payment.paidBy || 'Unknown'}</span>
-                </div>
-                {payment.note && (
-                  <div className="text-[9px] mt-1">
-                    <span>Note: </span>
-                    <span>{payment.note}</span>
+            return allPayments.length > 0 ? (
+              allPayments.map((payment, index) => (
+                <div key={index} className="border-2 border-black p-2 mb-2">
+                  <div className="flex justify-between mb-1">
+                    <span className="font-bold text-black text-base">₨{payment.amount.toFixed(2)}</span>
+                    <span className="text-xs text-black font-medium">{new Date(payment.date).toLocaleString('en-US', {
+                      month: 'short',
+                      day: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                      hour12: true
+                    })}</span>
                   </div>
-                )}
-              </div>
-            ))
-          ) : (
-            <p className="text-center text-xs">No payments in selected period</p>
-          );
-        })()}
-      </div>
+                  <div className="flex justify-between text-xs mb-1">
+                    <span className="font-bold text-black">Item:</span>
+                    <span className="text-black font-medium">{payment.itemName}</span>
+                  </div>
+                  <div className="flex justify-between text-xs mb-1">
+                    <span className="font-bold text-black">Method:</span>
+                    <span className="text-black font-medium">{payment.method}</span>
+                  </div>
+                  <div className="flex justify-between text-xs">
+                    <span className="font-bold text-black">By:</span>
+                    <span className="text-black font-medium">{payment.paidBy || 'Unknown'}</span>
+                  </div>
+                  {payment.note && (
+                    <div className="text-xs mt-1 pt-1 border-t border-black">
+                      <span className="font-bold text-black">Note: </span>
+                      <span className="text-black">{payment.note}</span>
+                    </div>
+                  )}
+                </div>
+              ))
+            ) : (
+              <p className="text-center text-sm text-black font-bold">No payments in selected period</p>
+            );
+          })()}
+        </div>
 
-      {/* Footer */}
-      <div className="text-center text-xs border-t border-dashed border-black pt-1">
-        <p className="text-[10px]">Print Time: {new Date().toLocaleString('en-US', {
-          month: 'short',
-          day: 'numeric',
-          year: 'numeric',
-          hour: '2-digit',
-          minute: '2-digit',
-          hour12: true
-        })}</p>
-        <div className="pt-1 border-t text-center border-black">
-          <p className="text-[14px] font-medium">
-            Software By: M.Ammar Shaikh
-          </p>
-          <p className="text-[12px] font-[400] break-all">
-            Tel: 0316-0346330 | 0370-2741544
-          </p>
+        {/* Footer */}
+        <div className="text-center text-sm border-t-2 border-black pt-2">
+          <p className="text-xs text-black font-medium mb-2">Print Time: {new Date().toLocaleString('en-US', {
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: true
+          })}</p>
+          <div className="pt-1 border-t border-black">
+            <p className="text-base font-bold text-black">Software By: M.Ammar Shaikh</p>
+            <p className="text-sm font-medium text-black">Tel: 0316-0346330 | 0370-2741544</p>
+          </div>
         </div>
       </div>
     </div>
-  </div>
-)}
+  )}
+
   {/* Return History Print */}
   {printGrocery?.isReturnHistory && (
     <div className="hidden print:block print-content">
       <div className="receipt-container">
         {/* Header */}
-        <div className="text-center mb-1 border-b-2 border-dashed border-black pb-1">
-          <h1 className="text-[22px] font-bold uppercase">{grocerySettings?.restaurantName || 'GROCERY STORE'}</h1>
-          <p className="text-xs">{grocerySettings?.address || ''}</p>
-          <p className="text-xs">{grocerySettings?.phone1 || ''}{grocerySettings?.phone2 ? ` | ${grocerySettings.phone2}` : ''}</p>
-          <p className="text-sm font-bold">RETURN HISTORY</p>
+        <div className="text-center mb-2 border-b-2 border-black pb-2">
+          <h1 className="text-2xl font-bold uppercase text-black">{grocerySettings?.restaurantName || 'GROCERY STORE'}</h1>
+          <p className="text-sm text-black font-medium">{grocerySettings?.address || ''}</p>
+          <p className="text-sm text-black font-medium">{grocerySettings?.phone1 || ''}{grocerySettings?.phone2 ? ` | ${grocerySettings.phone2}` : ''}</p>
+          <p className="text-base font-bold text-black mt-1">RETURN HISTORY</p>
         </div>
 
-        <div className="text-xs mb-1 border-b border-dashed border-black pb-1">
-          <div className="flex justify-between">
-            <span>Purchase ID:</span>
-            <span className="font-bold">{printGrocery._id?.slice(-8).toUpperCase()}</span>
+        <div className="text-sm mb-2 border-b border-black pb-2">
+          <div className="flex justify-between mb-1">
+            <span className="font-bold text-black">Purchase ID:</span>
+            <span className="font-bold text-black">{printGrocery._id?.slice(-8).toUpperCase()}</span>
+          </div>
+          <div className="flex justify-between mb-1">
+            <span className="font-bold text-black">Item:</span>
+            <span className="font-bold text-black">{printGrocery.itemName}</span>
           </div>
           <div className="flex justify-between">
-            <span>Item:</span>
-            <span className="font-bold">{printGrocery.itemName}</span>
-          </div>
-          <div className="flex justify-between">
-            <span>Vendor:</span>
-            <span className="font-bold">{printGrocery.vendorName}</span>
-          </div>
-        </div>
-
-        <div className="text-xs mb-1 border-b border-dashed border-black pb-1">
-          <div className="flex justify-between">
-            <span>Original Qty:</span>
-            <span className="font-bold">{printGrocery.quantity} {printGrocery.unit}</span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-red-600">Total Returned:</span>
-            <span className="font-bold text-red-600">{printGrocery.returnedQuantity || 0} {printGrocery.unit}</span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-green-600">Net Quantity:</span>
-            <span className="font-bold text-green-600">{(printGrocery.quantity - (printGrocery.returnedQuantity || 0)).toFixed(2)} {printGrocery.unit}</span>
+            <span className="font-bold text-black">Vendor:</span>
+            <span className="font-bold text-black">{printGrocery.vendorName}</span>
           </div>
         </div>
 
-        <div className="text-xs mb-1">
-          <p className="font-bold text-sm">RETURN TRANSACTIONS:</p>
+        <div className="text-sm mb-2 border-b border-black pb-2">
+          <div className="flex justify-between mb-1">
+            <span className="font-bold text-black">Original Qty:</span>
+            <span className="font-bold text-black">{printGrocery.quantity} {printGrocery.unit}</span>
+          </div>
+          <div className="flex justify-between mb-1">
+            <span className="font-bold text-black">Total Returned:</span>
+            <span className="font-bold text-black">{printGrocery.returnedQuantity || 0} {printGrocery.unit}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="font-bold text-black">Net Quantity:</span>
+            <span className="font-bold text-black">{(printGrocery.quantity - (printGrocery.returnedQuantity || 0)).toFixed(2)} {printGrocery.unit}</span>
+          </div>
+        </div>
+
+        <div className="text-sm mb-2">
+          <p className="font-bold text-base text-black mb-2">RETURN TRANSACTIONS:</p>
           {printGrocery.returns && printGrocery.returns.length > 0 ? (
             printGrocery.returns.map((ret, index) => (
-              <div key={index} className="border border-dashed border-gray-300 p-1 mb-1">
+              <div key={index} className="border-2 border-black p-2 mb-2">
                 <div className="flex justify-between mb-1">
-                  <span className="font-bold">Return #{index + 1}</span>
-                  <span className="font-bold">₨{ret.returnAmount?.toFixed(2) || 0}</span>
+                  <span className="font-bold text-black">Return #{index + 1}</span>
+                  <span className="font-bold text-black">₨{ret.returnAmount?.toFixed(2) || 0}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span>Qty:</span>
-                  <span>{ret.returnQuantity} {ret.unit}</span>
+                <div className="flex justify-between mb-1">
+                  <span className="font-bold text-black">Qty:</span>
+                  <span className="text-black font-medium">{ret.returnQuantity} {ret.unit}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span>Date:</span>
-                  <span>{new Date(ret.returnDate).toLocaleString('en-US', {
+                <div className="flex justify-between mb-1">
+                  <span className="font-bold text-black">Date:</span>
+                  <span className="text-xs text-black font-medium">{new Date(ret.returnDate).toLocaleString('en-US', {
                     month: 'short',
                     day: 'numeric',
                     year: 'numeric',
@@ -4585,25 +4576,25 @@
                     hour12: true
                   })}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span>Reason:</span>
-                  <span className="font-bold">{ret.returnReason}</span>
+                <div className="flex justify-between mb-1">
+                  <span className="font-bold text-black">Reason:</span>
+                  <span className="font-bold text-black">{ret.returnReason}</span>
                 </div>
                 {ret.returnNotes && (
-                  <div>
-                    <span>Note:</span>
-                    <p className="text-xs">{ret.returnNotes}</p>
+                  <div className="pt-1 border-t border-black">
+                    <span className="font-bold text-black">Note: </span>
+                    <p className="text-xs text-black">{ret.returnNotes}</p>
                   </div>
                 )}
               </div>
             ))
           ) : (
-            <p className="text-center text-xs">No returns recorded</p>
+            <p className="text-center text-sm text-black font-bold">No returns recorded</p>
           )}
         </div>
 
-        <div className="text-center text-xs border-t border-dashed border-black pt-1">
-          <p className="text-[10px]">Print Time: {new Date().toLocaleString('en-US', {
+        <div className="text-center text-sm border-t-2 border-black pt-2">
+          <p className="text-xs text-black font-medium mb-2">Print Time: {new Date().toLocaleString('en-US', {
             month: 'short',
             day: 'numeric',
             year: 'numeric',
@@ -4611,14 +4602,10 @@
             minute: '2-digit',
             hour12: true
           })}</p>
-          <div className="pt-1 border-t text-center border-black">
-                        <p className="text-[14px] font-medium">
-                          Software By: M.Ammar Shaikh
-                        </p>
-                        <p className="text-[12px] font-[400] break-all">
-                          Tel: 0316-0346330 | 0370-2741544
-                        </p>
-                      </div>
+          <div className="pt-1 border-t border-black">
+            <p className="text-base font-bold text-black">Software By: M.Ammar Shaikh</p>
+            <p className="text-sm font-medium text-black">Tel: 0316-0346330 | 0370-2741544</p>
+          </div>
         </div>
       </div>
     </div>
@@ -4629,29 +4616,29 @@
     <div className="hidden print:block print-content">
       <div className="receipt-container">
         {/* Header */}
-        <div className="text-center mb-1 border-b-2 border-dashed border-black pb-1">
-          <h1 className="text-[22px] font-bold uppercase">{grocerySettings?.restaurantName || 'GROCERY STORE'}</h1>
-          <p className="text-xs">{grocerySettings?.address || ''}</p>
-          <p className="text-xs">{grocerySettings?.phone1 || ''}{grocerySettings?.phone2 ? ` | ${grocerySettings.phone2}` : ''}</p>
-          <p className="text-sm font-bold">PAYMENT HISTORY</p>
+        <div className="text-center mb-2 border-b-2 border-black pb-2">
+          <h1 className="text-2xl font-bold uppercase text-black">{grocerySettings?.restaurantName || 'GROCERY STORE'}</h1>
+          <p className="text-sm text-black font-medium">{grocerySettings?.address || ''}</p>
+          <p className="text-sm text-black font-medium">{grocerySettings?.phone1 || ''}{grocerySettings?.phone2 ? ` | ${grocerySettings.phone2}` : ''}</p>
+          <p className="text-base font-bold text-black mt-1">PAYMENT HISTORY</p>
         </div>
 
-        <div className="text-xs mb-1 border-b border-dashed border-black pb-1">
-          <div className="flex justify-between">
-            <span>Purchase ID:</span>
-            <span className="font-bold">{printGrocery._id?.slice(-8).toUpperCase()}</span>
+        <div className="text-sm mb-2 border-b border-black pb-2">
+          <div className="flex justify-between mb-1">
+            <span className="font-bold text-black">Purchase ID:</span>
+            <span className="font-bold text-black">{printGrocery._id?.slice(-8).toUpperCase()}</span>
+          </div>
+          <div className="flex justify-between mb-1">
+            <span className="font-bold text-black">Item:</span>
+            <span className="font-bold text-black">{printGrocery.itemName}</span>
+          </div>
+          <div className="flex justify-between mb-1">
+            <span className="font-bold text-black">Vendor:</span>
+            <span className="font-bold text-black">{printGrocery.vendorName}</span>
           </div>
           <div className="flex justify-between">
-            <span>Item:</span>
-            <span className="font-bold">{printGrocery.itemName}</span>
-          </div>
-          <div className="flex justify-between">
-            <span>Vendor:</span>
-            <span className="font-bold">{printGrocery.vendorName}</span>
-          </div>
-          <div className="flex justify-between">
-            <span>Order Date:</span>
-            <span className="text-[10px]">{new Date(printGrocery.orderDate || printGrocery.createdAt).toLocaleString('en-US', {
+            <span className="font-bold text-black">Order Date:</span>
+            <span className="text-xs text-black font-medium">{new Date(printGrocery.orderDate || printGrocery.createdAt).toLocaleString('en-US', {
               month: 'short',
               day: 'numeric',
               year: 'numeric',
@@ -4662,33 +4649,33 @@
           </div>
         </div>
 
-        <div className="text-xs mb-1 border-b border-dashed border-black pb-1">
-          <div className="flex justify-between">
-            <span>Total Amount:</span>
-            <span className="font-bold text-base">₨{printGrocery.totalAmount.toFixed(2)}</span>
+        <div className="text-sm mb-2 border-b border-black pb-2">
+          <div className="flex justify-between mb-1">
+            <span className="font-bold text-black">Total Amount:</span>
+            <span className="font-bold text-black text-lg">₨{printGrocery.totalAmount.toFixed(2)}</span>
+          </div>
+          <div className="flex justify-between mb-1">
+            <span className="font-bold text-black">Total Paid:</span>
+            <span className="font-bold text-black text-lg">₨{(printGrocery.paidAmount || 0).toFixed(2)}</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-green-600">Total Paid:</span>
-            <span className="font-bold text-green-600 text-base">₨{(printGrocery.paidAmount || 0).toFixed(2)}</span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-red-600">Remaining:</span>
-            <span className="font-bold text-red-600 text-base">₨{printGrocery.remainingAmount.toFixed(2)}</span>
+            <span className="font-bold text-black">Remaining:</span>
+            <span className="font-bold text-black text-lg">₨{printGrocery.remainingAmount.toFixed(2)}</span>
           </div>
         </div>
 
-        <div className="text-xs mb-1">
-          <p className="font-bold text-sm">PAYMENT TRANSACTIONS:</p>
+        <div className="text-sm mb-2">
+          <p className="font-bold text-base mb-2 text-black">PAYMENT TRANSACTIONS:</p>
           {printGrocery.paymentHistory && printGrocery.paymentHistory.length > 0 ? (
             printGrocery.paymentHistory.map((payment, index) => (
-              <div key={index} className="border border-dashed border-gray-300 p-1 mb-1">
+              <div key={index} className="border-2 border-black p-2 mb-2">
                 <div className="flex justify-between mb-1">
-                  <span className="font-bold">Payment #{index + 1}</span>
-                  <span className="font-bold">₨{payment.amount.toFixed(2)}</span>
+                  <span className="font-bold text-black">Payment #{index + 1}</span>
+                  <span className="font-bold text-black text-base">₨{payment.amount.toFixed(2)}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span>Date:</span>
-                  <span>{new Date(payment.date).toLocaleString('en-US', {
+                <div className="flex justify-between mb-1">
+                  <span className="font-bold text-black">Date:</span>
+                  <span className="text-xs text-black font-medium">{new Date(payment.date).toLocaleString('en-US', {
                     month: 'short',
                     day: 'numeric',
                     year: 'numeric',
@@ -4697,29 +4684,29 @@
                     hour12: true
                   })}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span>Method:</span>
-                  <span className="font-bold">{payment.method}</span>
+                <div className="flex justify-between mb-1">
+                  <span className="font-bold text-black">Method:</span>
+                  <span className="font-bold text-black">{payment.method}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span>Paid By:</span>
-                  <span className="font-bold">{payment.paidBy || 'Unknown'}</span>
+                  <span className="font-bold text-black">Paid By:</span>
+                  <span className="font-bold text-black">{payment.paidBy || 'Unknown'}</span>
                 </div>
                 {payment.note && (
-                  <div>
-                    <span>Note:</span>
-                    <p className="text-xs">{payment.note}</p>
+                  <div className="pt-1 border-t border-black mt-1">
+                    <span className="font-bold text-black">Note: </span>
+                    <p className="text-xs text-black">{payment.note}</p>
                   </div>
                 )}
               </div>
             ))
           ) : (
-            <p className="text-center text-xs">No payments recorded</p>
+            <p className="text-center text-sm text-black font-bold">No payments recorded</p>
           )}
         </div>
 
-        <div className="text-center text-xs border-t border-dashed border-black pt-1">
-          <p className="text-[10px]">Print Time: {new Date().toLocaleString('en-US', {
+        <div className="text-center text-sm border-t-2 border-black pt-2">
+          <p className="text-xs text-black font-medium mb-2">Print Time: {new Date().toLocaleString('en-US', {
             month: 'short',
             day: 'numeric',
             year: 'numeric',
@@ -4727,14 +4714,10 @@
             minute: '2-digit',
             hour12: true
           })}</p>
-        <div className="pt-1 border-t text-center border-black">
-                        <p className="text-[14px] font-medium">
-                          Software By: M.Ammar Shaikh
-                        </p>
-                        <p className="text-[12px] font-[400] break-all">
-                          Tel: 0316-0346330 | 0370-2741544
-                        </p>
-                      </div>
+          <div className="pt-1 border-t border-black">
+            <p className="text-base font-bold text-black">Software By: M.Ammar Shaikh</p>
+            <p className="text-sm font-medium text-black">Tel: 0316-0346330 | 0370-2741544</p>
+          </div>
         </div>
       </div>
     </div>
@@ -4745,11 +4728,11 @@
     <div className="hidden print:block print-content">
       <div className="receipt-container">
         {/* Header */}
-        <div className="text-center mb-1 border-b-2 border-dashed border-black pb-1">
-          <h1 className="text-[22px] font-bold uppercase">{grocerySettings?.restaurantName || 'GROCERY STORE'}</h1>
-          <p className="text-xs">{grocerySettings?.address || ''}</p>
-          <p className="text-xs">{grocerySettings?.phone1 || ''}{grocerySettings?.phone2 ? ` | ${grocerySettings.phone2}` : ''}</p>
-          <p className="text-xs text-center font-bold">
+        <div className="text-center mb-2 border-b-2 border-black pb-2">
+          <h1 className="text-2xl font-bold uppercase text-black">{grocerySettings?.restaurantName || 'GROCERY STORE'}</h1>
+          <p className="text-sm text-black font-medium">{grocerySettings?.address || ''}</p>
+          <p className="text-sm text-black font-medium">{grocerySettings?.phone1 || ''}{grocerySettings?.phone2 ? ` | ${grocerySettings.phone2}` : ''}</p>
+          <p className="text-base font-bold text-black mt-1">
             {printGrocery.isPaymentReceipt ? 'PAYMENT RECEIPT' : 
             printGrocery.isReturn ? 'ITEM RETURN SLIP' : 
             'PURCHASE RECEIPT'}
@@ -4757,19 +4740,19 @@
         </div>
 
         {/* Purchase ID */}
-        <div className="text-xs mb-1 border-b border-dashed border-black pb-1">
+        <div className="text-sm mb-2 border-b border-black pb-2">
           <div className="flex justify-between">
-            <span>Purchase ID:</span>
-            <span className="font-bold">{(printGrocery.purchaseId || printGrocery._id)?.slice(-8).toUpperCase()}</span>
+            <span className="font-bold text-black">Purchase ID:</span>
+            <span className="font-bold text-black">{(printGrocery.purchaseId || printGrocery._id)?.slice(-8).toUpperCase()}</span>
           </div>
         </div>
 
         {/* Payment Receipt Specific */}
         {printGrocery.isPaymentReceipt && (
-          <div className="text-xs mb-1 border-b border-dashed border-black pb-1">
-            <div className="flex justify-between">
-              <span>Payment Date:</span>
-              <span className='text-[10px]'>{new Date(printGrocery.paymentDate).toLocaleString('en-US', { 
+          <div className="text-sm mb-2 border-b border-black pb-2">
+            <div className="flex justify-between mb-1">
+              <span className="font-bold text-black">Payment Date:</span>
+              <span className="text-xs text-black font-medium">{new Date(printGrocery.paymentDate).toLocaleString('en-US', { 
                 month: 'short', 
                 day: 'numeric', 
                 year: 'numeric', 
@@ -4778,21 +4761,21 @@
                 hour12: true 
               })}</span>
             </div>
-            <div className="flex justify-between">
-              <span>Item:</span>
-              <span className="font-bold">{printGrocery.itemName}</span>
+            <div className="flex justify-between mb-1">
+              <span className="font-bold text-black">Item:</span>
+              <span className="font-bold text-black">{printGrocery.itemName}</span>
+            </div>
+            <div className="flex justify-between mb-1">
+              <span className="font-bold text-black">Vendor:</span>
+              <span className="font-bold text-black">{printGrocery.vendorName}</span>
+            </div>
+            <div className="flex justify-between mb-1">
+              <span className="font-bold text-black">Method:</span>
+              <span className="font-bold text-black">{printGrocery.paymentMethod}</span>
             </div>
             <div className="flex justify-between">
-              <span>Vendor:</span>
-              <span className="font-bold">{printGrocery.vendorName}</span>
-            </div>
-            <div className="flex justify-between">
-              <span>Method:</span>
-              <span className="font-bold">{printGrocery.paymentMethod}</span>
-            </div>
-            <div className="flex justify-between">
-              <span>Paid By:</span>
-              <span className="font-bold">{printGrocery.paidBy || 'Unknown'}</span>
+              <span className="font-bold text-black">Paid By:</span>
+              <span className="font-bold text-black">{printGrocery.paidBy || 'Unknown'}</span>
             </div>
           </div>
         )}
@@ -4800,10 +4783,10 @@
         {/* Regular Purchase */}
         {!printGrocery.isPaymentReceipt && !printGrocery.isReturn && (
           <>
-            <div className="text-xs mb-1 border-b border-dashed border-black pb-1">
-              <div className="flex justify-between">
-                <span>Date:</span>
-                <span>{new Date(printGrocery.orderDate || printGrocery.createdAt).toLocaleString('en-US', { 
+            <div className="text-sm mb-2 border-b border-black pb-2">
+              <div className="flex justify-between mb-1">
+                <span className="font-bold text-black">Date:</span>
+                <span className="text-xs text-black font-medium">{new Date(printGrocery.orderDate || printGrocery.createdAt).toLocaleString('en-US', { 
                   month: 'short', 
                   day: 'numeric', 
                   year: 'numeric', 
@@ -4812,39 +4795,39 @@
                   hour12: true 
                 })}</span>
               </div>
-              <div className="flex justify-between">
-                <span>Item:</span>
-                <span className="font-bold">{printGrocery.itemName}</span>
+              <div className="flex justify-between mb-1">
+                <span className="font-bold text-black">Item:</span>
+                <span className="font-bold text-black">{printGrocery.itemName}</span>
               </div>
-              <div className="flex justify-between">
-                <span>Category:</span>
-                <span className="font-bold">{printGrocery.category}</span>
+              <div className="flex justify-between mb-1">
+                <span className="font-bold text-black">Category:</span>
+                <span className="font-bold text-black">{printGrocery.category}</span>
               </div>
-              <div className="flex justify-between">
-                <span>Vendor:</span>
-                <span className="font-bold">{printGrocery.vendorName}</span>
+              <div className="flex justify-between mb-1">
+                <span className="font-bold text-black">Vendor:</span>
+                <span className="font-bold text-black">{printGrocery.vendorName}</span>
               </div>
               {printGrocery.vendorContact && (
-                <div className="flex justify-between">
-                  <span>Contact:</span>
-                  <span>{printGrocery.vendorContact}</span>
+                <div className="flex justify-between mb-1">
+                  <span className="font-bold text-black">Contact:</span>
+                  <span className="text-black font-medium">{printGrocery.vendorContact}</span>
                 </div>
               )}
               <div className="flex justify-between">
-                <span>Ordered By:</span>
-                <span className="font-bold">{printGrocery.orderedBy} ({printGrocery.orderedByRole})</span>
+                <span className="font-bold text-black">Ordered By:</span>
+                <span className="font-bold text-black">{printGrocery.orderedBy} ({printGrocery.orderedByRole})</span>
               </div>
             </div>
 
             {/* Show Payments on Purchase Receipt */}
             {printGrocery.paymentHistory && printGrocery.paymentHistory.length > 0 && (
-              <div className="text-xs mb-1 border-b border-dashed border-black pb-1">
-                <p className="font-bold mb-1">PAYMENTS:</p>
+              <div className="text-sm mb-2 border-b border-black pb-2">
+                <p className="font-bold mb-2 text-black">PAYMENTS:</p>
                 {printGrocery.paymentHistory.map((payment, idx) => (
-                  <div key={idx} className="text-xs mb-1 border-b border-dotted border-gray-300 pb-1">
+                  <div key={idx} className="text-sm mb-1 border-b border-black pb-1">
                     <div className="flex justify-between">
-                      <span className="font-bold">₨{payment.amount.toFixed(2)}</span>
-                      <span className="text-[10px]">{new Date(payment.date).toLocaleString('en-US', {
+                      <span className="font-bold text-black">₨{payment.amount.toFixed(2)}</span>
+                      <span className="text-xs text-black font-medium">{new Date(payment.date).toLocaleString('en-US', {
                         month: 'short',
                         day: 'numeric',
                         hour: '2-digit',
@@ -4859,13 +4842,13 @@
 
             {/* Show Returns on Purchase Receipt */}
             {printGrocery.returns && printGrocery.returns.length > 0 && (
-              <div className="text-xs mb-1 border-b border-dashed border-black pb-1">
-                <p className="font-bold mb-1">RETURNS:</p>
+              <div className="text-sm mb-2 border-b border-black pb-2">
+                <p className="font-bold mb-2 text-black">RETURNS:</p>
                 {printGrocery.returns.map((ret, idx) => (
-                  <div key={idx} className="text-xs mb-1 border-b border-dotted border-gray-300 pb-1">
+                  <div key={idx} className="text-sm mb-1 border-b border-black pb-1">
                     <div className="flex justify-between">
-                      <span className="font-bold text-[10px]"><span className="text-[13px]">{ret.returnQuantity} {ret.unit}</span>  - {ret.returnReason}</span>
-                      <span className="text-[9px]">{new Date(ret.returnDate).toLocaleString('en-US', {
+                      <span className="font-bold text-black text-xs"><span className="text-base">{ret.returnQuantity} {ret.unit}</span> - {ret.returnReason}</span>
+                      <span className="text-xs text-black font-medium">{new Date(ret.returnDate).toLocaleString('en-US', {
                         month: 'short',
                         day: 'numeric',
                         hour: '2-digit',
@@ -4882,10 +4865,10 @@
 
         {/* Return Slip */}
         {printGrocery.isReturn && (
-          <div className="text-xs mb-1 border-b border-dashed border-black pb-1">
-            <div className="flex justify-between">
-              <span>Return Date:</span>
-              <span className='text-[10px]'>{new Date(printGrocery.returnDate).toLocaleString('en-US', { 
+          <div className="text-sm mb-2 border-b border-black pb-2">
+            <div className="flex justify-between mb-1">
+              <span className="font-bold text-black">Return Date:</span>
+              <span className="text-xs text-black font-medium">{new Date(printGrocery.returnDate).toLocaleString('en-US', { 
                 month: 'short', 
                 day: 'numeric', 
                 year: 'numeric', 
@@ -4894,52 +4877,52 @@
                 hour12: true 
               })}</span>
             </div>
-            <div className="flex justify-between">
-              <span>Reason:</span>
-              <span className="font-bold">{printGrocery.returnReason}</span>
+            <div className="flex justify-between mb-1">
+              <span className="font-bold text-black">Reason:</span>
+              <span className="font-bold text-black">{printGrocery.returnReason}</span>
+            </div>
+            <div className="flex justify-between mb-1">
+              <span className="font-bold text-black">Item:</span>
+              <span className="font-bold text-black">{printGrocery.itemName}</span>
+            </div>
+            <div className="flex justify-between mb-1">
+              <span className="font-bold text-black">Category:</span>
+              <span className="font-bold text-black">{printGrocery.category}</span>
             </div>
             <div className="flex justify-between">
-              <span>Item:</span>
-              <span className="font-bold">{printGrocery.itemName}</span>
-            </div>
-            <div className="flex justify-between">
-              <span>Category:</span>
-              <span className="font-bold">{printGrocery.category}</span>
-            </div>
-            <div className="flex justify-between">
-              <span>Vendor:</span>
-              <span className="font-bold">{printGrocery.vendorName}</span>
+              <span className="font-bold text-black">Vendor:</span>
+              <span className="font-bold text-black">{printGrocery.vendorName}</span>
             </div>
           </div>
         )}
 
         {/* Amount Details */}
-        <div className="text-xs mb-1">
+        <div className="text-sm mb-2">
           {printGrocery.isPaymentReceipt && (
             <>
-              <div className="flex justify-between border-b border-dashed border-gray-400 pb-1 mb-1">
-                <span>Order Total:</span>
-                <span className="font-bold">₨{printGrocery.totalAmount.toFixed(2)}</span>
+              <div className="flex justify-between border-b border-black pb-1 mb-1">
+                <span className="font-bold text-black">Order Total:</span>
+                <span className="font-bold text-black text-base">₨{printGrocery.totalAmount.toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between mb-1">
+                <span className="font-bold text-black">Previously Paid:</span>
+                <span className="font-bold text-black">₨{(printGrocery.paidAmount || 0).toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between mb-1">
+                <span className="font-bold text-black">This Payment:</span>
+                <span className="font-bold text-black text-lg">₨{printGrocery.paymentAmount.toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between border-t-2 border-black pt-1 mb-1">
+                <span className="font-bold text-black">Total Paid Now:</span>
+                <span className="font-bold text-black text-base">₨{printGrocery.newPaidAmount.toFixed(2)}</span>
               </div>
               <div className="flex justify-between">
-                <span>Previously Paid:</span>
-                <span className="font-bold">₨{(printGrocery.paidAmount || 0).toFixed(2)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-green-600">This Payment:</span>
-                <span className="font-bold text-green-600 text-base">₨{printGrocery.paymentAmount.toFixed(2)}</span>
-              </div>
-              <div className="flex justify-between border-t border-dashed border-gray-400 pt-1 mt-1">
-                <span>Total Paid Now:</span>
-                <span className="font-bold text-base">₨{printGrocery.newPaidAmount.toFixed(2)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-red-600">Remaining:</span>
-                <span className="font-bold text-red-600 text-base">₨{printGrocery.newRemainingAmount.toFixed(2)}</span>
+                <span className="font-bold text-black">Remaining:</span>
+                <span className="font-bold text-black text-base">₨{printGrocery.newRemainingAmount.toFixed(2)}</span>
               </div>
               {printGrocery.newRemainingAmount <= 0 && (
-                <div className="text-center mt-2 p-2 border-2 border-green-600 rounded">
-                  <span className="font-bold text-sm">✓ FULLY PAID</span>
+                <div className="text-center mt-2 p-2 border-2 border-black">
+                  <span className="font-bold text-base text-black">✓ FULLY PAID</span>
                 </div>
               )}
             </>
@@ -4947,50 +4930,50 @@
 
           {!printGrocery.isPaymentReceipt && (
             <>
-              <div className="flex justify-between border-b border-dashed border-gray-400 pb-1 mb-1">
-                <span>{printGrocery.isReturn ? 'Return Quantity:' : 'Quantity:'}</span>
-                <span className="font-bold text-base">
+              <div className="flex justify-between border-b border-black pb-1 mb-1">
+                <span className="font-bold text-black">{printGrocery.isReturn ? 'Return Quantity:' : 'Quantity:'}</span>
+                <span className="font-bold text-black text-lg">
                   {printGrocery.isReturn ? printGrocery.returnQuantity : printGrocery.quantity} {printGrocery.unit}
                 </span>
               </div>
-                <div className="flex justify-between">
-                  <span>Unit Price:</span>
-              {printGrocery.unitPrice > 0 && (
-                  <span className="font-bold">₨{printGrocery.unitPrice.toFixed(2)}</span>
+              <div className="flex justify-between mb-1">
+                <span className="font-bold text-black">Unit Price:</span>
+                {printGrocery.unitPrice > 0 && (
+                  <span className="font-bold text-black">₨{printGrocery.unitPrice.toFixed(2)}</span>
                 )}
-              {printGrocery.unitPrice === 0 && (
-                  <span className="font-bold">_______</span>
+                {printGrocery.unitPrice === 0 && (
+                  <span className="font-bold text-black">_______</span>
                 )}
-                </div>
-              <div className="flex justify-between">
-                <span>{printGrocery.isReturn ? 'Return Amount:' : 'Total Amount:'}</span>
-                <span className="font-bold text-base">
+              </div>
+              <div className="flex justify-between mb-1">
+                <span className="font-bold text-black">{printGrocery.isReturn ? 'Return Amount:' : 'Total Amount:'}</span>
+                <span className="font-bold text-black text-lg">
                   ₨{printGrocery.isReturn ? printGrocery.returnAmount?.toFixed(2) : printGrocery.totalAmount.toFixed(2)}
                 </span>
               </div>
               {!printGrocery.isReturn && (
                 <>
-                  <div className="flex justify-between">
-                    <span>Payment:</span>
-                    <span className={`font-bold ${printGrocery.paymentMethod === 'CREDIT' ? 'text-red-600' : ''}`}>
+                  <div className="flex justify-between mb-1">
+                    <span className="font-bold text-black">Payment:</span>
+                    <span className="font-bold text-black">
                       {printGrocery.paymentMethod}
                     </span>
                   </div>
                   {(printGrocery.paymentMethod === 'CREDIT' || printGrocery.paymentMethod === 'BANK_TRANSFER') && (
                     <>
-                      <div className="flex justify-between">
-                        <span>Paid:</span>
-                        <span className="font-bold">₨{(printGrocery.paidAmount || 0).toFixed(2)}</span>
+                      <div className="flex justify-between mb-1">
+                        <span className="font-bold text-black">Paid:</span>
+                        <span className="font-bold text-black">₨{(printGrocery.paidAmount || 0).toFixed(2)}</span>
                       </div>
-                      <div className="flex justify-between">
-                        <span className="text-red-600">Remaining:</span>
-                        <span className="font-bold text-red-600">₨{printGrocery.remainingAmount.toFixed(2)}</span>
+                      <div className="flex justify-between mb-1">
+                        <span className="font-bold text-black">Remaining:</span>
+                        <span className="font-bold text-black">₨{printGrocery.remainingAmount.toFixed(2)}</span>
                       </div>
                     </>
                   )}
                   <div className="flex justify-between">
-                    <span>Status:</span>
-                    <span className={`font-bold ${printGrocery.status === 'COMPLETED' ? 'text-green-600' : 'text-amber-600'}`}>
+                    <span className="font-bold text-black">Status:</span>
+                    <span className="font-bold text-black">
                       {printGrocery.status}
                     </span>
                   </div>
@@ -5004,9 +4987,9 @@
         {((printGrocery.notes && !printGrocery.isReturn && !printGrocery.isPaymentReceipt) || 
           (printGrocery.returnNotes && printGrocery.isReturn) ||
           (printGrocery.paymentNote && printGrocery.isPaymentReceipt)) && (
-          <div className="text-xs border-t border-dashed border-black pt-1 mb-1">
-            <p className="font-bold">NOTES:</p>
-            <p className="text-xs">
+          <div className="text-sm border-t border-black pt-2 mb-2">
+            <p className="font-bold text-black mb-1">NOTES:</p>
+            <p className="text-sm text-black font-medium">
               {printGrocery.isReturn ? printGrocery.returnNotes : 
               printGrocery.isPaymentReceipt ? printGrocery.paymentNote :
               printGrocery.notes}
@@ -5014,8 +4997,8 @@
           </div>
         )}
 
-        <div className="text-center text-xs border-t border-dashed border-black pt-1">
-          <p className="text-[10px]">Print Time: {new Date().toLocaleString('en-US', {
+        <div className="text-center text-sm border-t-2 border-black pt-2">
+          <p className="text-xs text-black font-medium mb-2">Print Time: {new Date().toLocaleString('en-US', {
             month: 'short',
             day: 'numeric',
             year: 'numeric',
@@ -5023,19 +5006,105 @@
             minute: '2-digit',
             hour12: true
           })}</p>
-      <div className="pt-1 border-t text-center border-black">
-                        <p className="text-[14px] font-medium">
-                          Software By: M.Ammar Shaikh
-                        </p>
-                        <p className="text-[12px] font-[400] break-all">
-                          Tel: 0316-0346330 | 0370-2741544
-                        </p>
-                      </div>
+          <div className="pt-1 border-t border-black">
+            <p className="text-base font-bold text-black">Software By: M.Ammar Shaikh</p>
+            <p className="text-sm font-medium text-black">Tel: 0316-0346330 | 0370-2741544</p>
+          </div>
         </div>
       </div>
     </div>
   )}
 
+  {/* Grocery Print Styles */}
+  <style jsx global>{`
+    @media print {
+      /* Hide everything first */
+      body * {
+        visibility: hidden;
+      }
+      
+      /* Only show print content */
+      .print-content,
+      .print-content * {
+        visibility: visible;
+      }
+      
+      /* Position print content at top left */
+      .print-content {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 66mm;
+      }
+      
+      /* Receipt container styling */
+      .receipt-container {
+        width: 66mm;
+        max-width: 70mm;
+        margin: 0;
+        padding: 3mm 3mm;
+        font-family: 'Courier New', monospace;
+        color: #000 !important;
+        background: #fff;
+        font-size: 12px;
+        line-height: 1.4;
+      }
+      
+      /* Hide non-print elements */
+      .print\\:hidden {
+        display: none !important;
+      }
+      
+      /* Page setup */
+      @page {
+        size: 66mm auto;
+        margin: 0;
+      }
+      
+      /* Remove any shadows, borders that shouldn't print */
+      * {
+        box-shadow: none !important;
+        text-shadow: none !important;
+      }
+
+      /* Ensure color printing */
+      .receipt-container {
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+
+      /* Force black text */
+      .text-black {
+        color: #000 !important;
+      }
+
+      /* Bold text */
+      .font-bold {
+        font-weight: 700 !important;
+      }
+
+      .font-medium {
+        font-weight: 500 !important;
+      }
+
+      /* Border styling */
+      .border-black {
+        border-color: #000 !important;
+      }
+
+      .border-2 {
+        border-width: 2px !important;
+      }
+
+      .border-t-2 {
+        border-top-width: 2px !important;
+      }
+
+      .border-b-2 {
+        border-bottom-width: 2px !important;
+      }
+    }
+  `}</style>
   {/* Vendor Payment Modal - Mobile Responsive */}
   <AnimatePresence>
     {showVendorPaymentModal && selectedVendorForPayment && (
@@ -5408,64 +5477,7 @@
     )}
   </AnimatePresence>
 
-  {/* Print Styles */}
-  <style jsx global>{`
-    @media print {
-      /* Hide everything first */
-      body * {
-        visibility: hidden;
-      }
-      
-      /* Only show print content */
-      .print-content,
-      .print-content * {
-        visibility: visible;
-      }
-      
-      /* Position print content at top left */
-      .print-content {
-        position: absolute;
-        left: 0;
-        top: 0;
-        width: 66mm;
-      }
-      
-      /* Receipt container styling */
-      .receipt-container {
-        width: 66mm;
-        max-width: 70mm;
-        margin: 0;
-        padding: 2mm 2mm;
-        font-family: 'Courier New', monospace;
-        color: #000;
-        background: #fff;
-        font-size: 11px;
-        line-height: 1.3;
-      }
-      
-      /* Hide non-print elements */
-      .print\\:hidden {
-        display: none !important;
-      }
-      
-      /* Page setup */
-      @page {
-        size: 66mm auto;
-        margin: 0;
-      }
-      
-      /* Remove any shadows, borders that shouldn't print */
-      * {
-        box-shadow: none !important;
-        text-shadow: none !important;
-      }
-
-      .receipt-container {
-        -webkit-print-color-adjust: exact;
-        print-color-adjust: exact;
-      }
-    }
-  `}</style>
+ 
       </>
     );
   };

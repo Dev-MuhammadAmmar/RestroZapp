@@ -3166,6 +3166,133 @@ const addToCart = (menuItem) => addToCartWithQuantity(menuItem, 1)
             )}
           </>
         )}
+        
+        {/*POS Print Styles */}
+        <style jsx global>{`
+    @media print {
+
+            .modern-scrollbar {
+      scrollbar-width: thin;
+      scrollbar-color: #10b981 #f1f5f9;
+    }
+
+    .modern-scrollbar::-webkit-scrollbar {
+      width: 8px;
+    }
+
+    .modern-scrollbar::-webkit-scrollbar-track {
+      background: linear-gradient(to bottom, #f1f5f9, #e2e8f0);
+      border-radius: 100px;
+      margin: 4px 0;
+    }
+
+    .modern-scrollbar::-webkit-scrollbar-thumb {
+      background: linear-gradient(to bottom, #10b981, #059669);
+      border-radius: 100px;
+      border: 2px solid #f1f5f9;
+      transition: all 0.3s ease;
+    }
+
+    .modern-scrollbar::-webkit-scrollbar-thumb:hover {
+      background: linear-gradient(to bottom, #059669, #047857);
+      border-color: #e2e8f0;
+      width: 10px;
+    }
+
+    .modern-scrollbar::-webkit-scrollbar-thumb:active {
+      background: linear-gradient(to bottom, #047857, #065f46);
+    }
+
+    /* Smooth scroll behavior */
+    .modern-scrollbar {
+      scroll-behavior: smooth;
+    }
+
+    /* Hide scrollbar on mobile for cleaner look (optional) */
+    @media (max-width: 640px) {
+      .modern-scrollbar::-webkit-scrollbar {
+        width: 4px;
+      }
+      
+      .modern-scrollbar::-webkit-scrollbar-thumb {
+        border-width: 1px;
+      }
+    }
+            /* Hide everything first */
+            body * {
+              visibility: hidden;
+            }
+            
+            /* Only show print content */
+            .print-content,
+            .print-content * {
+              visibility: visible;
+            }
+            
+            /* Position print content at top left */
+            .print-content {
+              position: absolute;
+              left: 0;
+              top: 0;
+              width: 66mm;
+            }
+            
+            /* Receipt container styling */
+            .receipt-container {
+              width: 66mm;
+              max-width: 70mm;
+              margin: 0;
+              padding: 2mm 2mm;
+              padding-right:2mm
+              font-family: 'Courier New', monospace;
+              color: #000;
+              background: #fff;
+              font-size: 11px;
+              line-height: 1.3;
+            }
+            
+            /* Hide non-print elements */
+            .print\\:hidden {
+              display: none !important;
+            }
+            
+            /* Page setup */
+            @page {
+              size: 66mm auto;
+              margin: 0;
+            }
+            
+            /* Remove any shadows, borders that shouldn't print */
+            * {
+              box-shadow: none !important;
+              text-shadow: none !important;
+            }
+          }
+
+          .scrollbar-thin::-webkit-scrollbar {
+            width: 4px;
+            height: 4px;
+          }
+          .scrollbar-thin::-webkit-scrollbar-track {
+            background: #f1f5f9;
+            border-radius: 4px;
+          }
+          .scrollbar-thin::-webkit-scrollbar-thumb {
+            background: #10b981;
+            border-radius: 4px;
+          }
+          .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+            background: #059669;
+          }
+
+          .line-clamp-2 {
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+          }
+        `}</style>
+
   {/* Edit Order Modal - ENHANCED VERSION */}
   {/* Edit Order Modal - FIXED & BALANCED VERSION */}
   <AnimatePresence>
@@ -4084,132 +4211,6 @@ const addToCart = (menuItem) => addToCartWithQuantity(menuItem, 1)
       </motion.div>
     )}
   </AnimatePresence>
-
-        {/* Print Styles */}
-        <style jsx global>{`
-    @media print {
-
-            .modern-scrollbar {
-      scrollbar-width: thin;
-      scrollbar-color: #10b981 #f1f5f9;
-    }
-
-    .modern-scrollbar::-webkit-scrollbar {
-      width: 8px;
-    }
-
-    .modern-scrollbar::-webkit-scrollbar-track {
-      background: linear-gradient(to bottom, #f1f5f9, #e2e8f0);
-      border-radius: 100px;
-      margin: 4px 0;
-    }
-
-    .modern-scrollbar::-webkit-scrollbar-thumb {
-      background: linear-gradient(to bottom, #10b981, #059669);
-      border-radius: 100px;
-      border: 2px solid #f1f5f9;
-      transition: all 0.3s ease;
-    }
-
-    .modern-scrollbar::-webkit-scrollbar-thumb:hover {
-      background: linear-gradient(to bottom, #059669, #047857);
-      border-color: #e2e8f0;
-      width: 10px;
-    }
-
-    .modern-scrollbar::-webkit-scrollbar-thumb:active {
-      background: linear-gradient(to bottom, #047857, #065f46);
-    }
-
-    /* Smooth scroll behavior */
-    .modern-scrollbar {
-      scroll-behavior: smooth;
-    }
-
-    /* Hide scrollbar on mobile for cleaner look (optional) */
-    @media (max-width: 640px) {
-      .modern-scrollbar::-webkit-scrollbar {
-        width: 4px;
-      }
-      
-      .modern-scrollbar::-webkit-scrollbar-thumb {
-        border-width: 1px;
-      }
-    }
-            /* Hide everything first */
-            body * {
-              visibility: hidden;
-            }
-            
-            /* Only show print content */
-            .print-content,
-            .print-content * {
-              visibility: visible;
-            }
-            
-            /* Position print content at top left */
-            .print-content {
-              position: absolute;
-              left: 0;
-              top: 0;
-              width: 66mm;
-            }
-            
-            /* Receipt container styling */
-            .receipt-container {
-              width: 66mm;
-              max-width: 70mm;
-              margin: 0;
-              padding: 2mm 2mm;
-              padding-right:2mm
-              font-family: 'Courier New', monospace;
-              color: #000;
-              background: #fff;
-              font-size: 11px;
-              line-height: 1.3;
-            }
-            
-            /* Hide non-print elements */
-            .print\\:hidden {
-              display: none !important;
-            }
-            
-            /* Page setup */
-            @page {
-              size: 66mm auto;
-              margin: 0;
-            }
-            
-            /* Remove any shadows, borders that shouldn't print */
-            * {
-              box-shadow: none !important;
-              text-shadow: none !important;
-            }
-          }
-
-          .scrollbar-thin::-webkit-scrollbar {
-            width: 4px;
-            height: 4px;
-          }
-          .scrollbar-thin::-webkit-scrollbar-track {
-            background: #f1f5f9;
-            border-radius: 4px;
-          }
-          .scrollbar-thin::-webkit-scrollbar-thumb {
-            background: #10b981;
-            border-radius: 4px;
-          }
-          .scrollbar-thin::-webkit-scrollbar-thumb:hover {
-            background: #059669;
-          }
-
-          .line-clamp-2 {
-            display: -webkit-box;
-            -webkit-line-clamp: 2;
-            -webkit-box-orient: vertical;
-            overflow: hidden;
-          }
-        `}</style>
 
       </>
     )
