@@ -50,7 +50,9 @@
     
 
 
-    Filter
+    Filter,
+    ArrowBigDown,
+    ArrowDown
   } from 'lucide-react'
 
   // Import server actions
@@ -3022,7 +3024,8 @@ const addToCart = (menuItem) => addToCartWithQuantity(menuItem, 1)
                   <div className="text-center mb-1 border-b-2 border-dashed border-black pb-1">
                     <h1 className="text-[22px] font-bold uppercase"> {restaurantSettings?.restaurantName || 'RESTAURANT'}</h1>
                     <p className="text-xs">{restaurantSettings?.address || ''}</p>
-                    <p className="text-xs">{restaurantSettings?.phone1 || ''}{restaurantSettings?.phone2 ? ` | ${restaurantSettings.phone2}` : ''}</p>
+                    <p className="text-sm font-medium">For Home Delivery Contact ⬇️</p>
+                    <p className="text-sm font-bold">{restaurantSettings?.phone1 || ''}{restaurantSettings?.phone2 ? ` | ${restaurantSettings.phone2}` : ''}</p>
                     <p className="text-sm font-bold">WAITING TOKEN</p>
                   </div>
 
@@ -3094,8 +3097,9 @@ const addToCart = (menuItem) => addToCartWithQuantity(menuItem, 1)
                   <div className="text-center mb-1 border-b-2 border-dashed border-black pb-1">
                     <h1 className="text-[22px] font-bold uppercase">{restaurantSettings?.restaurantName || 'RESTAURANT'}</h1>
                     <p className="text-xs">{restaurantSettings?.address || ''}</p>
-                    <p className="text-xs"> {restaurantSettings?.phone1 || ''}{restaurantSettings?.phone2 ? ` | ${restaurantSettings.phone2}` : ''}</p>
-                    <p className="text-xs text-center font-bold">BILL RECEIPT</p>
+                         <p className="text-sm font-medium">For Home Delivery Contact ⬇️</p>
+                    <p className="text-sm font-bold">{restaurantSettings?.phone1 || ''}{restaurantSettings?.phone2 ? ` | ${restaurantSettings.phone2}` : ''}</p>
+                 <p className="text-xs text-center font-bold">BILL RECEIPT</p>
                   </div>
 
                   <div className="text-xs mb-1 border-b border-dashed border-black pb-1">
