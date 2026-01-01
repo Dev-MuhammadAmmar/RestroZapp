@@ -57,7 +57,7 @@
   import { getCategories } from '@/lib/actions/categories'
   import { getActiveMenuItems } from '@/lib/actions/menuItems'
   import { createOrder, getPendingOrders, completeOrder } from '@/lib/actions/orders'
-  import { getSettings } from '@/lib/actions/settings'
+  import { getSettings  , togglePrintCustomerTicket} from '@/lib/actions/settings'
   import { searchCustomers as searchCustomersAPI } from '@/lib/actions/customers'
   import { updateOrderItems, reprintKOT } from '@/lib/actions/orders'
   import { Edit, Printer } from 'lucide-react'
@@ -209,6 +209,7 @@ MenuItem.displayName = 'MenuItem'
     taxPercentage: 0,
     notes: ''
   })
+  const [isPrintEnabled, setIsPrintEnabled] = useState(true);
     
     // Loading states
     const [isLoadingCategories, setIsLoadingCategories] = useState(true)
@@ -330,8 +331,23 @@ MenuItem.displayName = 'MenuItem'
   }, [orderDetails.customerName, orderDetails.phoneNumber]) // Watch BOTH fields
 
   // ===== REPLACE handleCustomerSelect =====
+const printCustomerToggle = async (enable) => {
+  try {
+    const response = await togglePrintCustomerTicket(enable);
+    if (response.success) {
+      setIsPrintEnabled(response.data.printCustomerTicket);
+      showNotification(response.message, 'success');
+    } else {
+      showNotification(response.error, 'error');
+    }
+  } catch (error) {
+    showNotification('Failed to update print settings', 'error');
+    console.error('Error:', error);
+  }
+}
 
-  const handleCustomerSelect = (customer) => {
+
+const handleCustomerSelect = (customer) => {
     // Fill all order details with customer data
     setOrderDetails(prev => ({
       ...prev,
@@ -527,22 +543,22 @@ MenuItem.displayName = 'MenuItem'
         setIsLoadingPendingOrders(false)
       }
     }
-  const loadRestaurantSettings = async () => {
-    try {
-      const response = await getSettings()
-      if (response.success) {
-        setRestaurantSettings(response.data)
-        // Update tax percentage from settings
-        setOrderDetails(prev => ({
-          ...prev,
-          taxPercentage: response.data.taxPercentage || 0, 
-      
-        }))
-      }
-    } catch (error) {
-      console.error('Error loading restaurant settings:', error)
+// Load settings function (in component)
+const loadRestaurantSettings = async () => {
+  try {
+    const response = await getSettings()
+    if (response.success) {
+      setIsPrintEnabled(response.data.printCustomerTicket);
+      setRestaurantSettings(response.data)
+      setOrderDetails(prev => ({
+        ...prev,
+        taxPercentage: response.data.taxPercentage || 0, 
+      }))
     }
+  } catch (error) {
+    console.error('Error loading restaurant settings:', error)
   }
+}
     // Auto-update delivery charge based on order type
   // Auto-update delivery charge and tax based on order type
   useEffect(() => {
@@ -797,21 +813,20 @@ const addToCart = (menuItem) => addToCartWithQuantity(menuItem, 1)
     address: currentDetails.address || null,
     notes: currentDetails.notes || null
   }
-
+  setCurrentPrintOrder(orderData) // Set current order for printing
+  setPrintType('kot') // Set print type to KOT
+  setTimeout(() => {
+          window.print() 
+    }, 100)
       const response = await createOrder(orderData)
 
       if (response.success) {
         // Set for printing
-        setCurrentPrintOrder(response.data)
         setIsOrderModalOpen(false)
-
-        // Print KOT first
-        setPrintType('kot')
-        setTimeout(() => {
-          window.print()
-          
+       
           // After KOT, print customer ticket for takeaway - USE currentDetails here!
-          if (currentDetails.orderType === 'takeaway') {
+          if (currentDetails.orderType === 'takeaway' && isPrintEnabled) {
+             setCurrentPrintOrder(response.data) // Set current order for printing
             setTimeout(() => {
               setPrintType('customer-ticket')
               setTimeout(() => {
@@ -822,7 +837,6 @@ const addToCart = (menuItem) => addToCartWithQuantity(menuItem, 1)
           } else {
             finalizePendingOrder(response.data)
           }
-        }, 100)
       } else {
         showNotification(response.error || 'Failed to create order', 'error')
       }
@@ -1425,6 +1439,48 @@ const addToCart = (menuItem) => addToCartWithQuantity(menuItem, 1)
                   </p>
                 </div>
                 <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+
+<motion.div className={`flex items-center gap-3 px-4 py-2.5 rounded-xl border-2 transition-all duration-300 shadow-md hover:shadow-lg ${
+  isPrintEnabled 
+    ? 'bg-gradient-to-r from-emerald-50 to-green-50 border-emerald-300' 
+    : 'bg-white border-gray-200'
+}`}>
+  <div className={`p-1.5 rounded-lg transition-all duration-300 ${
+    isPrintEnabled ? 'bg-emerald-500' : 'bg-gray-300'
+  }`}>
+    <Printer 
+      size={16} 
+      className="text-white"
+    />
+  </div>
+  <div className="flex flex-col">
+    <span className="text-xs font-semibold text-gray-800">Print Waiting Token</span>
+    <span className="text-[10px] text-gray-500">
+      {isPrintEnabled ? 'Waiting Token Will Print' : 'Waiting Token Will Not Print'}
+    </span>
+  </div>
+  <button
+    onClick={() => printCustomerToggle(!isPrintEnabled)}
+    className={`relative w-14 h-7 rounded-full transition-all duration-300 ease-in-out ml-2 ${
+      isPrintEnabled 
+        ? 'bg-gradient-to-r from-emerald-500 to-green-500 shadow-lg shadow-emerald-500/50' 
+        : 'bg-gray-300'
+    }`}
+  >
+    <div
+      className={`absolute top-0.5 left-0.5 flex items-center justify-center w-6 h-6 bg-white rounded-full shadow-lg transform transition-all duration-300 ease-in-out ${
+        isPrintEnabled ? 'translate-x-7' : 'translate-x-0'
+      }`}
+    >
+      {isPrintEnabled ? (
+        <Check size={14} className="text-emerald-500" strokeWidth={3} />
+      ) : (
+        <X size={14} className="text-gray-400" strokeWidth={3} />
+      )}
+    </div>
+  </button>
+</motion.div>
+         
                   <motion.button
                     onClick={() => setIsShortcutsModalOpen(true)}
                     whileHover={{ scale: 1.05 }}

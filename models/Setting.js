@@ -5,21 +5,21 @@ const settingSchema = new mongoose.Schema(
     restaurantName: {
       type: String,
       required: true,
-      default: 'UNSA RESTAURANT',
+      default: 'My Restaurant',
     },
     address: {
       type: String,
       required: true,
-      default: 'Allah Wala Chowk, Shikarpur',
+      default: '123 Main St, City, Country',
     },
     phone1: {
       type: String,
       required: true,
-      default: '0333-7275912',
+      default: '0333-1234567',
     },
     phone2: {
       type: String,
-      default: '0333-7265025',
+      default: '0333-7654321',
     },
     email: {
       type: String,
@@ -32,6 +32,10 @@ const settingSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
+     printCustomerTicket: {
+      type: Boolean,
+      default: true,    
+  },
     taxPercentage: {
       type: Number,
       default: 0,
@@ -47,6 +51,7 @@ const settingSchema = new mongoose.Schema(
       type: String,
       default: 'Thank You for Dining with Us!',
     },
+   
   },
   {
     timestamps: true,
