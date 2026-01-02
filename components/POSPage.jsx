@@ -506,7 +506,7 @@ const loadMenuItems = async () => {
       const items = response.data
       
       // ✅ DEBUG: Log to verify kitchen data
-      console.log('📋 Loaded items with kitchens:', items.slice(0, 3))
+      ('📋 Loaded items with kitchens:', items.slice(0, 3))
       
       // Separate pinned and unpinned items
       const pinned = items.filter(item => item.isPinned)
@@ -590,7 +590,7 @@ const loadKitchensCache = async () => {
       // Store ONLY active kitchens for fast lookup
       const activeKitchens = response.data.filter(k => k.isActive)
       setKitchensCache(activeKitchens)
-      console.log('✅ Kitchens cached:', activeKitchens.length)
+      ('✅ Kitchens cached:', activeKitchens.length)
     }
   } catch (error) {
     console.error('Error loading kitchens cache:', error)
@@ -855,7 +855,7 @@ const submitOrder = async () => {
     }
 
     // ✅ DEBUG: Log cart items to see kitchen data
-    console.log('🛒 Cart items:', cart.map(item => ({
+    ('🛒 Cart items:', cart.map(item => ({
       name: item.name,
       kitchen: item.kitchenId
     })))
@@ -867,7 +867,7 @@ const tempOrderNumber = `TEMP-${Date.now().toString().slice(-5)}`
 
     // ✅ STEP 3: PRINT KOTs BY KITCHEN
     if (isSplitKOTEnabled && kitchensCache.length > 0) {
-      console.log('🍳 Split KOT is ENABLED, grouping by kitchen...')
+      ('🍳 Split KOT is ENABLED, grouping by kitchen...')
       
       // Group items by kitchen
       const kitchenGroups = {}
@@ -908,9 +908,9 @@ const tempOrderNumber = `TEMP-${Date.now().toString().slice(-5)}`
         kitchenGroups[kitchenId].items.push(orderItem)
       })
       
-      console.log('📦 Kitchen groups created:', Object.keys(kitchenGroups).length)
+      ('📦 Kitchen groups created:', Object.keys(kitchenGroups).length)
       Object.entries(kitchenGroups).forEach(([id, group]) => {
-        console.log(`  - ${group.kitchen.name}: ${group.items.length} items`)
+        (`  - ${group.kitchen.name}: ${group.items.length} items`)
       })
       
       // Print KOTs for each kitchen
@@ -920,7 +920,7 @@ const tempOrderNumber = `TEMP-${Date.now().toString().slice(-5)}`
         const kitchenId = kitchenIds[i]
         const group = kitchenGroups[kitchenId]
         
-        console.log(`🖨️ Printing KOT ${i + 1}/${kitchenIds.length} for ${group.kitchen.name}`)
+        (`🖨️ Printing KOT ${i + 1}/${kitchenIds.length} for ${group.kitchen.name}`)
         
         const kotOrder = {
           ...orderData,
@@ -949,7 +949,7 @@ const tempOrderNumber = `TEMP-${Date.now().toString().slice(-5)}`
         }
       }
     } else {
-      console.log('🍳 Split KOT is DISABLED, printing single KOT')
+      ('🍳 Split KOT is DISABLED, printing single KOT')
       
       // Single KOT
       const kotOrder = {
@@ -973,7 +973,7 @@ const tempOrderNumber = `TEMP-${Date.now().toString().slice(-5)}`
     const response = await createOrder(orderData)
 
     if (response.success) {
-      console.log('✅ Order created:', response.data.orderNumber)
+      ('✅ Order created:', response.data.orderNumber)
       
       setIsOrderModalOpen(false)
       
@@ -3211,7 +3211,7 @@ const tempOrderNumber = `TEMP-${Date.now().toString().slice(-5)}`
                   <div className="text-center mb-1 border-b-2 border-dashed border-black pb-1">
                     <h1 className="text-[22px] font-bold uppercase"> {restaurantSettings?.restaurantName || 'RESTAURANT'}</h1>
                     <p className="text-xs">{restaurantSettings?.address || ''}</p>
-                    <p className="text-sm font-medium">For Home Delivery Contact ⬇️</p>
+                    <p className="text-sm font-medium">For Home Delivery Contact </p>
                     <p className="text-sm font-bold">{restaurantSettings?.phone1 || ''}{restaurantSettings?.phone2 ? ` | ${restaurantSettings.phone2}` : ''}</p>
                     <p className="text-sm font-bold">WAITING TOKEN</p>
                   </div>
@@ -3284,7 +3284,7 @@ const tempOrderNumber = `TEMP-${Date.now().toString().slice(-5)}`
                   <div className="text-center mb-1 border-b-2 border-dashed border-black pb-1">
                     <h1 className="text-[22px] font-bold uppercase">{restaurantSettings?.restaurantName || 'RESTAURANT'}</h1>
                     <p className="text-xs">{restaurantSettings?.address || ''}</p>
-                         <p className="text-sm font-medium">For Home Delivery Contact ⬇️</p>
+                         <p className="text-sm font-medium">For Home Delivery Contact </p>
                     <p className="text-sm font-bold">{restaurantSettings?.phone1 || ''}{restaurantSettings?.phone2 ? ` | ${restaurantSettings.phone2}` : ''}</p>
                  <p className="text-xs text-center font-bold">BILL RECEIPT</p>
                   </div>

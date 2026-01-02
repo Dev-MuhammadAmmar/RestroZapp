@@ -868,7 +868,7 @@
     const alreadyReturned = Number(selectedGroceryForReturn.returnedQuantity) || 0;
     const currentActualQuantity = originalQuantity - alreadyReturned;
     
-    console.log('Return Debug:', {
+    ('Return Debug:', {
       originalQuantity,
       alreadyReturned,
       currentActualQuantity,
@@ -4276,7 +4276,7 @@
         <div className="text-center mb-2 border-b-2 border-black pb-2">
           <h1 className="text-[24px] font-black uppercase tracking-wide">{grocerySettings?.restaurantName || 'GROCERY STORE'}</h1>
           <p className="text-[11px] font-bold">{grocerySettings?.address || ''}</p>
-                <p className="text-sm font-medium">For Home Delivery Contact ⬇️</p>
+                <p className="text-sm font-medium">For Home Delivery Contact </p>
                     <p className="text-sm font-bold">{grocerySettings?.phone1 || ''}{grocerySettings?.phone2 ? ` | ${grocerySettings.phone2}` : ''}</p>
                  <p className="text-[15px] font-black mt-1">VENDOR PAYMENT RECEIPT</p>
         </div>
@@ -4401,7 +4401,7 @@
         <div className="text-center mb-2 border-b-2 border-black pb-2">
           <h1 className="text-[24px] font-black uppercase tracking-wide">{grocerySettings?.restaurantName || 'GROCERY STORE'}</h1>
           <p className="text-[11px] font-bold">{grocerySettings?.address || ''}</p>
-                <p className="text-sm font-medium">For Home Delivery Contact ⬇️</p>
+                <p className="text-sm font-medium">For Home Delivery Contact </p>
                     <p className="text-sm font-bold">{grocerySettings?.phone1 || ''}{grocerySettings?.phone2 ? ` | ${grocerySettings.phone2}` : ''}</p>
                  <p className="text-[15px] font-black mt-1">VENDOR PAYMENT HISTORY</p>
         </div>
@@ -4527,7 +4527,7 @@
         <div className="text-center mb-2 border-b-2 border-black pb-2">
           <h1 className="text-[24px] font-black uppercase tracking-wide">{grocerySettings?.restaurantName || 'GROCERY STORE'}</h1>
           <p className="text-[11px] font-bold">{grocerySettings?.address || ''}</p>
-           <p className="text-sm font-medium">For Home Delivery Contact ⬇️</p>
+           <p className="text-sm font-medium">For Home Delivery Contact </p>
                     <p className="text-sm font-bold">{grocerySettings?.phone1 || ''}{grocerySettings?.phone2 ? ` | ${grocerySettings.phone2}` : ''}</p>
                  <p className="text-[15px] font-black mt-1">RETURN HISTORY</p>
         </div>
@@ -4633,7 +4633,7 @@
         <div className="text-center mb-2 border-b-2 border-black pb-2">
           <h1 className="text-[24px] font-black uppercase tracking-wide">{grocerySettings?.restaurantName || 'GROCERY STORE'}</h1>
           <p className="text-[11px] font-bold">{grocerySettings?.address || ''}</p>
-           <p className="text-sm font-medium">For Home Delivery Contact ⬇️</p>
+           <p className="text-sm font-medium">For Home Delivery Contact </p>
                     <p className="text-sm font-bold">{grocerySettings?.phone1 || ''}{grocerySettings?.phone2 ? ` | ${grocerySettings.phone2}` : ''}</p>
                   <p className="text-[15px] font-black mt-1">PAYMENT HISTORY</p>
         </div>
@@ -4750,7 +4750,7 @@
         <div className="text-center mb-2 border-b-2 border-black pb-2">
           <h1 className="text-[24px] font-black uppercase tracking-wide">{grocerySettings?.restaurantName || 'GROCERY STORE'}</h1>
           <p className="text-[11px] font-bold">{grocerySettings?.address || ''}</p>
-         <p className="text-sm font-medium">For Home Delivery Contact ⬇️</p>
+         <p className="text-sm font-medium">For Home Delivery Contact </p>
                     <p className="text-sm font-bold">{grocerySettings?.phone1 || ''}{grocerySettings?.phone2 ? ` | ${grocerySettings.phone2}` : ''}</p>
                   <p className="text-[15px] text-center font-black mt-1">
             {printGrocery.isPaymentReceipt ? 'PAYMENT RECEIPT' : 

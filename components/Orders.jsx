@@ -1358,7 +1358,7 @@ const handleClearFilters = () => {
             <div className="text-center mb-1 border-b-2 border-dashed border-black pb-1">
                   <h1 className="text-[22px] font-bold uppercase">{restaurantSettings?.restaurantName || 'RESTAURANT'}</h1>
                   <p className="text-xs">{restaurantSettings?.address || ''}</p>
-                       <p className="text-sm font-medium">For Home Delivery Contact ⬇️</p>
+                       <p className="text-sm font-medium">For Home Delivery Contact </p>
                     <p className="text-sm font-bold">{restaurantSettings?.phone1 || ''}{restaurantSettings?.phone2 ? ` | ${restaurantSettings.phone2}` : ''}</p>
                  <p className="text-xs text-center font-bold">BILL RECEIPT</p>
                 </div>
