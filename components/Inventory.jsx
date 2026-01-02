@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 
 // Import server actions
+import { getKitchens } from '@/lib/actions/kitchens';
 import {
   getMenuItems,
   createMenuItem,
@@ -48,6 +49,7 @@ export default function InventoryPage() {
   const [menuItems, setMenuItems] = useState([]);
   const [categories, setCategories] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
+  const [kitchens, setKitchens] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [viewMode, setViewMode] = useState('grid');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -77,26 +79,30 @@ export default function InventoryPage() {
     fetchData();
   }, []);
 
-  const fetchData = async () => {
-    setLoading(true);
-    try {
-      const [itemsRes, categoriesRes] = await Promise.all([
-        getMenuItems(),
-        getCategories(),
-      ]);
+ const fetchData = async () => {
+  setLoading(true);
+  try {
+    const [itemsRes, categoriesRes, kitchensRes] = await Promise.all([
+      getMenuItems(),
+      getCategories(),
+      getKitchens(), // Add this import at top: import { getKitchens } from '@/lib/actions/kitchens';
+    ]);
 
-      if (itemsRes.success) {
-        setMenuItems(itemsRes.data);
-      }
-      if (categoriesRes.success) {
-        setCategories(categoriesRes.data);
-      }
-    } catch (error) {
-      showNotification('Failed to load data', 'error');
-    } finally {
-      setLoading(false);
+    if (itemsRes.success) {
+      setMenuItems(itemsRes.data);
     }
-  };
+    if (categoriesRes.success) {
+      setCategories(categoriesRes.data);
+    }
+    if (kitchensRes.success) {
+      setKitchens(kitchensRes.data);
+    }
+  } catch (error) {
+    showNotification('Failed to load data', 'error');
+  } finally {
+    setLoading(false);
+  }
+};
 
   const showNotification = (message, type = 'success') => {
     setNotification({ message, type });
@@ -559,6 +565,19 @@ export default function InventoryPage() {
                           >
                             {category?.name || 'Other'}
                           </span>
+                          {/* After the category badge */}
+{item.kitchenId && (
+  <span
+    className="px-2 sm:px-3 py-1 rounded-full text-xs font-medium flex items-center gap-1"
+    style={{ 
+      backgroundColor: `${item.kitchenId.color}20`,
+      color: item.kitchenId.color 
+    }}
+  >
+    <span>{item.kitchenId.icon}</span>
+    <span>{item.kitchenId.name}</span>
+  </span>
+)}
                           {!item.isActive && (
                             <span className="px-2 sm:px-3 py-1 bg-[#ef4444] text-white rounded-full text-xs font-medium">
                               Inactive
@@ -650,6 +669,7 @@ export default function InventoryPage() {
                   <tr>
                     <th className="px-6 py-4 text-left text-sm font-semibold text-[#475569]">Item</th>
                     <th className="px-6 py-4 text-left text-sm font-semibold text-[#475569]">Category</th>
+                    <th className="px-6 py-4 text-left text-sm font-semibold text-[#475569]">Kitchen</th>
                     <th className="px-6 py-4 text-left text-sm font-semibold text-[#475569]">Cost</th>
                     <th className="px-6 py-4 text-left text-sm font-semibold text-[#475569]">Profit</th>
                     <th className="px-6 py-4 text-left text-sm font-semibold text-[#475569]">Price</th>
@@ -683,6 +703,22 @@ export default function InventoryPage() {
                               </div>
                             </div>
                           </td>
+                          <td className="px-6 py-4">
+  {item.kitchenId ? (
+    <span
+      className="px-3 py-1 rounded-full text-xs font-medium flex items-center gap-1 w-fit"
+      style={{ 
+        backgroundColor: `${item.kitchenId.color}20`,
+        color: item.kitchenId.color 
+      }}
+    >
+      <span>{item.kitchenId.icon}</span>
+      <span>{item.kitchenId.name}</span>
+    </span>
+  ) : (
+    <span className="text-[#94a3b8] text-sm">No kitchen</span>
+  )}
+</td>
                           <td className="px-6 py-4">
                             <span
                               className="px-3 py-1 rounded-full text-xs font-medium text-white"
@@ -768,19 +804,20 @@ export default function InventoryPage() {
 
       {/* Modals */}
       <AnimatePresence>
-        {(isAddModalOpen || isEditModalOpen) && (
-          <ItemModal
-            isOpen={isAddModalOpen || isEditModalOpen}
-            onClose={() => {
-              setIsAddModalOpen(false);
-              setIsEditModalOpen(false);
-              setCurrentItem(null);
-            }}
-            item={currentItem}
-            categories={categories}
-            onSave={handleSaveItem}
-          />
-        )}
+      {(isAddModalOpen || isEditModalOpen) && (
+  <ItemModal
+    isOpen={isAddModalOpen || isEditModalOpen}
+    onClose={() => {
+      setIsAddModalOpen(false);
+      setIsEditModalOpen(false);
+      setCurrentItem(null);
+    }}
+    item={currentItem}
+    categories={categories}
+    kitchens={kitchens} // ADD THIS
+    onSave={handleSaveItem}
+  />
+)}
       </AnimatePresence>
 
       <AnimatePresence>
@@ -847,21 +884,22 @@ export default function InventoryPage() {
 }
 
 // Item Modal Component
-function ItemModal({ isOpen, onClose, item, categories, onSave }) {
+function ItemModal({ isOpen, onClose, item, categories, kitchens, onSave }) {
   const [isSaving, setIsSaving] = useState(false);
-  const [formData, setFormData] = useState(
-    item || {
-      name: '',
-      categoryId: categories[0]?._id || '',
-      costPrice: 0,
-      profitAmount: 0,
-      profitMargin: 0,
-      sellingPrice: 0,
-      isActive: true,
-      description: '',
-      preparationTime: '',
-    }
-  );
+const [formData, setFormData] = useState(
+  item || {
+    name: '',
+    categoryId: categories[0]?._id || '',
+    kitchenId: null, // ADD THIS
+    costPrice: 0,
+    profitAmount: 0,
+    profitMargin: 0,
+    sellingPrice: 0,
+    isActive: true,
+    description: '',
+    preparationTime: '',
+  }
+);
 
   useEffect(() => {
     if (item) {
@@ -869,6 +907,8 @@ function ItemModal({ isOpen, onClose, item, categories, onSave }) {
       setFormData({
         name: item.name,
         categoryId: typeof item.categoryId === 'object' ? item.categoryId._id : item.categoryId,
+              kitchenId: item.kitchenId ? (typeof item.kitchenId === 'object' ? item.kitchenId._id : item.kitchenId) : null, // ADD THIS
+
         costPrice: item.costPrice,
         profitAmount: profitAmt,
         profitMargin: item.profitMargin,
@@ -999,7 +1039,32 @@ function ItemModal({ isOpen, onClose, item, categories, onSave }) {
                 <ChevronDown className="absolute right-3 sm:right-4 top-1/2 -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5 text-[#94a3b8] pointer-events-none" />
               </div>
             </div>
-
+<div>
+  <label className="block text-[#475569] font-medium mb-2 text-xs sm:text-sm">
+    Kitchen (Optional)
+  </label>
+  <div className="relative">
+    <select
+      disabled={isSaving}
+      value={formData.kitchenId || ''}
+      onChange={(e) =>
+        setFormData({ ...formData, kitchenId: e.target.value || null })
+      }
+      className="w-full px-3 sm:px-4 py-2 sm:py-3 bg-[#f8fafc] border-2 border-[#e2e8f0] rounded-lg focus:outline-none focus:border-[#10b981] focus:ring-2 focus:ring-[#10b981]/20 transition-all text-[#1e293b] appearance-none disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base"
+    >
+      <option value="">No Kitchen</option>
+      {kitchens.map((kitchen) => (
+        <option key={kitchen._id} value={kitchen._id}>
+          {kitchen.icon} {kitchen.name}
+        </option>
+      ))}
+    </select>
+    <ChevronDown className="absolute right-3 sm:right-4 top-1/2 -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5 text-[#94a3b8] pointer-events-none" />
+  </div>
+  <p className="text-[10px] sm:text-xs text-[#94a3b8] mt-1">
+    🍳 Assign to a kitchen station
+  </p>
+</div>
             <div>
               <label className="block text-[#475569] font-medium mb-2 text-xs sm:text-sm">
                 Preparation Time

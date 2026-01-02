@@ -36,6 +36,10 @@ const settingSchema = new mongoose.Schema(
       type: Boolean,
       default: true,    
   },
+  splitKOTByKitchen: {
+  type: Boolean,
+  default: false,  // Disabled by default
+},
     taxPercentage: {
       type: Number,
       default: 0,

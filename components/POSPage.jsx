@@ -66,6 +66,8 @@
   import { Users } from 'lucide-react'
   import { cancelOrder } from '@/lib/actions/orders'
   import { toggleMenuItemPin } from '@/lib/actions/menuItems'
+  import { getKitchens } from '@/lib/actions/kitchens'
+import { toggleSplitKOTByKitchen } from '@/lib/actions/settings'
   import { Pin } from 'lucide-react'
 
   const ORDER_TYPES = [
@@ -186,11 +188,11 @@ const MenuItem = React.memo(({ item, index, onAdd, onTogglePin }) => {
 MenuItem.displayName = 'MenuItem'
 
   export default function POSPage() {
-    // Data states
-    const [categories, setCategories] = useState([])
-    const [menuItems, setMenuItems] = useState([])
-    const [pendingOrders, setPendingOrders] = useState([])
-    
+  // Data states
+const [categories, setCategories] = useState([])
+const [menuItems, setMenuItems] = useState([])
+const [pendingOrders, setPendingOrders] = useState([])
+const [kitchensCache, setKitchensCache] = useState([]) // ✅ NEW: Cache kitchens for fast access
     // UI states
     const [cart, setCart] = useState([])
     const [selectedCategory, setSelectedCategory] = useState('All')
@@ -212,6 +214,8 @@ MenuItem.displayName = 'MenuItem'
     notes: ''
   })
   const [isPrintEnabled, setIsPrintEnabled] = useState(true);
+  const [isSplitKOTEnabled, setIsSplitKOTEnabled] = useState(false)
+
     
     // Loading states
     const [isLoadingCategories, setIsLoadingCategories] = useState(true)
@@ -347,6 +351,20 @@ const printCustomerToggle = async (enable) => {
     console.error('Error:', error);
   }
 }
+const splitKOTToggle = async (enable) => {
+  try {
+    const response = await toggleSplitKOTByKitchen(enable)
+    if (response.success) {
+      setIsSplitKOTEnabled(response.data.splitKOTByKitchen)
+      showNotification(response.message, 'success')
+    } else {
+      showNotification(response.error, 'error')
+    }
+  } catch (error) {
+    showNotification('Failed to update split KOT settings', 'error')
+    console.error('Error:', error)
+  }
+}
 
 
 const handleCustomerSelect = (customer) => {
@@ -451,12 +469,13 @@ const handleCustomerSelect = (customer) => {
     const orderDetailsRef = useRef(orderDetails)
 
     // Load initial data
-    useEffect(() => {
-      loadCategories()
-      loadMenuItems()
-      loadPendingOrders()
-        loadRestaurantSettings() 
-    }, [])
+ useEffect(() => {
+  loadCategories()
+  loadMenuItems()
+  loadPendingOrders()
+  loadRestaurantSettings()
+  loadKitchensCache() // ✅ Load kitchens ONCE on mount
+}, [])
 
     const loadCategories = async () => {
       try {
@@ -476,20 +495,21 @@ const handleCustomerSelect = (customer) => {
         setIsLoadingCategories(false)
       }
     }
-
-  // Replace your existing loadMenuItems function
-  const loadMenuItems = async () => {
-    try {
-      setIsLoadingMenuItems(true)
+const loadMenuItems = async () => {
+  try {
+    setIsLoadingMenuItems(true)
     const response = await getActiveMenuItems({ 
-    limit: 50,  // Load first 50 items
-    category: selectedCategory 
-  })
-      if (response.success) {
-        const items = response.data
-        
-        // Separate pinned and unpinned items
-        const pinned = items.filter(item => item.isPinned)
+      limit: 50,
+      category: selectedCategory 
+    })
+    if (response.success) {
+      const items = response.data
+      
+      // ✅ DEBUG: Log to verify kitchen data
+      console.log('📋 Loaded items with kitchens:', items.slice(0, 3))
+      
+      // Separate pinned and unpinned items
+      const pinned = items.filter(item => item.isPinned)
         const unpinned = items.filter(item => !item.isPinned)
         
         // Sort pinned items by pinnedAt date (most recent first)
@@ -550,7 +570,8 @@ const loadRestaurantSettings = async () => {
   try {
     const response = await getSettings()
     if (response.success) {
-      setIsPrintEnabled(response.data.printCustomerTicket);
+      setIsPrintEnabled(response.data.printCustomerTicket)
+      setIsSplitKOTEnabled(response.data.splitKOTByKitchen) // ✅ Keep this
       setRestaurantSettings(response.data)
       setOrderDetails(prev => ({
         ...prev,
@@ -559,6 +580,20 @@ const loadRestaurantSettings = async () => {
     }
   } catch (error) {
     console.error('Error loading restaurant settings:', error)
+  }
+}
+// Load kitchens ONCE and cache them
+const loadKitchensCache = async () => {
+  try {
+    const response = await getKitchens()
+    if (response.success) {
+      // Store ONLY active kitchens for fast lookup
+      const activeKitchens = response.data.filter(k => k.isActive)
+      setKitchensCache(activeKitchens)
+      console.log('✅ Kitchens cached:', activeKitchens.length)
+    }
+  } catch (error) {
+    console.error('Error loading kitchens cache:', error)
   }
 }
     // Auto-update delivery charge based on order type
@@ -776,81 +811,194 @@ const addToCart = (menuItem) => addToCartWithQuantity(menuItem, 1)
       }
       setIsOrderModalOpen(true)
     }
-  const submitOrder = async () => {
-    const currentDetails = orderDetailsRef.current
-    
-    // Validation
+const submitOrder = async () => {
+  const currentDetails = orderDetailsRef.current
+  
+  // Validation
+  if (currentDetails.orderType === 'delivery') {
+    if (!currentDetails.customerName.trim() || !currentDetails.phoneNumber.trim() || !currentDetails.address.trim()) {
+      showNotification('Please fill all delivery details', 'error')
+      return
+    }
+  }
 
-    if (currentDetails.orderType === 'delivery') {
-      if (!currentDetails.customerName.trim() || !currentDetails.phoneNumber.trim() || !currentDetails.address.trim()) {
-        showNotification('Please fill all delivery details', 'error')
-        return
-      }
+  setIsSubmittingOrder(true)
+
+  try {
+    // ✅ STEP 1: PREPARE ORDER DATA
+    const orderData = {
+      items: cart.map(item => ({
+        menuItemId: item._id,
+        name: item.name,
+        price: item.sellingPrice,
+        quantity: item.quantity,
+        categoryId: item.categoryId,
+        // ✅ FIX: Extract kitchen ID properly (handle both ObjectId and populated object)
+        kitchenId: item.kitchenId?._id?.toString() || item.kitchenId?.toString() || null,
+        icon: item.categoryId?.icon || '🍽️'
+      })),
+      orderType: currentDetails.orderType,
+      subtotal,
+      tax,
+      taxPercentage: currentDetails.taxPercentage,
+      discount: discountAmount,
+      discountPercentage: currentDetails.discountPercentage,
+      discountAmount: currentDetails.discountAmount,
+      deliveryCharge: currentDetails.deliveryCharge,
+      total,
+      paymentMethod: currentDetails.paymentMethod,
+      customerName: currentDetails.customerName || 'Guest',
+      phoneNumber: currentDetails.phoneNumber || null,
+      tableNumber: currentDetails.tableNumber || null,
+      address: currentDetails.address || null,
+      notes: currentDetails.notes || null
     }
 
-    setIsSubmittingOrder(true)
-
-    try {
-  const orderData = {
-    items: cart.map(item => ({
-      menuItemId: item._id,
+    // ✅ DEBUG: Log cart items to see kitchen data
+    console.log('🛒 Cart items:', cart.map(item => ({
       name: item.name,
-      price: item.sellingPrice,
-      quantity: item.quantity,
-      categoryId: item.categoryId
-    })),
-    orderType: currentDetails.orderType,
-    subtotal,
-    tax,
-    taxPercentage: currentDetails.taxPercentage,
-    discount: discountAmount,  // Use calculated discountAmount
-    discountPercentage: currentDetails.discountPercentage,
-    discountAmount: currentDetails.discountAmount,  // ADD THIS
-    deliveryCharge: currentDetails.deliveryCharge,
-    total,
-    paymentMethod: currentDetails.paymentMethod,
-    customerName: currentDetails.customerName || 'Guest',
-    phoneNumber: currentDetails.phoneNumber || null,
-    tableNumber: currentDetails.tableNumber || null,
-    address: currentDetails.address || null,
-    notes: currentDetails.notes || null
-  }
-  setCurrentPrintOrder(orderData) // Set current order for printing
-  setPrintType('kot') // Set print type to KOT
-  setTimeout(() => {
-          window.print() 
-    }, 100)
-      const response = await createOrder(orderData)
+      kitchen: item.kitchenId
+    })))
 
-      if (response.success) {
-        // Set for printing
-        setIsOrderModalOpen(false)
-       
-          // After KOT, print customer ticket for takeaway - USE currentDetails here!
-          if (currentDetails.orderType === 'takeaway' && isPrintEnabled) {
-             setCurrentPrintOrder(response.data) // Set current order for printing
-            setTimeout(() => {
-              setPrintType('customer-ticket')
-              setTimeout(() => {
-                window.print()
-                finalizePendingOrder(response.data)
-              }, 100)
-            }, 500)
-          } else {
-            finalizePendingOrder(response.data)
+    // ✅ STEP 2: GENERATE TEMPORARY ORDER NUMBER
+const tempOrderNumber = `TEMP-${Date.now().toString().slice(-5)}`
+// Example: TEMP-45678
+// Example: TEMP-12345678
+
+    // ✅ STEP 3: PRINT KOTs BY KITCHEN
+    if (isSplitKOTEnabled && kitchensCache.length > 0) {
+      console.log('🍳 Split KOT is ENABLED, grouping by kitchen...')
+      
+      // Group items by kitchen
+      const kitchenGroups = {}
+      
+      cart.forEach((cartItem, index) => {
+        const orderItem = orderData.items[index]
+        
+        // Get kitchen from cart item (which has populated data)
+        const kitchen = cartItem.kitchenId
+        let kitchenId = 'unassigned'
+        let kitchenData = null
+        
+        if (kitchen) {
+          // Handle both populated object and ObjectId
+          if (typeof kitchen === 'object' && kitchen._id) {
+            // Populated kitchen object
+            kitchenId = kitchen._id.toString()
+            kitchenData = kitchen
+          } else if (typeof kitchen === 'string') {
+            // ObjectId string
+            kitchenId = kitchen
+            kitchenData = kitchensCache.find(k => k._id.toString() === kitchen)
           }
-      } else {
-        showNotification(response.error || 'Failed to create order', 'error')
+        }
+        
+        // Create group if doesn't exist
+        if (!kitchenGroups[kitchenId]) {
+          kitchenGroups[kitchenId] = {
+            kitchen: kitchenData || { 
+              name: 'General Kitchen', 
+              color: '#10b981', 
+              icon: '🍳' 
+            },
+            items: []
+          }
+        }
+        
+        kitchenGroups[kitchenId].items.push(orderItem)
+      })
+      
+      console.log('📦 Kitchen groups created:', Object.keys(kitchenGroups).length)
+      Object.entries(kitchenGroups).forEach(([id, group]) => {
+        console.log(`  - ${group.kitchen.name}: ${group.items.length} items`)
+      })
+      
+      // Print KOTs for each kitchen
+      const kitchenIds = Object.keys(kitchenGroups)
+      
+      for (let i = 0; i < kitchenIds.length; i++) {
+        const kitchenId = kitchenIds[i]
+        const group = kitchenGroups[kitchenId]
+        
+        console.log(`🖨️ Printing KOT ${i + 1}/${kitchenIds.length} for ${group.kitchen.name}`)
+        
+        const kotOrder = {
+          ...orderData,
+          orderNumber: tempOrderNumber,
+          orderDate: new Date(),
+          items: group.items,
+          kitchenName: group.kitchen.name,
+          kitchenColor: group.kitchen.color,
+          kitchenIcon: group.kitchen.icon
+        }
+        
+        setCurrentPrintOrder(kotOrder)
+        setPrintType('kot')
+        
+        // Print
+        await new Promise(resolve => {
+          setTimeout(() => {
+            window.print()
+            resolve()
+          }, 100)
+        })
+        
+        // Delay between prints
+        if (i < kitchenIds.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 300))
+        }
       }
-    } catch (error) {
-      showNotification('Error creating order', 'error')
-      console.error('Order creation error:', error)
-    } finally {
-      setIsSubmittingOrder(false)
+    } else {
+      console.log('🍳 Split KOT is DISABLED, printing single KOT')
+      
+      // Single KOT
+      const kotOrder = {
+        ...orderData,
+        orderNumber: tempOrderNumber,
+        orderDate: new Date()
+      }
+      
+      setCurrentPrintOrder(kotOrder)
+      setPrintType('kot')
+      
+      await new Promise(resolve => {
+        setTimeout(() => {
+          window.print()
+          resolve()
+        }, 100)
+      })
     }
+
+    // ✅ STEP 4: CREATE ORDER IN DATABASE
+    const response = await createOrder(orderData)
+
+    if (response.success) {
+      console.log('✅ Order created:', response.data.orderNumber)
+      
+      setIsOrderModalOpen(false)
+      
+      if (currentDetails.orderType === 'takeaway' && isPrintEnabled) {
+        setTimeout(() => {
+          setCurrentPrintOrder(response.data)
+          setPrintType('customer-ticket')
+          setTimeout(() => {
+            window.print()
+            finalizePendingOrder(response.data)
+          }, 100)
+        }, 500)
+      } else {
+        finalizePendingOrder(response.data)
+      }
+    } else {
+      showNotification(response.error || 'Failed to create order', 'error')
+    }
+  } catch (error) {
+    showNotification('Error creating order', 'error')
+    console.error('❌ Order creation error:', error)
+  } finally {
+    setIsSubmittingOrder(false)
   }
-
-
+}
 
 
 
@@ -1441,7 +1589,44 @@ const addToCart = (menuItem) => addToCartWithQuantity(menuItem, 1)
                   </p>
                 </div>
                 <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
-
+{/* Split KOT Toggle - ADD THIS */}
+<motion.div className={`flex items-center gap-3 px-4 py-2.5 rounded-xl border-2 transition-all duration-300 shadow-md hover:shadow-lg ${
+  isSplitKOTEnabled 
+    ? 'bg-gradient-to-r from-purple-50 to-pink-50 border-purple-300' 
+    : 'bg-white border-gray-200'
+}`}>
+  <div className={`p-1.5 rounded-lg transition-all duration-300 ${
+    isSplitKOTEnabled ? 'bg-purple-500' : 'bg-gray-300'
+  }`}>
+    <Grid3x3 size={16} className="text-white" />
+  </div>
+  <div className="flex flex-col">
+    <span className="text-xs font-semibold text-gray-800">Split KOT by Kitchen</span>
+    <span className="text-[10px] text-gray-500">
+      {isSplitKOTEnabled ? 'Separate KOT per Kitchen' : 'Single KOT for All'}
+    </span>
+  </div>
+  <button
+    onClick={() => splitKOTToggle(!isSplitKOTEnabled)}
+    className={`relative w-14 h-7 rounded-full transition-all duration-300 ease-in-out ml-2 ${
+      isSplitKOTEnabled 
+        ? 'bg-gradient-to-r from-purple-500 to-pink-500 shadow-lg shadow-purple-500/50' 
+        : 'bg-gray-300'
+    }`}
+  >
+    <div
+      className={`absolute top-0.5 left-0.5 flex items-center justify-center w-6 h-6 bg-white rounded-full shadow-lg transform transition-all duration-300 ease-in-out ${
+        isSplitKOTEnabled ? 'translate-x-7' : 'translate-x-0'
+      }`}
+    >
+      {isSplitKOTEnabled ? (
+        <Check size={14} className="text-purple-500" strokeWidth={3} />
+      ) : (
+        <X size={14} className="text-gray-400" strokeWidth={3} />
+      )}
+    </div>
+  </button>
+</motion.div>
 <motion.div className={`flex items-center gap-3 px-4 py-2.5 rounded-xl border-2 transition-all duration-300 shadow-md hover:shadow-lg ${
   isPrintEnabled 
     ? 'bg-gradient-to-r from-emerald-50 to-green-50 border-emerald-300' 
@@ -2961,8 +3146,10 @@ const addToCart = (menuItem) => addToCartWithQuantity(menuItem, 1)
             {printType === 'kot' && (
               <div className="hidden print:block print-content">
                 <div className="receipt-container">
-                  <div className="text-center border-b-2 border-black">
-                    <h1 className="text-2xl font-bold">KOT</h1>
+                        {/* ✅ Kitchen Header (if split KOT is enabled) */}
+  
+           <div className="text-center border-b-2 border-black">
+                    <h1 className= {`font-bold text-3xl ${currentPrintOrder.kitchenName ? 'flex items-center justify-evenly' : ''}`} >KOT <span className='font-semibold text-2xl'>{currentPrintOrder.kitchenName ? `( ${currentPrintOrder.kitchenName} )` : ''}</span></h1>
                     <p className="text-xs">KITCHEN ORDER TICKET</p>
                   </div>
 

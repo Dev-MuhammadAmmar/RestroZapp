@@ -1,4 +1,3 @@
-
 // models/MenuItem.js
 import mongoose from 'mongoose';
 
@@ -14,6 +13,12 @@ const menuItemSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Category',
       required: [true, 'Category is required'],
+    },
+    // NEW: Kitchen assignment
+    kitchenId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Kitchen',
+      default: null,
     },
     costPrice: {
       type: Number,
@@ -45,14 +50,14 @@ const menuItemSchema = new mongoose.Schema(
       trim: true,
       maxlength: [50, 'Preparation time cannot exceed 50 characters'],
     },
-      isPinned: {
-    type: Boolean,
-    default: false
-  },
-  pinnedAt: {
-    type: Date,
-    default: null
-  }
+    isPinned: {
+      type: Boolean,
+      default: false
+    },
+    pinnedAt: {
+      type: Date,
+      default: null
+    }
   },
   {
     timestamps: true,
@@ -61,6 +66,7 @@ const menuItemSchema = new mongoose.Schema(
 
 menuItemSchema.index({ isActive: 1 });
 menuItemSchema.index({ categoryId: 1 });
+menuItemSchema.index({ kitchenId: 1 }); // NEW: Index for kitchen queries
 
 const MenuItem = mongoose.models.MenuItem || mongoose.model('MenuItem', menuItemSchema);
 
