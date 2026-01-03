@@ -1524,17 +1524,18 @@ const handleReprintKOT = async (order) => {
   }
 
   // Filter pending orders
-  const filteredPendingOrders = pendingOrders.filter(order => {
-    const matchesSearch = 
-      order.orderNumber.toLowerCase().includes(pendingOrdersSearch.toLowerCase()) ||
-      order.customerName.toLowerCase().includes(pendingOrdersSearch.toLowerCase()) ||
-      (order.phoneNumber && order.phoneNumber.includes(pendingOrdersSearch)) ||
-      (order.tableNumber && order.tableNumber.toLowerCase().includes(pendingOrdersSearch.toLowerCase()))
-    
-    const matchesType = pendingOrderTypeFilter === 'all' || order.orderType === pendingOrderTypeFilter
-    
-    return matchesSearch && matchesType
-  })
+const filteredPendingOrders = pendingOrders.filter(order => {
+  const matchesSearch = 
+    order.orderNumber.toLowerCase().includes(pendingOrdersSearch.toLowerCase()) ||
+    order.tempOrderNumber.toLowerCase().includes(pendingOrdersSearch.toLowerCase()) || // ✅ ADD THIS
+    order.customerName.toLowerCase().includes(pendingOrdersSearch.toLowerCase()) ||
+    (order.phoneNumber && order.phoneNumber.includes(pendingOrdersSearch)) ||
+    (order.tableNumber && order.tableNumber.toLowerCase().includes(pendingOrdersSearch.toLowerCase()))
+  
+  const matchesType = pendingOrderTypeFilter === 'all' || order.orderType === pendingOrderTypeFilter
+  
+  return matchesSearch && matchesType
+})
 
   // Cancel order with confirmation
   const handleCancelOrder = (orderId, orderNumber) => {

@@ -123,14 +123,14 @@ useEffect(() => {
         </AnimatePresence>
 
         {/* Sidebar */}
-        <motion.aside
-          initial={{ x: -300 }}
-          animate={{ x: 0 }}
-          transition={{ type: 'spring', stiffness: 100, damping: 20 }}
-          className={`fixed top-0 left-0 h-full w-80 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-white z-40 shadow-2xl border-r border-emerald-500/20 transition-transform duration-300 ease-out ${
-            isOpen ? 'translate-x-0' : '-translate-x-full'
-          } lg:translate-x-0`}
-        >
+  <motion.aside
+  initial={{ x: -300 }}
+  animate={{ x: 0 }}
+  transition={{ type: 'spring', stiffness: 100, damping: 20 }}
+  className={`fixed top-0 left-0 h-full w-80 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-white z-40 shadow-2xl border-r border-emerald-500/20 transition-transform duration-300 ease-out overflow-y-auto overflow-x-hidden lg:overflow-y-visible sidebar-scroll ${
+    isOpen ? 'translate-x-0' : '-translate-x-full'
+  } lg:translate-x-0`}
+>
       
           {/* Header */}
           <motion.div
@@ -162,7 +162,7 @@ useEffect(() => {
           </motion.div>
 
           {/* Navigation */}
-          <nav className="relative p-5 mt-2" role="navigation" aria-label="Main navigation">
+         <nav className="relative p-5 mt-2 pb-24" role="navigation" aria-label="Main navigation">
             <ul className="space-y-2">
               {menuItems.map((item, index) => {
                 const Active = isActive(item.href)
@@ -211,16 +211,62 @@ useEffect(() => {
                 )
               })}
             </ul>
-          </nav>
-
-          {/* Footer decoration */}
           <motion.div className="absolute bottom-8 left-8 right-8 p-4 bg-gradient-to-r from-emerald-500/10 to-teal-500/10 rounded-2xl border border-emerald-500/20 backdrop-blur-sm" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.8 }}>
             <div className="flex items-center gap-3">
               <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse" />
               <span className="text-xs text-slate-400 font-medium">System Active</span>
             </div>
           </motion.div>
+          </nav>
+
+          {/* Footer decoration */}
         </motion.aside>
+              {/* Custom Scrollbar Styles */}
+      <style jsx global>{`
+        /* Mobile-only invisible scrollbar with smooth scrolling */
+        @media (max-width: 1023px) {
+          .sidebar-scroll {
+            -webkit-overflow-scrolling: touch;
+            scroll-behavior: smooth;
+          }
+
+          /* For Webkit browsers (Chrome, Safari, Edge) */
+          .sidebar-scroll::-webkit-scrollbar {
+            width: 4px;
+          }
+
+          .sidebar-scroll::-webkit-scrollbar-track {
+            background: transparent;
+          }
+
+          .sidebar-scroll::-webkit-scrollbar-thumb {
+            background: rgba(16, 185, 129, 0.2);
+            border-radius: 100px;
+            transition: background 0.3s ease;
+          }
+
+          .sidebar-scroll::-webkit-scrollbar-thumb:hover {
+            background: rgba(16, 185, 129, 0.4);
+          }
+
+          /* For Firefox */
+          .sidebar-scroll {
+            scrollbar-width: thin;
+            scrollbar-color: rgba(16, 185, 129, 0.2) transparent;
+          }
+        }
+
+        /* Desktop: no custom scrollbar needed */
+        @media (min-width: 1024px) {
+          .sidebar-scroll::-webkit-scrollbar {
+            display: none;
+          }
+          
+          .sidebar-scroll {
+            scrollbar-width: none;
+          }
+        }
+      `}</style>
       </>
     )
   }
