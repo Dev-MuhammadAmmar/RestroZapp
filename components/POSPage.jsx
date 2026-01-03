@@ -505,8 +505,7 @@ const loadMenuItems = async () => {
     if (response.success) {
       const items = response.data
       
-      // ✅ FIXED: Use console.log
-      console.log('📋 Loaded items with kitchens:', items.slice(0, 3))
+
       
       // Separate pinned and unpinned items
       const pinned = items.filter(item => item.isPinned)
@@ -589,8 +588,7 @@ const loadKitchensCache = async () => {
     if (response.success) {
       // Store ONLY active kitchens for fast lookup
       const activeKitchens = response.data.filter(k => k.isActive)
-      setKitchensCache(activeKitchens)  // ✅ This should work now
-      console.log('✅ Kitchens cached:', activeKitchens.length)
+      setKitchensCache(activeKitchens)
     }
   } catch (error) {
     console.error('Error loading kitchens cache:', error)
@@ -854,11 +852,7 @@ const submitOrder = async () => {
       notes: currentDetails.notes || null
     }
 
-    // ✅ DEBUG: Log cart items to see kitchen data
-console.log('🛒 Cart items:', cart.map(item => ({
-      name: item.name,
-      kitchen: item.kitchenId
-    })))
+
 
     // ✅ STEP 2: GENERATE TEMPORARY ORDER NUMBER
 const tempOrderNumber = `TEMP-${Date.now().toString().slice(-5)}`
@@ -867,7 +861,7 @@ const tempOrderNumber = `TEMP-${Date.now().toString().slice(-5)}`
 
     // ✅ STEP 3: PRINT KOTs BY KITCHEN
     if (isSplitKOTEnabled && kitchensCache.length > 0) {
-      ('🍳 Split KOT is ENABLED, grouping by kitchen...')
+     
       
       // Group items by kitchen
       const kitchenGroups = {}
@@ -908,11 +902,8 @@ const tempOrderNumber = `TEMP-${Date.now().toString().slice(-5)}`
         kitchenGroups[kitchenId].items.push(orderItem)
       })
       
-      ('📦 Kitchen groups created:', Object.keys(kitchenGroups).length)
-      Object.entries(kitchenGroups).forEach(([id, group]) => {
-        (`  - ${group.kitchen.name}: ${group.items.length} items`)
-      })
-      
+
+
       // Print KOTs for each kitchen
       const kitchenIds = Object.keys(kitchenGroups)
       
@@ -920,7 +911,7 @@ const tempOrderNumber = `TEMP-${Date.now().toString().slice(-5)}`
         const kitchenId = kitchenIds[i]
         const group = kitchenGroups[kitchenId]
         
-        (`🖨️ Printing KOT ${i + 1}/${kitchenIds.length} for ${group.kitchen.name}`)
+
         
         const kotOrder = {
           ...orderData,
@@ -949,7 +940,7 @@ const tempOrderNumber = `TEMP-${Date.now().toString().slice(-5)}`
         }
       }
     } else {
-      ('🍳 Split KOT is DISABLED, printing single KOT')
+
       
       // Single KOT
       const kotOrder = {
@@ -973,7 +964,7 @@ const tempOrderNumber = `TEMP-${Date.now().toString().slice(-5)}`
     const response = await createOrder(orderData)
 
     if (response.success) {
-      ('✅ Order created:', response.data.orderNumber)
+ 
       
       setIsOrderModalOpen(false)
       
