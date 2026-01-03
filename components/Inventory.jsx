@@ -577,7 +577,7 @@ const confirmDelete = async () => {
                 className="flex items-center gap-2 px-3 sm:px-4 md:px-6 py-2 sm:py-3 bg-[#10b981] text-white rounded-lg hover:bg-[#059669] transition-all font-medium shadow-md flex-1 sm:flex-initial justify-center"
               >
                 <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
-                <span className="text-sm sm:text-base">Add Item</span>
+                <span className="text-sm sm:text-base w-max">Add Item</span>
               </button>
             </div>
           </div>
