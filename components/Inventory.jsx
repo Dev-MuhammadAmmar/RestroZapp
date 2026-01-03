@@ -49,6 +49,9 @@ export default function InventoryPage() {
   const [menuItems, setMenuItems] = useState([]);
   const [categories, setCategories] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
+  // Add these with your other state declarations (around line 30)
+const [togglingItems, setTogglingItems] = useState(new Set())
+const [deletingItems, setDeletingItems] = useState(new Set())
   const [kitchens, setKitchens] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [viewMode, setViewMode] = useState('grid');
@@ -60,7 +63,12 @@ export default function InventoryPage() {
   const [notification, setNotification] = useState(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [loading, setLoading] = useState(true);
-  
+  const [deleteConfirmation, setDeleteConfirmation] = useState({
+  isOpen: false,
+  itemId: null,
+  itemName: '',
+  itemType: 'item'
+});
     useEffect(() => {
       const metaViewport = document.querySelector('meta[name=viewport]');
       if (metaViewport) {
@@ -126,19 +134,11 @@ export default function InventoryPage() {
     .filter(item => item.isActive)
     .reduce((sum, item) => sum + item.sellingPrice, 0);
 
-  const handleDelete = async (id) => {
-    if (!confirm('Are you sure you want to delete this item?')) return;
-    
-    const result = await deleteMenuItem(id);
-    if (result.success) {
-      setMenuItems(menuItems.filter((item) => item._id !== id));
-      showNotification('Item deleted successfully', 'success');
-    } else {
-      showNotification(result.error, 'error');
-    }
-  };
-
-  const handleToggleActive = async (id) => {
+const handleToggleActive = async (id) => {
+  // ✅ Add to loading set
+  setTogglingItems(prev => new Set(prev).add(id))
+  
+  try {
     const result = await toggleMenuItemStatus(id);
     if (result.success) {
       setMenuItems(menuItems.map(item => 
@@ -148,7 +148,53 @@ export default function InventoryPage() {
     } else {
       showNotification(result.error, 'error');
     }
-  };
+  } finally {
+    // ✅ Remove from loading set
+    setTogglingItems(prev => {
+      const next = new Set(prev)
+      next.delete(id)
+      return next
+    })
+  }
+};
+
+const handleDelete = async (id) => {
+  const item = menuItems.find(item => item._id === id);
+  
+  setDeleteConfirmation({
+    isOpen: true,
+    itemId: id,
+    itemName: item?.name || 'this item',
+    itemType: 'menu item'
+  });
+};
+
+const confirmDelete = async () => {
+  const id = deleteConfirmation.itemId;
+  
+  // Close the confirmation modal
+  setDeleteConfirmation({ isOpen: false, itemId: null, itemName: '', itemType: 'item' });
+  
+  // ✅ Add to loading set
+  setDeletingItems(prev => new Set(prev).add(id));
+  
+  try {
+    const result = await deleteMenuItem(id);
+    if (result.success) {
+      setMenuItems(menuItems.filter((item) => item._id !== id));
+      showNotification('Item deleted successfully', 'success');
+    } else {
+      showNotification(result.error, 'error');
+    }
+  } finally {
+    // ✅ Remove from loading set
+    setDeletingItems(prev => {
+      const next = new Set(prev);
+      next.delete(id);
+      return next;
+    });
+  }
+};
 
   const handleEdit = (item) => {
     setCurrentItem(item);
@@ -624,30 +670,55 @@ export default function InventoryPage() {
                         </div>
                       </div>
 
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => handleToggleActive(item._id)}
-                          className={`flex-1 p-2 rounded-lg transition-all font-medium text-xs sm:text-sm ${
-                            item.isActive
-                              ? 'bg-[#fef3c7] text-[#d97706] hover:bg-[#fde68a]'
-                              : 'bg-[#d1fae5] text-[#059669] hover:bg-[#a7f3d0]'
-                          }`}
-                        >
-                          {item.isActive ? 'Deactivate' : 'Activate'}
-                        </button>
-                        <button
-                          onClick={() => handleEdit(item)}
-                          className="p-2 bg-[#dbeafe] text-[#3b82f6] rounded-lg hover:bg-[#bfdbfe] transition-all"
-                        >
-                          <Edit2 className="w-3 h-3 sm:w-4 sm:h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(item._id)}
-                          className="p-2 bg-[#fee2e2] text-[#ef4444] rounded-lg hover:bg-[#fecaca] transition-all"
-                        >
-                          <Trash2 className="w-3 h-3 sm:w-4 sm:h-4" />
-                        </button>
-                      </div>
+                     <div className="flex gap-2">
+  {/* Activate/Deactivate Button */}
+  <button
+    onClick={() => handleToggleActive(item._id)}
+    disabled={togglingItems.has(item._id) || deletingItems.has(item._id)}
+    className={`flex-1 p-2 rounded-lg transition-all font-medium text-xs sm:text-sm flex items-center justify-center gap-1.5 min-h-[36px] ${
+      item.isActive
+        ? 'bg-[#fef3c7] text-[#d97706] hover:bg-[#fde68a]'
+        : 'bg-[#d1fae5] text-[#059669] hover:bg-[#a7f3d0]'
+    } ${togglingItems.has(item._id) || deletingItems.has(item._id) ? 'opacity-50 cursor-not-allowed' : ''}`}
+  >
+    {togglingItems.has(item._id) ? (
+      <>
+        <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-current"></div>
+        <span className="hidden sm:inline">
+          {item.isActive ? 'Deactivating...' : 'Activating...'}
+        </span>
+      </>
+    ) : (
+      <span>{item.isActive ? 'Deactivate' : 'Activate'}</span>
+    )}
+  </button>
+
+  {/* Edit Button */}
+  <button
+    onClick={() => handleEdit(item)}
+    disabled={togglingItems.has(item._id) || deletingItems.has(item._id)}
+    className={`p-2 bg-[#dbeafe] text-[#3b82f6] rounded-lg hover:bg-[#bfdbfe] transition-all ${
+      togglingItems.has(item._id) || deletingItems.has(item._id) ? 'opacity-50 cursor-not-allowed' : ''
+    }`}
+  >
+    <Edit2 className="w-3 h-3 sm:w-4 sm:h-4" />
+  </button>
+
+  {/* Delete Button */}
+  <button
+    onClick={() => handleDelete(item._id)}
+    disabled={togglingItems.has(item._id) || deletingItems.has(item._id)}
+    className={`p-2 bg-[#fee2e2] text-[#ef4444] rounded-lg hover:bg-[#fecaca] transition-all flex items-center justify-center ${
+      togglingItems.has(item._id) || deletingItems.has(item._id) ? 'opacity-50 cursor-not-allowed' : ''
+    }`}
+  >
+    {deletingItems.has(item._id) ? (
+      <div className="animate-spin rounded-full h-3 w-3 sm:h-4 sm:w-4 border-b-2 border-current"></div>
+    ) : (
+      <Trash2 className="w-3 h-3 sm:w-4 sm:h-4" />
+    )}
+  </button>
+</div>
                     </div>
                   </motion.div>
                 );
@@ -747,35 +818,55 @@ export default function InventoryPage() {
                               </span>
                             )}
                           </td>
-                          <td className="px-6 py-4">
-                            <div className="flex gap-2">
-                              <button
-                                onClick={() => handleToggleActive(item._id)}
-                                className={`p-2 rounded-lg transition-all ${
-                                  item.isActive
-                                    ? 'bg-[#fef3c7] text-[#d97706] hover:bg-[#fde68a]'
-                                    : 'bg-[#d1fae5] text-[#059669] hover:bg-[#a7f3d0]'
-                                }`}
-                                title={item.isActive ? 'Deactivate' : 'Activate'}
-                              >
-                                {item.isActive ? '◉' : '○'}
-                              </button>
-                              <button
-                                onClick={() => handleEdit(item)}
-                                className="p-2 bg-[#dbeafe] text-[#3b82f6] rounded-lg hover:bg-[#bfdbfe] transition-all"
-                                title="Edit"
-                              >
-                                <Edit2 className="w-4 h-4" />
-                              </button>
-                              <button
-                                onClick={() => handleDelete(item._id)}
-                                className="p-2 bg-[#fee2e2] text-[#ef4444] rounded-lg hover:bg-[#fecaca] transition-all"
-                                title="Delete"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
-                            </div>
-                          </td>
+                        <td className="px-6 py-4">
+  <div className="flex gap-2">
+    {/* Activate/Deactivate Button */}
+    <button
+      onClick={() => handleToggleActive(item._id)}
+      disabled={togglingItems.has(item._id) || deletingItems.has(item._id)}
+      className={`p-2 rounded-lg transition-all flex items-center justify-center min-w-[36px] ${
+        item.isActive
+          ? 'bg-[#fef3c7] text-[#d97706] hover:bg-[#fde68a]'
+          : 'bg-[#d1fae5] text-[#059669] hover:bg-[#a7f3d0]'
+      } ${togglingItems.has(item._id) || deletingItems.has(item._id) ? 'opacity-50 cursor-not-allowed' : ''}`}
+      title={item.isActive ? 'Deactivate' : 'Activate'}
+    >
+      {togglingItems.has(item._id) ? (
+        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current"></div>
+      ) : (
+        <span>{item.isActive ? '◉' : '○'}</span>
+      )}
+    </button>
+
+    {/* Edit Button */}
+    <button
+      onClick={() => handleEdit(item)}
+      disabled={togglingItems.has(item._id) || deletingItems.has(item._id)}
+      className={`p-2 bg-[#dbeafe] text-[#3b82f6] rounded-lg hover:bg-[#bfdbfe] transition-all ${
+        togglingItems.has(item._id) || deletingItems.has(item._id) ? 'opacity-50 cursor-not-allowed' : ''
+      }`}
+      title="Edit"
+    >
+      <Edit2 className="w-4 h-4" />
+    </button>
+
+    {/* Delete Button */}
+    <button
+      onClick={() => handleDelete(item._id)}
+      disabled={togglingItems.has(item._id) || deletingItems.has(item._id)}
+      className={`p-2 bg-[#fee2e2] text-[#ef4444] rounded-lg hover:bg-[#fecaca] transition-all flex items-center justify-center ${
+        togglingItems.has(item._id) || deletingItems.has(item._id) ? 'opacity-50 cursor-not-allowed' : ''
+      }`}
+      title="Delete"
+    >
+      {deletingItems.has(item._id) ? (
+        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current"></div>
+      ) : (
+        <Trash2 className="w-4 h-4" />
+      )}
+    </button>
+  </div>
+</td>
                         </motion.tr>
                       );
                     })}
@@ -832,6 +923,20 @@ export default function InventoryPage() {
         )}
       </AnimatePresence>
     </div>
+
+
+    {/* Delete Confirmation Modal */}
+<AnimatePresence>
+  {deleteConfirmation.isOpen && (
+    <DeleteConfirmation
+      isOpen={deleteConfirmation.isOpen}
+      onClose={() => setDeleteConfirmation({ isOpen: false, itemId: null, itemName: '', itemType: 'item' })}
+      onConfirm={confirmDelete}
+      itemName={deleteConfirmation.itemName}
+      itemType={deleteConfirmation.itemType}
+    />
+  )}
+</AnimatePresence>
     <style jsx global>{`
   @media print {
     .modern-scrollbar {
@@ -1263,6 +1368,67 @@ const [formData, setFormData] = useState(
     </div>
   </motion.div>
 </motion.div>
+  );
+}
+// Custom Delete Confirmation Modal Component
+function DeleteConfirmation({ isOpen, onClose, onConfirm, itemName, itemType = 'item' }) {
+  if (!isOpen) return null;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-[10000]"
+      onClick={onClose}
+    >
+      <motion.div
+        initial={{ scale: 0.9, opacity: 0, y: 20 }}
+        animate={{ scale: 1, opacity: 1, y: 0 }}
+        exit={{ scale: 0.9, opacity: 0, y: 20 }}
+        transition={{ type: "spring", duration: 0.3 }}
+        onClick={(e) => e.stopPropagation()}
+        className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden"
+      >
+        {/* Header */}
+        <div className="bg-gradient-to-r from-[#ef4444] to-[#dc2626] text-white p-6">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center text-2xl">
+              ⚠️
+            </div>
+            <div className="flex-1">
+              <h3 className="text-xl font-bold">Confirm Deletion</h3>
+              <p className="text-red-100 text-sm mt-1">This action cannot be undone</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Content */}
+        <div className="p-6">
+          <p className="text-[#475569] text-base leading-relaxed">
+            Are you sure you want to delete <span className="font-semibold text-[#1e293b]">"{itemName}"</span>? 
+            This {itemType} will be permanently removed from your system.
+          </p>
+        </div>
+
+        {/* Actions */}
+        <div className="flex gap-3 p-6 pt-0">
+          <button
+            onClick={onClose}
+            className="flex-1 px-6 py-3 bg-[#64748b] hover:bg-[#475569] text-white rounded-lg transition-all font-medium"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={onConfirm}
+            className="flex-1 px-6 py-3 bg-[#ef4444] hover:bg-[#dc2626] text-white rounded-lg transition-all font-medium shadow-lg flex items-center justify-center gap-2"
+          >
+            <Trash2 className="w-4 h-4" />
+            Yes, Delete
+          </button>
+        </div>
+      </motion.div>
+    </motion.div>
   );
 }
 

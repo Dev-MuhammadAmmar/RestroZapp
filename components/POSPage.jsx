@@ -193,6 +193,9 @@ const [categories, setCategories] = useState([])
 const [menuItems, setMenuItems] = useState([])
 const [pendingOrders, setPendingOrders] = useState([])
 const [kitchensCache, setKitchensCache] = useState([]) // ✅ NEW: Cache kitchens for fast access
+// Add these with your other state declarations (around line 45)
+const [isSplitKOTLoading, setIsSplitKOTLoading] = useState(false)
+const [isPrintToggleLoading, setIsPrintToggleLoading] = useState(false)
     // UI states
     const [cart, setCart] = useState([])
     const [selectedCategory, setSelectedCategory] = useState('All')
@@ -336,8 +339,8 @@ const [kitchensCache, setKitchensCache] = useState([]) // ✅ NEW: Cache kitchen
     return () => clearTimeout(debounceTimer)
   }, [orderDetails.customerName, orderDetails.phoneNumber]) // Watch BOTH fields
 
-  // ===== REPLACE handleCustomerSelect =====
 const printCustomerToggle = async (enable) => {
+  setIsPrintToggleLoading(true) // ✅ Start loading
   try {
     const response = await togglePrintCustomerTicket(enable);
     if (response.success) {
@@ -349,9 +352,13 @@ const printCustomerToggle = async (enable) => {
   } catch (error) {
     showNotification('Failed to update print settings', 'error');
     console.error('Error:', error);
+  } finally {
+    setIsPrintToggleLoading(false) // ✅ Stop loading
   }
 }
+
 const splitKOTToggle = async (enable) => {
+  setIsSplitKOTLoading(true) // ✅ Start loading
   try {
     const response = await toggleSplitKOTByKitchen(enable)
     if (response.success) {
@@ -363,6 +370,8 @@ const splitKOTToggle = async (enable) => {
   } catch (error) {
     showNotification('Failed to update split KOT settings', 'error')
     console.error('Error:', error)
+  } finally {
+    setIsSplitKOTLoading(false) // ✅ Stop loading
   }
 }
 
@@ -823,15 +832,22 @@ const submitOrder = async () => {
   setIsSubmittingOrder(true)
 
   try {
-    // ✅ STEP 1: PREPARE ORDER DATA
+    // ✅ STEP 1: GENERATE TEMPORARY ORDER NUMBER
+    const timestamp = Date.now().toString().slice(-8) // Last 8 digits
+    const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0')
+    const tempOrderNumber = `TEMP-${timestamp}-${random}`
+    
+
+
+    // ✅ STEP 2: PREPARE ORDER DATA FOR API (INCLUDE TEMP NUMBER)
     const orderData = {
+      tempOrderNumber, // ✅ ADD THIS - Will be saved to database
       items: cart.map(item => ({
         menuItemId: item._id,
         name: item.name,
         price: item.sellingPrice,
         quantity: item.quantity,
         categoryId: item.categoryId,
-        // ✅ FIX: Extract kitchen ID properly (handle both ObjectId and populated object)
         kitchenId: item.kitchenId?._id?.toString() || item.kitchenId?.toString() || null,
         icon: item.categoryId?.icon || '🍽️'
       })),
@@ -852,42 +868,27 @@ const submitOrder = async () => {
       notes: currentDetails.notes || null
     }
 
-
-
-    // ✅ STEP 2: GENERATE TEMPORARY ORDER NUMBER
-const tempOrderNumber = `TEMP-${Date.now().toString().slice(-5)}`
-// Example: TEMP-45678
-// Example: TEMP-12345678
-
-    // ✅ STEP 3: PRINT KOTs BY KITCHEN
+    // ✅ STEP 3: PRINT KOTs BY KITCHEN (USING TEMP NUMBER)
     if (isSplitKOTEnabled && kitchensCache.length > 0) {
-     
-      
-      // Group items by kitchen
       const kitchenGroups = {}
       
       cart.forEach((cartItem, index) => {
         const orderItem = orderData.items[index]
         
-        // Get kitchen from cart item (which has populated data)
         const kitchen = cartItem.kitchenId
         let kitchenId = 'unassigned'
         let kitchenData = null
         
         if (kitchen) {
-          // Handle both populated object and ObjectId
           if (typeof kitchen === 'object' && kitchen._id) {
-            // Populated kitchen object
             kitchenId = kitchen._id.toString()
             kitchenData = kitchen
           } else if (typeof kitchen === 'string') {
-            // ObjectId string
             kitchenId = kitchen
             kitchenData = kitchensCache.find(k => k._id.toString() === kitchen)
           }
         }
         
-        // Create group if doesn't exist
         if (!kitchenGroups[kitchenId]) {
           kitchenGroups[kitchenId] = {
             kitchen: kitchenData || { 
@@ -901,21 +902,16 @@ const tempOrderNumber = `TEMP-${Date.now().toString().slice(-5)}`
         
         kitchenGroups[kitchenId].items.push(orderItem)
       })
-      
 
-
-      // Print KOTs for each kitchen
       const kitchenIds = Object.keys(kitchenGroups)
       
       for (let i = 0; i < kitchenIds.length; i++) {
         const kitchenId = kitchenIds[i]
         const group = kitchenGroups[kitchenId]
         
-
-        
         const kotOrder = {
           ...orderData,
-          orderNumber: tempOrderNumber,
+          orderNumber: tempOrderNumber, // ✅ Use temp number for KOT
           orderDate: new Date(),
           items: group.items,
           kitchenName: group.kitchen.name,
@@ -926,7 +922,6 @@ const tempOrderNumber = `TEMP-${Date.now().toString().slice(-5)}`
         setCurrentPrintOrder(kotOrder)
         setPrintType('kot')
         
-        // Print
         await new Promise(resolve => {
           setTimeout(() => {
             window.print()
@@ -934,18 +929,15 @@ const tempOrderNumber = `TEMP-${Date.now().toString().slice(-5)}`
           }, 100)
         })
         
-        // Delay between prints
         if (i < kitchenIds.length - 1) {
           await new Promise(resolve => setTimeout(resolve, 300))
         }
       }
     } else {
-
-      
       // Single KOT
       const kotOrder = {
         ...orderData,
-        orderNumber: tempOrderNumber,
+        orderNumber: tempOrderNumber, // ✅ Use temp number for KOT
         orderDate: new Date()
       }
       
@@ -960,11 +952,11 @@ const tempOrderNumber = `TEMP-${Date.now().toString().slice(-5)}`
       })
     }
 
-    // ✅ STEP 4: CREATE ORDER IN DATABASE
+    // ✅ STEP 4: CREATE ORDER IN DATABASE (AFTER PRINTING)
     const response = await createOrder(orderData)
 
     if (response.success) {
- 
+
       
       setIsOrderModalOpen(false)
       
@@ -1413,24 +1405,104 @@ const tempOrderNumber = `TEMP-${Date.now().toString().slice(-5)}`
     }
   }
 
-  // Reprint KOT
-  const handleReprintKOT = async (order) => {
-    try {
-      const response = await reprintKOT(order._id)
-      if (response.success) {
-        setCurrentPrintOrder(response.data)
-        setPrintType('kot')
-        setTimeout(() => {
-          window.print()
-          setPrintType(null)
-          setCurrentPrintOrder(null)
-          showNotification('KOT reprinted!', 'success')
-        }, 100)
-      }
-    } catch (error) {
+const handleReprintKOT = async (order) => {
+  try {
+    const response = await reprintKOT(order._id)
+    if (!response.success) {
       showNotification('Failed to reprint KOT', 'error')
+      return
     }
+
+    const orderData = response.data
+
+    // ✅ Check if Split KOT is enabled AND we have kitchens cached
+    if (isSplitKOTEnabled && kitchensCache.length > 0) {
+      // Group items by kitchen using SAVED kitchenId
+      const kitchenGroups = {}
+      
+      orderData.items.forEach((item) => {
+        // Use kitchenId from order item (already saved)
+        let kitchenId = 'unassigned'
+        let kitchenData = null
+        
+        if (item.kitchenId) {
+          // Handle both populated object and string ID
+          if (typeof item.kitchenId === 'object' && item.kitchenId._id) {
+            kitchenId = item.kitchenId._id.toString()
+            kitchenData = item.kitchenId
+          } else if (typeof item.kitchenId === 'string') {
+            kitchenId = item.kitchenId
+            kitchenData = kitchensCache.find(k => k._id.toString() === item.kitchenId)
+          }
+        }
+        
+        // Create group if doesn't exist
+        if (!kitchenGroups[kitchenId]) {
+          kitchenGroups[kitchenId] = {
+            kitchen: kitchenData || { 
+              name: 'General Kitchen', 
+              color: '#10b981', 
+              icon: '🍳' 
+            },
+            items: []
+          }
+        }
+        
+        kitchenGroups[kitchenId].items.push(item)
+      })
+      
+      // Print KOTs for each kitchen
+      const kitchenIds = Object.keys(kitchenGroups)
+      
+      for (let i = 0; i < kitchenIds.length; i++) {
+        const kitchenId = kitchenIds[i]
+        const group = kitchenGroups[kitchenId]
+        
+        const kotOrder = {
+          ...orderData,
+          items: group.items,
+          kitchenName: group.kitchen.name,
+          kitchenColor: group.kitchen.color,
+          kitchenIcon: group.kitchen.icon
+        }
+        
+        setCurrentPrintOrder(kotOrder)
+        setPrintType('kot')
+        
+        await new Promise(resolve => {
+          setTimeout(() => {
+            window.print()
+            resolve()
+          }, 100)
+        })
+        
+        if (i < kitchenIds.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 300))
+        }
+      }
+      
+      setPrintType(null)
+      setCurrentPrintOrder(null)
+      showNotification(`Reprinted ${kitchenIds.length} KOT(s)!`, 'success')
+      
+    } else {
+      // Single KOT
+      setCurrentPrintOrder(orderData)
+      setPrintType('kot')
+      
+      setTimeout(() => {
+        window.print()
+        setPrintType(null)
+        setCurrentPrintOrder(null)
+        showNotification('KOT reprinted!', 'success')
+      }, 100)
+    }
+    
+  } catch (error) {
+    showNotification('Failed to reprint KOT', 'error')
+    console.error('Reprint KOT error:', error)
   }
+}
 
   // Reprint Customer Token (for takeaway)
   const handleReprintToken = async (order) => {
@@ -1580,37 +1652,49 @@ const tempOrderNumber = `TEMP-${Date.now().toString().slice(-5)}`
                   </p>
                 </div>
                 <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
-{/* Split KOT Toggle - ADD THIS */}
+{/* Split KOT Toggle - WITH LOADER */}
 <motion.div className={`flex items-center gap-3 px-4 py-2.5 rounded-xl border-2 transition-all duration-300 shadow-md hover:shadow-lg ${
   isSplitKOTEnabled 
     ? 'bg-gradient-to-r from-purple-50 to-pink-50 border-purple-300' 
     : 'bg-white border-gray-200'
-}`}>
+} ${isSplitKOTLoading ? 'opacity-70' : ''}`}>
   <div className={`p-1.5 rounded-lg transition-all duration-300 ${
     isSplitKOTEnabled ? 'bg-purple-500' : 'bg-gray-300'
   }`}>
-    <Grid3x3 size={16} className="text-white" />
+    {isSplitKOTLoading ? (
+      <Loader2 size={16} className="text-white animate-spin" />
+    ) : (
+      <Grid3x3 size={16} className="text-white" />
+    )}
   </div>
   <div className="flex flex-col">
     <span className="text-xs font-semibold text-gray-800">Split KOT by Kitchen</span>
     <span className="text-[10px] text-gray-500">
-      {isSplitKOTEnabled ? 'Separate KOT per Kitchen' : 'Single KOT for All'}
+      {isSplitKOTLoading 
+        ? 'Updating...' 
+        : isSplitKOTEnabled 
+          ? 'Separate KOT per Kitchen' 
+          : 'Single KOT for All'
+      }
     </span>
   </div>
   <button
     onClick={() => splitKOTToggle(!isSplitKOTEnabled)}
+    disabled={isSplitKOTLoading}
     className={`relative w-14 h-7 rounded-full transition-all duration-300 ease-in-out ml-2 ${
       isSplitKOTEnabled 
         ? 'bg-gradient-to-r from-purple-500 to-pink-500 shadow-lg shadow-purple-500/50' 
         : 'bg-gray-300'
-    }`}
+    } ${isSplitKOTLoading ? 'cursor-not-allowed opacity-70' : 'cursor-pointer'}`}
   >
     <div
       className={`absolute top-0.5 left-0.5 flex items-center justify-center w-6 h-6 bg-white rounded-full shadow-lg transform transition-all duration-300 ease-in-out ${
         isSplitKOTEnabled ? 'translate-x-7' : 'translate-x-0'
       }`}
     >
-      {isSplitKOTEnabled ? (
+      {isSplitKOTLoading ? (
+        <Loader2 size={14} className="text-purple-500 animate-spin" strokeWidth={3} />
+      ) : isSplitKOTEnabled ? (
         <Check size={14} className="text-purple-500" strokeWidth={3} />
       ) : (
         <X size={14} className="text-gray-400" strokeWidth={3} />
@@ -1618,39 +1702,50 @@ const tempOrderNumber = `TEMP-${Date.now().toString().slice(-5)}`
     </div>
   </button>
 </motion.div>
+
+{/* Print Waiting Token Toggle - WITH LOADER */}
 <motion.div className={`flex items-center gap-3 px-4 py-2.5 rounded-xl border-2 transition-all duration-300 shadow-md hover:shadow-lg ${
   isPrintEnabled 
     ? 'bg-gradient-to-r from-emerald-50 to-green-50 border-emerald-300' 
     : 'bg-white border-gray-200'
-}`}>
+} ${isPrintToggleLoading ? 'opacity-70' : ''}`}>
   <div className={`p-1.5 rounded-lg transition-all duration-300 ${
     isPrintEnabled ? 'bg-emerald-500' : 'bg-gray-300'
   }`}>
-    <Printer 
-      size={16} 
-      className="text-white"
-    />
+    {isPrintToggleLoading ? (
+      <Loader2 size={16} className="text-white animate-spin" />
+    ) : (
+      <Printer size={16} className="text-white" />
+    )}
   </div>
   <div className="flex flex-col">
     <span className="text-xs font-semibold text-gray-800">Print Waiting Token</span>
     <span className="text-[10px] text-gray-500">
-      {isPrintEnabled ? 'Waiting Token Will Print' : 'Waiting Token Will Not Print'}
+      {isPrintToggleLoading 
+        ? 'Updating...' 
+        : isPrintEnabled 
+          ? 'Waiting Token Will Print' 
+          : 'Waiting Token Will Not Print'
+      }
     </span>
   </div>
   <button
     onClick={() => printCustomerToggle(!isPrintEnabled)}
+    disabled={isPrintToggleLoading}
     className={`relative w-14 h-7 rounded-full transition-all duration-300 ease-in-out ml-2 ${
       isPrintEnabled 
         ? 'bg-gradient-to-r from-emerald-500 to-green-500 shadow-lg shadow-emerald-500/50' 
         : 'bg-gray-300'
-    }`}
+    } ${isPrintToggleLoading ? 'cursor-not-allowed opacity-70' : 'cursor-pointer'}`}
   >
     <div
       className={`absolute top-0.5 left-0.5 flex items-center justify-center w-6 h-6 bg-white rounded-full shadow-lg transform transition-all duration-300 ease-in-out ${
         isPrintEnabled ? 'translate-x-7' : 'translate-x-0'
       }`}
     >
-      {isPrintEnabled ? (
+      {isPrintToggleLoading ? (
+        <Loader2 size={14} className="text-emerald-500 animate-spin" strokeWidth={3} />
+      ) : isPrintEnabled ? (
         <Check size={14} className="text-emerald-500" strokeWidth={3} />
       ) : (
         <X size={14} className="text-gray-400" strokeWidth={3} />
@@ -2971,48 +3066,66 @@ const tempOrderNumber = `TEMP-${Date.now().toString().slice(-5)}`
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4  ">
-                {filteredPendingOrders.map((order, index) => (
-                  <motion.div
-                    key={order._id}
-                    initial={{ opacity: 0, scale: 0.9 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    transition={{ delay: index * 0.05 }}
-                    className="bg-gradient-to-br from-orange-50 to-red-50 rounded-xl p-4 border-2 border-orange-200 hover:shadow-lg transition-all flex flex-col"
-                  >
-                    {/* Order Header */}
-                    <div className="flex items-center justify-between mb-3 pb-3 border-b-2 border-orange-200">
-                      <div>
-                        <h3 className="font-bold text-slate-800 text-sm">{order.orderNumber}</h3>
-                        <p className="text-xs text-slate-500">
-                          {new Date(order.orderDate).toLocaleTimeString('en-US', {
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })}
-                        </p>
-                      </div>
-                      <div className={`px-3 py-1 rounded-full text-xs font-bold ${
-                        order.orderType === 'dine-in' 
-                          ? 'bg-blue-500 text-white'
-                          : order.orderType === 'takeaway'
-                          ? 'bg-purple-500 text-white'
-                          : 'bg-orange-500 text-white'
-                      }`}>
-                        {order.orderType === 'dine-in' && '🍽️ Dine-In'}
-                        {order.orderType === 'takeaway' && '📦 Takeaway'}
-                        {order.orderType === 'delivery' && '🚚 Delivery'}
-                      </div>
-                    </div>
+         {filteredPendingOrders.map((order, index) => (
+  <motion.div
+    key={order._id}
+    initial={{ opacity: 0, scale: 0.9 }}
+    animate={{ opacity: 1, scale: 1 }}
+    transition={{ delay: index * 0.05 }}
+    className="bg-gradient-to-br from-orange-50 to-red-50 rounded-xl p-4 border-2 border-orange-200 hover:shadow-lg transition-all flex flex-col"
+  >
+    {/* ✅ NEW ORDER HEADER - Shows both System ID and KOT Number */}
+    <div className="flex items-center justify-between mb-3 pb-3 border-b-2 border-orange-200">
+      <div className="flex-1">
+        {/* Real Order Number (System ID) */}
+        <h3 className="font-bold text-slate-800 text-sm flex items-center gap-2">
+          {order.orderNumber}
+          <span className="px-2 py-0.5 bg-green-100 text-green-700 rounded-full text-[9px] font-bold">
+            SYSTEM ID
+          </span>
+        </h3>
+        
+        {/* ✅ Temp Order Number (KOT Reference) */}
+        <div className="flex items-center gap-2 mt-1">
+          <Receipt className="w-3 h-3 text-orange-600" />
+          <p className="text-xs font-bold text-orange-600">
+            KOT: {order.tempOrderNumber}
+          </p>
+        </div>
+        
+        {/* Time */}
+        <p className="text-xs text-slate-500 mt-1">
+          {new Date(order.orderDate).toLocaleTimeString('en-US', {
+            hour: '2-digit',
+            minute: '2-digit',
+          })}
+        </p>
+      </div>
+      
+      {/* Order Type Badge */}
+      <div className={`px-3 py-1 rounded-full text-xs font-bold ${
+        order.orderType === 'dine-in' 
+          ? 'bg-blue-500 text-white'
+          : order.orderType === 'takeaway'
+          ? 'bg-purple-500 text-white'
+          : 'bg-orange-500 text-white'
+      }`}>
+        {order.orderType === 'dine-in' && '🍽️ Dine-In'}
+        {order.orderType === 'takeaway' && '📦 Takeaway'}
+        {order.orderType === 'delivery' && '🚚 Delivery'}
+      </div>
+    </div>
 
-                    {/* Order Details */}
-                    <div className="space-y-2 mb-3 flex-1">
-                      {order.orderType === 'dine-in' && order.tableNumber && (
-                        <div className="flex items-center gap-2 text-sm">
-                          <Hash className="w-4 h-4 text-slate-600" />
-                          <span className="font-semibold text-slate-700">
-                            Table: {order.tableNumber}
-                          </span>
-                        </div>
-                      )}
+    {/* Order Details */}
+    <div className="space-y-2 mb-3 flex-1">
+      {order.orderType === 'dine-in' && order.tableNumber && (
+        <div className="flex items-center gap-2 text-sm">
+          <Hash className="w-4 h-4 text-slate-600" />
+          <span className="font-semibold text-slate-700">
+            Table: {order.tableNumber}
+          </span>
+        </div>
+      )}
                       {order.customerName !== 'Guest' && (
                         <div className="flex items-center gap-2 text-sm">
                           <User className="w-4 h-4 text-slate-600" />
@@ -4121,7 +4234,7 @@ const tempOrderNumber = `TEMP-${Date.now().toString().slice(-5)}`
       ) : (
         <>
           <X className="w-5 h-5" />
-          <span>Yes, Cancel Order</span>
+          <span className='text-xs md:text-sm'>Yes, Cancel Order</span>
         </>
       )}
     </motion.button>
@@ -4439,7 +4552,7 @@ const tempOrderNumber = `TEMP-${Date.now().toString().slice(-5)}`
               onClick={confirmCompleteOrder}
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
-              className="flex-[2] py-3 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-xl font-bold hover:shadow-xl transition-all flex items-center justify-center gap-2"
+              className="flex-[2] text-xs md:text-[16px] py-3 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-xl font-bold hover:shadow-xl transition-all flex items-center justify-center gap-2"
             >
               <Printer className="w-5 h-5" />
               Print Bill & Complete Order

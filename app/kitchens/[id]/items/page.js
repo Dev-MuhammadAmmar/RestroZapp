@@ -18,7 +18,10 @@ export default function KitchenItemsPage() {
   const router = useRouter();
   const params = useParams();
   const kitchenId = params.id;
-
+const [deleteConfirmation, setDeleteConfirmation] = useState({
+  isOpen: false,
+  itemCount: 0,
+});
   const [kitchen, setKitchen] = useState(null);
   const [allMenuItems, setAllMenuItems] = useState([]);
   const [categories, setCategories] = useState([]);
@@ -137,26 +140,34 @@ const availableItems = allMenuItems.filter(item => {
     }
   };
 
-  const handleRemoveItems = async () => {
-    if (selectedItems.length === 0) return;
-    if (!confirm(`Remove ${selectedItems.length} item(s) from this kitchen?`)) return;
-    if (isProcessing) return;
+const handleRemoveItems = async () => {
+  if (selectedItems.length === 0) return;
+  
+  setDeleteConfirmation({
+    isOpen: true,
+    itemCount: selectedItems.length,
+  });
+};
 
-    setIsProcessing(true);
-    try {
-      const result = await removeItemsFromKitchen(kitchenId, selectedItems);
-      
-      if (result.success) {
-        setKitchen(result.data);
-        setSelectedItems([]);
-        showNotification(result.message || 'Items removed successfully', 'success');
-      } else {
-        showNotification(result.error, 'error');
-      }
-    } finally {
-      setIsProcessing(false);
+const confirmRemoveItems = async () => {
+  // Close the confirmation modal
+  setDeleteConfirmation({ isOpen: false, itemCount: 0 });
+  
+  setIsProcessing(true);
+  try {
+    const result = await removeItemsFromKitchen(kitchenId, selectedItems);
+    
+    if (result.success) {
+      setKitchen(result.data);
+      setSelectedItems([]);
+      showNotification(result.message || 'Items removed successfully', 'success');
+    } else {
+      showNotification(result.error, 'error');
     }
-  };
+  } finally {
+    setIsProcessing(false);
+  }
+};
 
   const getCategoryById = (categoryId) => {
     if (typeof categoryId === 'object') {
@@ -452,22 +463,25 @@ const availableItems = allMenuItems.filter(item => {
             <div className="flex gap-2 w-full lg:w-auto">
               {!isAddMode && (
                 <>
-                  {selectedItems.length > 0 && (
-                    <button
-                      onClick={handleRemoveItems}
-                      disabled={isProcessing}
-                      className="flex items-center gap-2 w-max px-3 sm:px-4 py-2 sm:py-3 bg-[#ef4444] text-white rounded-lg hover:bg-[#dc2626] transition-all font-medium disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base flex-1 sm:flex-initial justify-center"
-                    >
-                      {isProcessing ? (
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                      ) : (
-                        <>
-                          <Trash2 className="w-4 h-4" />
-                          Remove ({selectedItems.length})
-                        </>
-                      )}
-                    </button>
-                  )}
+                 {selectedItems.length > 0 && (
+  <button
+    onClick={handleRemoveItems}
+    disabled={isProcessing}
+    className="flex items-center gap-2 px-3 sm:px-4 py-2 sm:py-3 bg-[#ef4444] text-white rounded-lg hover:bg-[#dc2626] transition-all font-medium disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base flex-1 sm:flex-initial justify-center"
+  >
+    {isProcessing ? (
+      <>
+        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+        <span>Removing...</span>
+      </>
+    ) : (
+      <>
+        <Trash2 className="w-4 h-4" />
+        Remove ({selectedItems.length})
+      </>
+    )}
+  </button>
+)}
                   <button
                     onClick={() => {
                       setIsAddMode(true);
@@ -494,20 +508,23 @@ const availableItems = allMenuItems.filter(item => {
                     <X className="w-4 h-4" />
                     Cancel
                   </button>
-                  <button
-                    onClick={handleAddItems}
-                    disabled={selectedItems.length === 0 || isProcessing}
-                    className="flex items-center gap-2 px-3 sm:px-4 py-2 w-max sm:py-3 bg-[#10b981] text-white rounded-lg hover:bg-[#059669] transition-all font-medium disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base flex-1 sm:flex-initial justify-center"
-                  >
-                    {isProcessing ? (
-                      <div className="animate-spin rounded-full h-4  w-4 border-b-2 border-white"></div>
-                    ) : (
-                      <>
-                        <CheckCircle className="w-4 h-4" />
-                        Add ({selectedItems.length})
-                      </>
-                    )}
-                  </button>
+              <button
+  onClick={handleAddItems}
+  disabled={selectedItems.length === 0 || isProcessing}
+  className="flex items-center gap-2 px-3 sm:px-4 py-2 sm:py-3 bg-[#10b981] text-white rounded-lg hover:bg-[#059669] transition-all font-medium disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base flex-1 sm:flex-initial justify-center"
+>
+  {isProcessing ? (
+    <>
+      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+      <span>Adding...</span>
+    </>
+  ) : (
+    <>
+      <CheckCircle className="w-4 h-4" />
+      Add ({selectedItems.length})
+    </>
+  )}
+</button>
                 </>
               )}
             </div>
@@ -622,6 +639,84 @@ const availableItems = allMenuItems.filter(item => {
           </motion.div>
         )}
       </div>
+      {/* Delete Confirmation Modal */}
+<AnimatePresence>
+  {deleteConfirmation.isOpen && (
+    <DeleteConfirmation
+      isOpen={deleteConfirmation.isOpen}
+      onClose={() => setDeleteConfirmation({ isOpen: false, itemCount: 0 })}
+      onConfirm={confirmRemoveItems}
+      itemCount={deleteConfirmation.itemCount}
+      kitchenName={kitchen.name}
+    />
+  )}
+</AnimatePresence>
     </div>
+
+  );
+}
+// Custom Delete Confirmation Modal Component
+function DeleteConfirmation({ isOpen, onClose, onConfirm, itemCount, kitchenName }) {
+  if (!isOpen) return null;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-[10000]"
+      onClick={onClose}
+    >
+      <motion.div
+        initial={{ scale: 0.9, opacity: 0, y: 20 }}
+        animate={{ scale: 1, opacity: 1, y: 0 }}
+        exit={{ scale: 0.9, opacity: 0, y: 20 }}
+        transition={{ type: "spring", duration: 0.3 }}
+        onClick={(e) => e.stopPropagation()}
+        className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden"
+      >
+        {/* Header */}
+        <div className="bg-gradient-to-r from-[#ef4444] to-[#dc2626] text-white p-6">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center text-2xl">
+              ⚠️
+            </div>
+            <div className="flex-1">
+              <h3 className="text-xl font-bold">Remove Items from Kitchen</h3>
+              <p className="text-red-100 text-sm mt-1">This action can be reversed</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Content */}
+        <div className="p-6">
+          <p className="text-[#475569] text-base leading-relaxed">
+            Are you sure you want to remove <span className="font-semibold text-[#1e293b]">{itemCount} item{itemCount > 1 ? 's' : ''}</span> from this kitchen?
+          </p>
+          <div className="mt-4 p-4 bg-[#f8fafc] rounded-lg border border-[#e2e8f0]">
+            <p className="text-sm text-[#64748b]">
+              <span className="font-medium text-[#1e293b]">Note:</span> Items will remain in your menu but will no longer be assigned to this kitchen station.
+            </p>
+          </div>
+        </div>
+
+        {/* Actions */}
+        <div className="flex gap-3 p-6 pt-0">
+          <button
+            onClick={onClose}
+            className="flex-1 px-6 py-3 bg-[#64748b] hover:bg-[#475569] text-white rounded-lg transition-all font-medium"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={onConfirm}
+            className="flex-1 px-6 py-3 bg-[#ef4444] hover:bg-[#dc2626] text-white rounded-lg transition-all font-medium shadow-lg flex items-center justify-center gap-2"
+          >
+            <Trash2 className="w-4 h-4" />
+            Yes, Remove
+          </button>
+        </div>
+      </motion.div>
+    </motion.div>
   );
 }

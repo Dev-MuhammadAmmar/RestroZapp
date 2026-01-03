@@ -35,6 +35,18 @@ const orderItemSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
+  
+  categoryId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Category',
+    required: true,
+  },
+  // ✅ ADD THIS NEW FIELD
+  kitchenId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Kitchen',
+    default: null,
+  },
 }, { _id: false });
 
 const orderSchema = new mongoose.Schema(
@@ -44,6 +56,12 @@ const orderSchema = new mongoose.Schema(
       required: true,
       unique: true,
       index: true,
+    },
+        tempOrderNumber: {
+      type: String,
+      required: true,
+      index: true,
+      trim: true,
     },
     items: {
       type: [orderItemSchema],

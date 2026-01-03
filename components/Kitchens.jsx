@@ -44,7 +44,13 @@ export default function KitchensPage() {
   const [currentKitchen, setCurrentKitchen] = useState(null);
   const [notification, setNotification] = useState(null);
   const [loading, setLoading] = useState(true);
-
+const [togglingKitchens, setTogglingKitchens] = useState(new Set());
+const [deletingKitchens, setDeletingKitchens] = useState(new Set());
+const [deleteConfirmation, setDeleteConfirmation] = useState({
+  isOpen: false,
+  kitchenId: null,
+  kitchenName: '',
+});
   useEffect(() => {
     fetchKitchens();
   }, []);
@@ -77,10 +83,26 @@ export default function KitchensPage() {
   const totalKitchens = kitchens.filter(k => k.isActive).length;
   const totalItems = kitchens.reduce((sum, k) => sum + (k.menuItems?.length || 0), 0);
   const avgItemsPerKitchen = totalKitchens > 0 ? Math.round(totalItems / totalKitchens) : 0;
+const handleDelete = async (id) => {
+  const kitchen = kitchens.find(k => k._id === id);
+  
+  setDeleteConfirmation({
+    isOpen: true,
+    kitchenId: id,
+    kitchenName: kitchen?.name || 'this kitchen',
+  });
+};
 
-  const handleDelete = async (id) => {
-    if (!confirm('Are you sure you want to delete this kitchen? This will not delete the menu items.')) return;
-    
+const confirmDelete = async () => {
+  const id = deleteConfirmation.kitchenId;
+  
+  // Close the confirmation modal
+  setDeleteConfirmation({ isOpen: false, kitchenId: null, kitchenName: '' });
+  
+  // Add to loading set
+  setDeletingKitchens(prev => new Set(prev).add(id));
+  
+  try {
     const result = await deleteKitchen(id);
     if (result.success) {
       setKitchens(kitchens.filter((k) => k._id !== id));
@@ -88,9 +110,20 @@ export default function KitchensPage() {
     } else {
       showNotification(result.error, 'error');
     }
-  };
-
-  const handleToggleActive = async (id) => {
+  } finally {
+    // Remove from loading set
+    setDeletingKitchens(prev => {
+      const next = new Set(prev);
+      next.delete(id);
+      return next;
+    });
+  }
+};
+ const handleToggleActive = async (id) => {
+  // Add to loading set
+  setTogglingKitchens(prev => new Set(prev).add(id));
+  
+  try {
     const result = await toggleKitchenStatus(id);
     if (result.success) {
       setKitchens(kitchens.map(k => 
@@ -100,7 +133,15 @@ export default function KitchensPage() {
     } else {
       showNotification(result.error, 'error');
     }
-  };
+  } finally {
+    // Remove from loading set
+    setTogglingKitchens(prev => {
+      const next = new Set(prev);
+      next.delete(id);
+      return next;
+    });
+  }
+};;
 
   const handleEdit = (kitchen) => {
     setCurrentKitchen(kitchen);
@@ -386,42 +427,70 @@ export default function KitchensPage() {
                         {kitchen.menuItems?.length || 0}
                       </span>
                     </div>
-
-                    <div className="grid grid-cols-2 gap-2">
-                      <button
-                        onClick={() => handleManageItems(kitchen._id)}
-                        className="col-span-2 flex items-center justify-center gap-2 p-2 sm:p-3 bg-[#10b981] text-white rounded-lg hover:bg-[#059669] transition-all font-medium text-xs sm:text-sm"
-                      >
-                        <Settings className="w-3 h-3 sm:w-4 sm:h-4" />
-                        Manage Items
-                        <ArrowRight className="w-3 h-3 sm:w-4 sm:h-4" />
-                      </button>
-                      
-                      <button
-                        onClick={() => handleToggleActive(kitchen._id)}
-                        className={`p-2 rounded-lg transition-all font-medium text-xs sm:text-sm ${
-                          kitchen.isActive
-                            ? 'bg-[#fef3c7] text-[#d97706] hover:bg-[#fde68a]'
-                            : 'bg-[#d1fae5] text-[#059669] hover:bg-[#a7f3d0]'
-                        }`}
-                      >
-                        {kitchen.isActive ? 'Deactivate' : 'Activate'}
-                      </button>
-                      
-                      <button
-                        onClick={() => handleEdit(kitchen)}
-                        className="p-2 bg-[#dbeafe] text-[#3b82f6] rounded-lg hover:bg-[#bfdbfe] transition-all"
-                      >
-                        <Edit2 className="w-3 h-3 sm:w-4 sm:h-4 mx-auto" />
-                      </button>
-                      
-                      <button
-                        onClick={() => handleDelete(kitchen._id)}
-                        className="col-span-2 p-2 bg-[#fee2e2] text-[#ef4444] rounded-lg hover:bg-[#fecaca] transition-all"
-                      >
-                        <Trash2 className="w-3 h-3 sm:w-4 sm:h-4 mx-auto" />
-                      </button>
-                    </div>
+<div className="grid grid-cols-2 gap-2">
+  <button
+    onClick={() => handleManageItems(kitchen._id)}
+    disabled={togglingKitchens.has(kitchen._id) || deletingKitchens.has(kitchen._id)}
+    className={`col-span-2 flex items-center justify-center gap-2 p-2 sm:p-3 bg-[#10b981] text-white rounded-lg hover:bg-[#059669] transition-all font-medium text-xs sm:text-sm ${
+      togglingKitchens.has(kitchen._id) || deletingKitchens.has(kitchen._id) ? 'opacity-50 cursor-not-allowed' : ''
+    }`}
+  >
+    <Settings className="w-3 h-3 sm:w-4 sm:h-4" />
+    Manage Items
+    <ArrowRight className="w-3 h-3 sm:w-4 sm:h-4" />
+  </button>
+  
+  <button
+    onClick={() => handleToggleActive(kitchen._id)}
+    disabled={togglingKitchens.has(kitchen._id) || deletingKitchens.has(kitchen._id)}
+    className={`p-2 rounded-lg transition-all font-medium text-xs sm:text-sm flex items-center justify-center gap-1.5 min-h-[36px] ${
+      kitchen.isActive
+        ? 'bg-[#fef3c7] text-[#d97706] hover:bg-[#fde68a]'
+        : 'bg-[#d1fae5] text-[#059669] hover:bg-[#a7f3d0]'
+    } ${togglingKitchens.has(kitchen._id) || deletingKitchens.has(kitchen._id) ? 'opacity-50 cursor-not-allowed' : ''}`}
+  >
+    {togglingKitchens.has(kitchen._id) ? (
+      <>
+        <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-current"></div>
+        <span className="hidden sm:inline">
+          {kitchen.isActive ? 'Deactivating...' : 'Activating...'}
+        </span>
+      </>
+    ) : (
+      <span>{kitchen.isActive ? 'Deactivate' : 'Activate'}</span>
+    )}
+  </button>
+  
+  <button
+    onClick={() => handleEdit(kitchen)}
+    disabled={togglingKitchens.has(kitchen._id) || deletingKitchens.has(kitchen._id)}
+    className={`p-2 bg-[#dbeafe] text-[#3b82f6] rounded-lg hover:bg-[#bfdbfe] transition-all ${
+      togglingKitchens.has(kitchen._id) || deletingKitchens.has(kitchen._id) ? 'opacity-50 cursor-not-allowed' : ''
+    }`}
+  >
+    <Edit2 className="w-3 h-3 sm:w-4 sm:h-4 mx-auto" />
+  </button>
+  
+  <button
+    onClick={() => handleDelete(kitchen._id)}
+    disabled={togglingKitchens.has(kitchen._id) || deletingKitchens.has(kitchen._id)}
+    className={`col-span-2 p-2 bg-[#fee2e2] text-[#ef4444] rounded-lg hover:bg-[#fecaca] transition-all flex items-center justify-center ${
+      togglingKitchens.has(kitchen._id) || deletingKitchens.has(kitchen._id) ? 'opacity-50 cursor-not-allowed' : ''
+    }`}
+  >
+    {deletingKitchens.has(kitchen._id) ? (
+      <>
+        <div className="animate-spin rounded-full h-3 w-3 sm:h-4 sm:w-4 border-b-2 border-current"></div>
+        <span className="ml-2 text-xs sm:text-sm">Deleting...</span>
+      </>
+    ) : (
+      <>
+        <Trash2 className="w-3 h-3 sm:w-4 sm:h-4" />
+        <span className="ml-1 text-xs sm:text-sm">Delete</span>
+      </>
+    )}
+  </button>
+</div>
                   </div>
                 </motion.div>
               ))}
@@ -487,42 +556,63 @@ export default function KitchensPage() {
                             </span>
                           )}
                         </td>
-                        <td className="px-6 py-4">
-                          <div className="flex gap-2">
-                            <button
-                              onClick={() => handleManageItems(kitchen._id)}
-                              className="p-2 bg-[#d1fae5] text-[#059669] rounded-lg hover:bg-[#a7f3d0] transition-all"
-                              title="Manage Items"
-                            >
-                              <Settings className="w-4 h-4" />
-                            </button>
-                            <button
-                              onClick={() => handleToggleActive(kitchen._id)}
-                              className={`p-2 rounded-lg transition-all ${
-                                kitchen.isActive
-                                  ? 'bg-[#fef3c7] text-[#d97706] hover:bg-[#fde68a]'
-                                  : 'bg-[#d1fae5] text-[#059669] hover:bg-[#a7f3d0]'
-                              }`}
-                              title={kitchen.isActive ? 'Deactivate' : 'Activate'}
-                            >
-                              {kitchen.isActive ? '◉' : '○'}
-                            </button>
-                            <button
-                              onClick={() => handleEdit(kitchen)}
-                              className="p-2 bg-[#dbeafe] text-[#3b82f6] rounded-lg hover:bg-[#bfdbfe] transition-all"
-                              title="Edit"
-                            >
-                              <Edit2 className="w-4 h-4" />
-                            </button>
-                            <button
-                              onClick={() => handleDelete(kitchen._id)}
-                              className="p-2 bg-[#fee2e2] text-[#ef4444] rounded-lg hover:bg-[#fecaca] transition-all"
-                              title="Delete"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </div>
-                        </td>
+                     <td className="px-6 py-4">
+  <div className="flex gap-2">
+    <button
+      onClick={() => handleManageItems(kitchen._id)}
+      disabled={togglingKitchens.has(kitchen._id) || deletingKitchens.has(kitchen._id)}
+      className={`p-2 bg-[#d1fae5] text-[#059669] rounded-lg hover:bg-[#a7f3d0] transition-all ${
+        togglingKitchens.has(kitchen._id) || deletingKitchens.has(kitchen._id) ? 'opacity-50 cursor-not-allowed' : ''
+      }`}
+      title="Manage Items"
+    >
+      <Settings className="w-4 h-4" />
+    </button>
+    
+    <button
+      onClick={() => handleToggleActive(kitchen._id)}
+      disabled={togglingKitchens.has(kitchen._id) || deletingKitchens.has(kitchen._id)}
+      className={`p-2 rounded-lg transition-all flex items-center justify-center min-w-[36px] ${
+        kitchen.isActive
+          ? 'bg-[#fef3c7] text-[#d97706] hover:bg-[#fde68a]'
+          : 'bg-[#d1fae5] text-[#059669] hover:bg-[#a7f3d0]'
+      } ${togglingKitchens.has(kitchen._id) || deletingKitchens.has(kitchen._id) ? 'opacity-50 cursor-not-allowed' : ''}`}
+      title={kitchen.isActive ? 'Deactivate' : 'Activate'}
+    >
+      {togglingKitchens.has(kitchen._id) ? (
+        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current"></div>
+      ) : (
+        <span>{kitchen.isActive ? '◉' : '○'}</span>
+      )}
+    </button>
+    
+    <button
+      onClick={() => handleEdit(kitchen)}
+      disabled={togglingKitchens.has(kitchen._id) || deletingKitchens.has(kitchen._id)}
+      className={`p-2 bg-[#dbeafe] text-[#3b82f6] rounded-lg hover:bg-[#bfdbfe] transition-all ${
+        togglingKitchens.has(kitchen._id) || deletingKitchens.has(kitchen._id) ? 'opacity-50 cursor-not-allowed' : ''
+      }`}
+      title="Edit"
+    >
+      <Edit2 className="w-4 h-4" />
+    </button>
+    
+    <button
+      onClick={() => handleDelete(kitchen._id)}
+      disabled={togglingKitchens.has(kitchen._id) || deletingKitchens.has(kitchen._id)}
+      className={`p-2 bg-[#fee2e2] text-[#ef4444] rounded-lg hover:bg-[#fecaca] transition-all flex items-center justify-center ${
+        togglingKitchens.has(kitchen._id) || deletingKitchens.has(kitchen._id) ? 'opacity-50 cursor-not-allowed' : ''
+      }`}
+      title="Delete"
+    >
+      {deletingKitchens.has(kitchen._id) ? (
+        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current"></div>
+      ) : (
+        <Trash2 className="w-4 h-4" />
+      )}
+    </button>
+  </div>
+</td>
                       </motion.tr>
                     ))}
                   </AnimatePresence>
@@ -572,7 +662,80 @@ export default function KitchensPage() {
           />
         )}
       </AnimatePresence>
+      {/* Delete Confirmation Modal */}
+<AnimatePresence>
+  {deleteConfirmation.isOpen && (
+    <DeleteConfirmation
+      isOpen={deleteConfirmation.isOpen}
+      onClose={() => setDeleteConfirmation({ isOpen: false, kitchenId: null, kitchenName: '' })}
+      onConfirm={confirmDelete}
+      kitchenName={deleteConfirmation.kitchenName}
+    />
+  )}
+</AnimatePresence>
     </div>
+
+  );
+}
+// Custom Delete Confirmation Modal Component
+function DeleteConfirmation({ isOpen, onClose, onConfirm, kitchenName }) {
+  if (!isOpen) return null;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-[10000]"
+      onClick={onClose}
+    >
+      <motion.div
+        initial={{ scale: 0.9, opacity: 0, y: 20 }}
+        animate={{ scale: 1, opacity: 1, y: 0 }}
+        exit={{ scale: 0.9, opacity: 0, y: 20 }}
+        transition={{ type: "spring", duration: 0.3 }}
+        onClick={(e) => e.stopPropagation()}
+        className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden"
+      >
+        {/* Header */}
+        <div className="bg-gradient-to-r from-[#ef4444] to-[#dc2626] text-white p-6">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center text-2xl">
+              ⚠️
+            </div>
+            <div className="flex-1">
+              <h3 className="text-xl font-bold">Confirm Deletion</h3>
+              <p className="text-red-100 text-sm mt-1">This action cannot be undone</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Content */}
+        <div className="p-6">
+          <p className="text-[#475569] text-base leading-relaxed">
+            Are you sure you want to delete <span className="font-semibold text-[#1e293b]">"{kitchenName}"</span>? 
+            This kitchen will be permanently removed. Menu items will not be deleted, but they will no longer be assigned to this kitchen.
+          </p>
+        </div>
+
+        {/* Actions */}
+        <div className="flex gap-3 p-6 pt-0">
+          <button
+            onClick={onClose}
+            className="flex-1 px-6 py-3 bg-[#64748b] hover:bg-[#475569] text-white rounded-lg transition-all font-medium"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={onConfirm}
+            className="flex-1 px-6 py-3 bg-[#ef4444] hover:bg-[#dc2626] text-white rounded-lg transition-all font-medium shadow-lg flex items-center justify-center gap-2"
+          >
+            <Trash2 className="w-4 h-4" />
+            Yes, Delete
+          </button>
+        </div>
+      </motion.div>
+    </motion.div>
   );
 }
 
