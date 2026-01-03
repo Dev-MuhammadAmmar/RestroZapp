@@ -505,29 +505,29 @@ const loadMenuItems = async () => {
     if (response.success) {
       const items = response.data
       
-      // ✅ DEBUG: Log to verify kitchen data
-      ('📋 Loaded items with kitchens:', items.slice(0, 3))
+      // ✅ FIXED: Use console.log
+      console.log('📋 Loaded items with kitchens:', items.slice(0, 3))
       
       // Separate pinned and unpinned items
       const pinned = items.filter(item => item.isPinned)
-        const unpinned = items.filter(item => !item.isPinned)
-        
-        // Sort pinned items by pinnedAt date (most recent first)
-        pinned.sort((a, b) => new Date(b.pinnedAt) - new Date(a.pinnedAt))
-        
-        setPinnedItems(pinned)
-        setMenuItems(items) // Keep all items for search
-      } else {
-        console.error('Error loading menu items:', response.error)
-        showNotification('Failed to load menu items', 'error')
-      }
-    } catch (error) {
-      console.error('Error loading menu items:', error)
+      const unpinned = items.filter(item => !item.isPinned)
+      
+      // Sort pinned items by pinnedAt date (most recent first)
+      pinned.sort((a, b) => new Date(b.pinnedAt) - new Date(a.pinnedAt))
+      
+      setPinnedItems(pinned)
+      setMenuItems(items) // Keep all items for search
+    } else {
+      console.error('Error loading menu items:', response.error)
       showNotification('Failed to load menu items', 'error')
-    } finally {
-      setIsLoadingMenuItems(false)
     }
+  } catch (error) {
+    console.error('Error loading menu items:', error)
+    showNotification('Failed to load menu items', 'error')
+  } finally {
+    setIsLoadingMenuItems(false)
   }
+}
 
   // Add this function after loadMenuItems
   const handleTogglePin = useCallback(async (menuItemId, currentPinStatus) => {
@@ -589,8 +589,8 @@ const loadKitchensCache = async () => {
     if (response.success) {
       // Store ONLY active kitchens for fast lookup
       const activeKitchens = response.data.filter(k => k.isActive)
-      setKitchensCache(activeKitchens)
-      ('✅ Kitchens cached:', activeKitchens.length)
+      setKitchensCache(activeKitchens)  // ✅ This should work now
+      console.log('✅ Kitchens cached:', activeKitchens.length)
     }
   } catch (error) {
     console.error('Error loading kitchens cache:', error)
@@ -855,7 +855,7 @@ const submitOrder = async () => {
     }
 
     // ✅ DEBUG: Log cart items to see kitchen data
-    ('🛒 Cart items:', cart.map(item => ({
+console.log('🛒 Cart items:', cart.map(item => ({
       name: item.name,
       kitchen: item.kitchenId
     })))
