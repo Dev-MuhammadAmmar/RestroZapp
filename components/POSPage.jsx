@@ -1226,25 +1226,30 @@ const submitOrder = async () => {
     return () => window.removeEventListener('keydown', handleKeyboard)
   }, [cart, isOrderModalOpen, isPendingOrdersOpen, isSubmittingOrder, isShortcutsModalOpen, showSearchDropdown])
   // Start editing an order
-  const startEditingOrder = (order) => {
-    setEditingOrder(order)
-    setEditCart(order.items.map(item => ({
-      _id: item.menuItemId,
-      name: item.name,
-      sellingPrice: item.price,
-      costPrice: item.costPrice,
-      quantity: item.quantity,
-      categoryId: { 
-        name: item.category,
-        icon: item.icon 
-      }
-    })))
-    setEditSearchQuery('')
-    setEditSelectedCategory('All')
-    setSelectedKOTItems([]) // START WITH EMPTY - USER SELECTS MANUALLY
-    setIsEditModalOpen(true)
-    setIsPendingOrdersOpen(false)
-  }
+const startEditingOrder = (order) => {
+  setEditingOrder(order)
+  
+  // ✅ FIXED: Map with all necessary fields including categoryId object
+  setEditCart(order.items.map(item => ({
+    _id: item.menuItemId,
+    name: item.name,
+    sellingPrice: item.price,
+    costPrice: item.costPrice,
+    quantity: item.quantity,
+    categoryId: {
+      _id: item.categoryId, // ✅ ADDED - Store the ID
+      name: item.category,
+      icon: item.icon 
+    },
+    kitchenId: item.kitchenId || null // ✅ ADDED - Preserve kitchen assignment
+  })))
+  
+  setEditSearchQuery('')
+  setEditSelectedCategory('All')
+  setSelectedKOTItems([]) // START WITH EMPTY - USER SELECTS MANUALLY
+  setIsEditModalOpen(true)
+  setIsPendingOrdersOpen(false)
+}
   // Toggle individual item for KOT
   const toggleKOTItem = (itemId) => {
     setSelectedKOTItems(prev => {
@@ -1369,41 +1374,44 @@ const submitOrder = async () => {
     })
   }
 
-  // Save edited order
-  const saveEditedOrder = async () => {
-    if (editCart.length === 0) {
-      showNotification('Cart cannot be empty', 'error')
-      return
-    }
-
-    setIsSavingEdit(true)
-    try {
-      const updatedItems = editCart.map(item => ({
-        menuItemId: item._id,
-        name: item.name,
-        price: item.sellingPrice,
-        quantity: item.quantity
-      }))
-
-      const response = await updateOrderItems(editingOrder._id, updatedItems)
-      
-      if (response.success) {
-        showNotification('Order updated successfully!', 'success')
-        setIsEditModalOpen(false)
-        setEditingOrder(null)
-        setEditCart([])
-        setIsPendingOrdersOpen(true)
-        await loadPendingOrders()
-      } else {
-        showNotification(response.error || 'Failed to update order', 'error')
-      }
-    } catch (error) {
-      console.error('Error saving edited order:', error)
-      showNotification('Error updating order', 'error')
-    } finally {
-      setIsSavingEdit(false)
-    }
+const saveEditedOrder = async () => {
+  if (editCart.length === 0) {
+    showNotification('Cart cannot be empty', 'error')
+    return
   }
+
+  setIsSavingEdit(true)
+  try {
+    // ✅ FIXED: Include all required fields
+    const updatedItems = editCart.map(item => ({
+      menuItemId: item._id,
+      name: item.name,
+      price: item.sellingPrice,
+      quantity: item.quantity,
+      categoryId: item.categoryId?._id || item.categoryId, // ✅ ADDED
+      icon: item.categoryId?.icon || '🍽️', // ✅ ADDED
+      kitchenId: item.kitchenId?._id || item.kitchenId || null // ✅ ADDED
+    }))
+
+    const response = await updateOrderItems(editingOrder._id, updatedItems)
+    
+    if (response.success) {
+      showNotification('Order updated successfully!', 'success')
+      setIsEditModalOpen(false)
+      setEditingOrder(null)
+      setEditCart([])
+      setIsPendingOrdersOpen(true)
+      await loadPendingOrders()
+    } else {
+      showNotification(response.error || 'Failed to update order', 'error')
+    }
+  } catch (error) {
+    console.error('Error saving edited order:', error)
+    showNotification('Error updating order', 'error')
+  } finally {
+    setIsSavingEdit(false)
+  }
+}
 
 const handleReprintKOT = async (order) => {
   try {
