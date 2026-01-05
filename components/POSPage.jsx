@@ -3262,7 +3262,12 @@ const filteredPendingOrders = pendingOrders.filter(order => {
                         {/* ✅ Kitchen Header (if split KOT is enabled) */}
   
            <div className="text-center border-b-2 border-black">
-                    <h1 className= {`font-bold text-3xl ${currentPrintOrder.kitchenName ? 'flex items-center justify-evenly' : ''}`} >KOT <span className='font-semibold text-2xl'>{currentPrintOrder.kitchenName ? `( ${currentPrintOrder.kitchenName} )` : ''}</span></h1>
+                    <h1 className= {`font-bold text-[20px]  ${currentPrintOrder.kitchenName ? 'flex items-center justify-center gap-1' : ''}`} >KOT <span className='font-semibold text-[18px]'>{
+  currentPrintOrder.kitchenName
+    ? `[${currentPrintOrder.kitchenName.match(/\((.*?)\)/)?.[1] || currentPrintOrder.kitchenName}]`
+    : 'General Kitchen'
+}
+</span></h1>
                     <p className="text-xs">KITCHEN ORDER TICKET</p>
                   </div>
 
