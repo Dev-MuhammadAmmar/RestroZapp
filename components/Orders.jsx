@@ -1489,36 +1489,38 @@ const handleClearFilters = () => {
           }
           
           .print-receipt {
-            position: absolute;
-            left: 0;
-            top: 0;
-            width: 72mm;
+          position: absolute;
+              left: 0;
+              top: 0;
+              width: 66mm;
           }
+         .receipt-container {
+              width: 66mm;
+              max-width: 70mm;
+              margin: 0;
+              padding: 2mm 2mm;
+              padding-right:2mm
+              font-family: 'Courier New', monospace;
+              color: #000;
+              background: #fff;
+              font-size: 11px;
+              line-height: 1.3;
+            }
+                /* Hide non-print elements */
+            .print\\:hidden {
+              display: none !important;
+            }
+      /* Page setup */
+            @page {
+              size: 66mm auto;
+              margin: 0;
+            }
           
-          .receipt-container {
-            width: 72mm;
-            max-width: 72mm;
-            margin: 0;
-           padding: 2mm 2mm;
-           padding-right: 1mm;: 
-            font-family: 'Courier New', monospace;
-            color: #000;
-            background: #fff;
-            font-size: 11px;
-            line-height: 1.3;
-          }
-          
-          @page {
-            size: 72mm auto;
-            margin: 0;
-          }
-          
-          * {
-            box-shadow: none !important;
-            text-shadow: none !important;
-            -webkit-print-color-adjust: exact;
-            print-color-adjust: exact;
-          }
+        /* Remove any shadows, borders that shouldn't print */
+            * {
+              box-shadow: none !important;
+              text-shadow: none !important;
+            }
         }
       `}</style>
     </div>
