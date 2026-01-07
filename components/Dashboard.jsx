@@ -107,19 +107,7 @@ export default function DashboardPage() {
     weekSales: [],
   });
 
-  
-    useEffect(() => {
-      const metaViewport = document.querySelector('meta[name=viewport]');
-      if (metaViewport) {
-        metaViewport.setAttribute('content', 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no');
-      }
-      
-      return () => {
-        if (metaViewport) {
-          metaViewport.setAttribute('content', 'width=device-width, initial-scale=1.0');
-        }
-      };
-    }, []);
+ 
   // Fetch real data
   useEffect(() => {
     async function fetchDashboardData() {

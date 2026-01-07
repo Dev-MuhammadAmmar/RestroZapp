@@ -1,13 +1,13 @@
 // app/kitchens/page.js
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect , useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Search, Plus, Edit2, Trash2, ChefHat, 
   Package, X, CheckCircle, AlertCircle, 
   Sparkles, Settings, ArrowRight, Filter,
-  Grid3x3, List
+  Grid3x3, List, RefreshCw // Add this
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
@@ -44,29 +44,57 @@ export default function KitchensPage() {
   const [currentKitchen, setCurrentKitchen] = useState(null);
   const [notification, setNotification] = useState(null);
   const [loading, setLoading] = useState(true);
-const [togglingKitchens, setTogglingKitchens] = useState(new Set());
-const [deletingKitchens, setDeletingKitchens] = useState(new Set());
-const [deleteConfirmation, setDeleteConfirmation] = useState({
-  isOpen: false,
-  kitchenId: null,
-  kitchenName: '',
-});
+  const [error, setError] = useState(null); // Add error state
+  const [togglingKitchens, setTogglingKitchens] = useState(new Set());
+  const [deletingKitchens, setDeletingKitchens] = useState(new Set());
+  const [deleteConfirmation, setDeleteConfirmation] = useState({
+    isOpen: false,
+    kitchenId: null,
+    kitchenName: '',
+  });
   useEffect(() => {
     fetchKitchens();
   }, []);
 
-  const fetchKitchens = async () => {
-    setLoading(true);
+ const fetchKitchens = useCallback(async (retryCount = 0) => {
+    const MAX_RETRIES = 3;
+    
     try {
+      setLoading(true);
+      setError(null);
+      
       const result = await getKitchens();
+      
       if (result.success) {
-        setKitchens(result.data);
+        setKitchens(result.data || []);
+      } else {
+        throw new Error(result.error || 'Failed to load kitchens');
       }
     } catch (error) {
-      showNotification('Failed to load kitchens', 'error');
+      console.error(`Fetch attempt ${retryCount + 1} failed:`, error);
+      
+      if (retryCount < MAX_RETRIES) {
+        // Exponential backoff: 1s, 2s, 4s
+        const delay = Math.pow(2, retryCount) * 1000;
+        await new Promise(resolve => setTimeout(resolve, delay));
+        return fetchKitchens(retryCount + 1);
+      } else {
+        setError(error.message || 'Failed to load kitchens');
+        showNotification('Failed to load kitchens. Please refresh the page.', 'error');
+        setKitchens([]); // Set empty array to show empty state
+      }
     } finally {
       setLoading(false);
     }
+  }, []);
+
+    useEffect(() => {
+    fetchKitchens();
+  }, [fetchKitchens]);
+
+  // Add manual retry button
+  const handleRetry = () => {
+    fetchKitchens();
   };
 
   const showNotification = (message, type = 'success') => {
@@ -196,7 +224,26 @@ const confirmDelete = async () => {
       </div>
     );
   }
-
+    if (error) {
+    return (
+      <div className="min-h-screen w-full flex items-center justify-center bg-[#f5f7fa] p-4">
+        <div className="text-center max-w-md">
+          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <AlertCircle className="w-8 h-8 text-red-500" />
+          </div>
+          <h2 className="text-2xl font-bold text-[#1e293b] mb-2">Failed to Load Kitchens</h2>
+          <p className="text-[#64748b] mb-6">{error}</p>
+          <button
+            onClick={handleRetry}
+            className="px-6 py-3 bg-[#10b981] text-white rounded-lg hover:bg-[#059669] transition-all font-medium inline-flex items-center gap-2"
+          >
+            <RefreshCw className="w-5 h-5" />
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
   return (
     <div className="min-h-screen w-full bg-[#f5f7fa] p-2 sm:p-4 md:p-6 lg:p-8">
       <div className="max-w-[100%] mx-auto">

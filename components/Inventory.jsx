@@ -69,18 +69,7 @@ const [deletingItems, setDeletingItems] = useState(new Set())
   itemName: '',
   itemType: 'item'
 });
-    useEffect(() => {
-      const metaViewport = document.querySelector('meta[name=viewport]');
-      if (metaViewport) {
-        metaViewport.setAttribute('content', 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no');
-      }
-      
-      return () => {
-        if (metaViewport) {
-          metaViewport.setAttribute('content', 'width=device-width, initial-scale=1.0');
-        }
-      };
-    }, []);
+
 
   // Fetch data on mount
   useEffect(() => {
