@@ -3254,7 +3254,7 @@ const filteredPendingOrders = pendingOrders.filter(order => {
                     <h1 className= {`font-bold text-[20px]  ${currentPrintOrder.kitchenName ? 'flex items-center justify-center gap-1' : ''}`} >KOT <span className='font-semibold text-[18px]'>{
   currentPrintOrder.kitchenName
     ? `[${currentPrintOrder.kitchenName.match(/\((.*?)\)/)?.[1] || currentPrintOrder.kitchenName}]`
-    : 'General Kitchen'
+    : '[General Kitchen]'
 }
 </span></h1>
                     <p className="text-xs">KITCHEN ORDER TICKET</p>
