@@ -467,7 +467,7 @@ const confirmRemoveItems = async () => {
   <button
     onClick={handleRemoveItems}
     disabled={isProcessing}
-    className="flex items-center gap-2 px-3 sm:px-4 py-2 sm:py-3 bg-[#ef4444] text-white rounded-lg hover:bg-[#dc2626] transition-all font-medium disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base flex-1 sm:flex-initial justify-center"
+    className="flex items-center w-max gap-2 px-3 sm:px-4 py-2 sm:py-3 bg-[#ef4444] text-white rounded-lg hover:bg-[#dc2626] transition-all font-medium disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base flex-1 sm:flex-initial justify-center"
   >
     {isProcessing ? (
       <>
