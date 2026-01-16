@@ -3503,7 +3503,7 @@ const filteredPendingOrders = pendingOrders.filter(order => {
                   </div>
 
                   <div className="text-center text-xs border-t border-dashed border-black pt-1">
-                    <p className="font-bold">{restaurantSettings?.footerMessage || 'Thank You for Dining with Us!'}</p>
+                    <p className="font-bold text-[17px]">{restaurantSettings?.footerMessage || 'Thank You for Dining with Us!'}</p>
               
                     <p className="text-[10px]">Print Time:{new Date().toLocaleString()}</p>
                   <div className="pt-1 border-t text-center border-black">
