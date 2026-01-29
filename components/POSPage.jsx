@@ -2761,7 +2761,7 @@ export default function POSPage() {
           }}
           disabled={isSubmittingOrder}
           className={`flex-1 px-4 py-2.5 sm:py-3 rounded-lg sm:rounded-xl font-bold transition-all text-xs sm:text-sm border-2 ${
-            orderDetails.tableNumber === 'Main Hall' || orderDetails.tableNumber.startsWith("Main Hall")
+            !orderDetails.tableNumber || orderDetails.tableNumber === 'Main Hall' || orderDetails.tableNumber.startsWith("Main Hall")
               ? "bg-emerald-600 text-white border-emerald-600 shadow-lg"
               : "bg-white text-slate-700 border-slate-300 hover:border-emerald-400 hover:bg-emerald-50"
           } disabled:opacity-50`}
@@ -2792,7 +2792,7 @@ export default function POSPage() {
       <input
         type="text"
         value={
-          orderDetails.tableNumber === 'Main Hall' || orderDetails.tableNumber === 'Family Hall'
+          orderDetails.tableNumber === 'Main Hall' || orderDetails.tableNumber === 'Family Hall' || !orderDetails.tableNumber
             ? ''
             : orderDetails.tableNumber.split(' - ')[1] || ''
         }
