@@ -1,36 +1,32 @@
 {
-  "name": "unsa_restaurant",
-  "version": "0.1.0",
+  "name": "restrozapp-suite",
+  "version": "1.0.0",
   "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "scripts": {
-    "dev": "next dev",
-    "build": "next build ",
-    "start": "next start",
-    "lint": "next lint"
+    "dev": "npm run dev:admin",
+    "dev:admin": "npm run dev -w apps/admin-panel",
+    "dev:pos": "npm run dev -w apps/pos-desktop",
+    "build": "npm run build:shared && npm run build:admin && npm run build:pos",
+    "build:shared": "npm run build -w packages/shared",
+    "build:admin": "npm run build -w apps/admin-panel",
+    "build:pos": "npm run build -w apps/pos-desktop",
+    "start:admin": "npm run start -w apps/admin-panel",
+    "verify": "npm run build && npm run test:db-smoke -w apps/pos-desktop",
+    "package:win": "npm run package:win -w apps/pos-desktop",
+    "version:set": "node scripts/set-version.mjs",
+    "release:publish-record": "node scripts/publish-release-record.mjs",
+    "reset:supabase": "node scripts/reset-supabase-data.mjs"
   },
- 
-  "dependencies": {
-    "framer-motion": "^12.23.24",
-    "jspdf": "^3.0.3",
-    "jspdf-autotable": "^5.0.2",
-    "lucide-react": "^0.553.0",
-    "mongoose": "^8.19.3",
-
-    "next": "^16.1.0",
-
-    "react": "19.2.0",
-    "react-dom": "19.2.0",
-    "recharts": "^3.3.0"
+  "overrides": {
+    "picomatch": "$picomatch",
+    "postcss": "$postcss"
   },
   "devDependencies": {
-    "@tailwindcss/postcss": "^4.1.17",
-    "autoprefixer": "^10.4.21",
-    "eslint": "^9",
-    "eslint-config-next": "^16.1.0",
-    "next-pwa": "^5.6.0",
-    "postcss": "^8.5.6",
-    "tailwindcss": "^4.0.0"
+    "picomatch": "^4.0.4",
+    "postcss": "^8.5.15"
   }
-
-
 }

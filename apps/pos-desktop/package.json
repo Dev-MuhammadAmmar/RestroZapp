@@ -1,0 +1,78 @@
+{
+  "name": "@restrozapp/pos-desktop",
+  "version": "1.0.0",
+  "private": true,
+  "author": "M. Ammar Shaikh",
+  "description": "Offline-first RestroZapp POS desktop client",
+  "main": "dist/main/main.js",
+  "scripts": {
+    "dev": "npm run build:main && concurrently \"vite --host 127.0.0.1 --port 5173\" \"wait-on tcp:5173 && cross-env VITE_DEV_SERVER_URL=http://127.0.0.1:5173 electron .\"",
+    "clean": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\"",
+    "build": "npm run clean && npm run build:renderer && npm run build:main",
+    "build:renderer": "vite build",
+    "build:main": "tsc -p tsconfig.electron.json",
+    "test:db-smoke": "electron scripts/db-smoke.cjs",
+    "package:win": "npm run build && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --win nsis --publish never",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.electron.json --noEmit"
+  },
+  "dependencies": {
+    "@restrozapp/shared": "file:../../packages/shared",
+    "@vitejs/plugin-react": "^5.1.1",
+    "adm-zip": "^0.5.16",
+    "better-sqlite3": "^12.5.0",
+    "framer-motion": "^12.40.0",
+    "lucide-react": "^0.553.0",
+    "react": "19.2.0",
+    "react-dom": "19.2.0",
+    "recharts": "^3.8.1",
+    "vite": "^7.2.7"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.1.17",
+    "@types/adm-zip": "^0.5.7",
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/node": "^24.10.2",
+    "@types/react": "^19.2.7",
+    "@types/react-dom": "^19.2.3",
+    "concurrently": "^9.2.1",
+    "cross-env": "^10.1.0",
+    "electron": "^39.2.6",
+    "electron-builder": "^26.0.12",
+    "rcedit": "^4.0.1",
+    "tailwindcss": "^4.1.17",
+    "typescript": "^5.9.3",
+    "wait-on": "^9.0.3"
+  },
+  "build": {
+    "appId": "com.restrozapp.pos",
+    "productName": "RestroZapp POS",
+    "artifactName": "RestroZapp-POS-Setup.${ext}",
+    "afterPack": "scripts/after-pack.cjs",
+    "electronVersion": "39.2.6",
+    "asar": true,
+    "asarUnpack": [
+      "node_modules/better-sqlite3/**/*",
+      "node_modules/bindings/**/*",
+      "node_modules/file-uri-to-path/**/*"
+    ],
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "assets/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": "nsis",
+      "signAndEditExecutable": false,
+      "icon": "assets/restrozapp.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "shortcutName": "RestroZapp POS"
+    }
+  }
+}
