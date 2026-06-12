@@ -28,6 +28,7 @@ Deno.serve(async (req) => {
         "Content-Disposition": `attachment; filename="${snapshot.data.file_name}"`,
         "X-Snapshot-Metadata": btoa(JSON.stringify({
           id: snapshot.data.id,
+          restaurantId: snapshot.data.restaurant_id,
           restaurantCode: snapshot.data.restaurant_code,
           checksumSha256: snapshot.data.checksum_sha256,
           databaseChecksum: snapshot.data.database_checksum,

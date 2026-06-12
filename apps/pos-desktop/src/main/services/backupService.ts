@@ -842,6 +842,7 @@ export async function pullCloudSnapshot(snapshotId?: string): Promise<ApiResult<
     if (!metadataHeader) throw new Error("Cloud snapshot metadata is missing.");
     const metadata = JSON.parse(Buffer.from(metadataHeader, "base64").toString("utf8")) as {
       id: string;
+      restaurantId?: string;
       restaurantCode: string;
       checksumSha256: string;
       databaseChecksum: string;
@@ -849,7 +850,10 @@ export async function pullCloudSnapshot(snapshotId?: string): Promise<ApiResult<
       syncSequence: number;
       schemaVersion: number;
     };
-    if (metadata.id !== snapshotId || metadata.restaurantCode !== code) {
+    if (
+      metadata.id !== snapshotId ||
+      (metadata.restaurantId && metadata.restaurantId !== restaurant.restaurantId)
+    ) {
       throw new Error("Cloud snapshot ownership validation failed.");
     }
     const archive = Buffer.from(await response.arrayBuffer());
