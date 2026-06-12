@@ -10,6 +10,12 @@ RestroZapp is an offline-first restaurant operations suite:
 See [Deployment and Release Guide](docs/DEPLOYMENT.md) for Supabase, Vercel,
 GitHub Releases, Windows installer, and future update commands.
 
+## Current Release
+
+- Version: `1.0.0`
+- [Download RestroZapp POS for Windows](https://github.com/Dev-MuhammadAmmar/RestroZapp/releases/latest/download/RestroZapp-POS-Setup.exe)
+- SHA-256: `444D446B39F89EC541AB389AEB4D8098D7A841B3A1029DF2C17EC07BE6ED2713`
+
 ## Product Layout
 
 Public website:
